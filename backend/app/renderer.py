@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import math
+import re
 import subprocess
 from pathlib import Path
 from PIL import Image, ImageDraw, ImageFont
@@ -188,7 +189,10 @@ def render_episode(title: str, story: str, fmt: str, output: Path, workdir: Path
             image.save(frames/f"frame-{number:05d}.jpg",quality=88)
     low_video=workdir/f"silent-{fmt.replace(':','x')}.mp4"
     _run(["ffmpeg","-y","-loglevel","error","-framerate",str(FPS),"-i",str(frames/"frame-%05d.jpg"),"-c:v","libx264","-preset","ultrafast","-pix_fmt","yuv420p","-vf",f"scale={1920 if not portrait else 1080}:{1080 if not portrait else 1920}:flags=lanczos","-r","30",str(low_video)])
-    narration=" ".join([s[1] for s in SCENES])
+    # Personaliza a narração com o texto enviado no painel.
+    sentences=[x.strip() for x in re.split(r"(?<=[.!?])\\s+", story) if x.strip()]
+    captions=(sentences + [s[1] for s in SCENES])[:6]
+    narration=" ".join(captions)
     wav=workdir/"narration.wav"
     voice_ok=False
     try:
