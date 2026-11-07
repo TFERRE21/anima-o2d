@@ -132,68 +132,127 @@ def draw_dog(d,x,y,s,t):
     d.ellipse((x-17*s,y-31*s+bob,x-13*s,y-27*s+bob),fill="#fff")
     d.ellipse((x+13*s,y-31*s+bob,x+17*s,y-27*s+bob),fill="#fff")
 
-def draw_scene_frame(size, scene, index, frame, portrait):
+WORLD_VISUALS = {
+ "Aurora-7": ("#132b62","#63e4ce","#b5f7db","#244d62"),
+ "Vermelhão": ("#572e55","#ff9b68","#ffd18a","#a74f4a"),
+ "Oceânia Azul": ("#073b63","#39c9df","#9cf4ed","#087d91"),
+ "Flora-Lume": ("#244b48","#a6df76","#f3e79b","#397a55"),
+ "Nuvem Doce": ("#5966a7","#e4c9ff","#fff0c8","#a9a5dc"),
+ "Gelus-9": ("#183e69","#8ee8ff","#d8f7ff","#6caccb"),
+ "Vulcânia Verde": ("#46314d","#ff9b55","#b9e58c","#6d7750"),
+ "Anel de Safira": ("#263b70","#9fb9ff","#f7d78b","#536b9e"),
+ "Pétala-3": ("#5c3970","#ffb8d8","#f8e7a5","#a96e9d"),
+ "Eco-Lua": ("#303b62","#c1c9e8","#f5e9b5","#727b9c"),
+}
+
+def draw_alien(d, x, y, s, t, accent):
+    bob=math.sin(t*4+1.2)*4*s
+    ink="#263452"
+    # friendly tiny local creature with antennae
+    d.line((x-12*s,y-35*s+bob,x-23*s,y-59*s+bob),fill=ink,width=max(2,int(4*s)))
+    d.line((x+12*s,y-35*s+bob,x+23*s,y-59*s+bob),fill=ink,width=max(2,int(4*s)))
+    d.ellipse((x-28*s,y-67*s+bob,x-17*s,y-56*s+bob),fill=accent,outline=ink,width=max(1,int(2*s)))
+    d.ellipse((x+17*s,y-67*s+bob,x+28*s,y-56*s+bob),fill=accent,outline=ink,width=max(1,int(2*s)))
+    d.ellipse((x-36*s,y-48*s+bob,x+36*s,y+22*s+bob),fill=accent,outline=ink,width=max(2,int(3*s)))
+    d.ellipse((x-20*s,y-25*s+bob,x-8*s,y-9*s+bob),fill="#fff")
+    d.ellipse((x+8*s,y-25*s+bob,x+20*s,y-9*s+bob),fill="#fff")
+    d.ellipse((x-16*s,y-22*s+bob,x-10*s,y-12*s+bob),fill="#24304b")
+    d.ellipse((x+10*s,y-22*s+bob,x+16*s,y-12*s+bob),fill="#24304b")
+    d.arc((x-12*s,y-7*s+bob,x+12*s,y+9*s+bob),0,180,fill=ink,width=max(2,int(2*s)))
+    d.line((x-18*s,y+17*s+bob,x-25*s,y+34*s+bob),fill=ink,width=max(3,int(5*s)))
+    d.line((x+18*s,y+17*s+bob,x+25*s,y+34*s+bob),fill=ink,width=max(3,int(5*s)))
+
+def draw_rocket(d, x, y, s, t):
+    wobble=math.sin(t*2)*3*s
+    d.polygon([(x,y-48*s+wobble),(x+24*s,y+22*s+wobble),(x,y+12*s+wobble),(x-24*s,y+22*s+wobble)],fill="#fff3d4",outline="#243452")
+    d.ellipse((x-9*s,y-14*s+wobble,x+9*s,y+4*s+wobble),fill="#57cbe7",outline="#243452",width=max(1,int(2*s)))
+    d.polygon([(x-17*s,y+16*s+wobble),(x-32*s,y+34*s+wobble),(x-12*s,y+28*s+wobble)],fill="#f16b72")
+    d.polygon([(x+17*s,y+16*s+wobble),(x+32*s,y+34*s+wobble),(x+12*s,y+28*s+wobble)],fill="#f16b72")
+    flame=18+int((math.sin(t*13)+1)*7)
+    d.polygon([(x-8*s,y+20*s+wobble),(x,y+(20+flame)*s+wobble),(x+8*s,y+20*s+wobble)],fill="#ffbd4a")
+
+def draw_scene_frame(size, scene, index, frame, portrait, planet_name="Aurora-7"):
     w,h=size
     t=frame/FPS
-    palettes=[
-        ("#9bd8ff","#fff0c7","#61b77a"),
-        ("#9bd8ff","#ffe3a1","#64b87b"),
-        ("#a6dfff","#fff0ca","#65b67c"),
-        ("#a4ddff","#ffe4a7","#65b77c"),
-        ("#93d5ff","#fff0c6","#65b77c"),
-        ("#8ccaff","#ffe9a8","#5eaf73"),
-    ]
-    sky,sun,ground=palettes[index]
+    sky,accent,light,terrain=WORLD_VISUALS.get(planet_name,WORLD_VISUALS["Aurora-7"])
     im=Image.new("RGB",(w,h),sky)
     d=ImageDraw.Draw(im)
-    d.ellipse((w*.72,-h*.18,w*1.05,h*.18),fill=sun)
-    # soft clouds
-    for cx,cy in [(w*.12,h*.17),(w*.72,h*.22)]:
-        d.ellipse((cx-45,cy-18,cx+45,cy+20),fill="#f7fbff")
-        d.ellipse((cx-20,cy-32,cx+28,cy+22),fill="#f7fbff")
-    # school building and windows
-    d.rectangle((w*.08,h*.28,w*.92,h*.72),fill="#f7c66e",outline="#a86e45",width=3)
-    d.polygon([(w*.04,h*.30),(w*.5,h*.12),(w*.96,h*.30)],fill="#d96f54")
-    for col in range(5):
-        for row in range(2):
-            xx=w*(.16+col*.15); yy=h*(.38+row*.14)
-            rounded(d,(xx,yy,xx+w*.075,yy+h*.09),6,"#83c9e9","#fff4d2",2)
-    d.rectangle((w*.43,h*.49,w*.57,h*.72),fill="#7e4b38")
-    d.rectangle((0,h*.72,w,h),fill=ground)
-    # path
-    d.polygon([(w*.40,h*.72),(w*.60,h*.72),(w*.78,h),(w*.22,h)],fill="#e8d4aa")
-    # props: backpacks
-    for bx,by,col in [(w*.16,h*.68,"#3389e8"),(w*.79,h*.68,"#d94c9c")]:
-        rounded(d,(bx-w*.035,by-h*.08,bx+w*.035,by+h*.015),10,col,"#28395e",2)
-        d.ellipse((bx-w*.012,by-h*.045,bx+w*.012,by-h*.01),fill="#ffd34e")
-    # heroes move gently, composition changes by aspect
-    if portrait:
-        base_y=h*.62
-        draw_girl(d,w*.30,base_y,w/900,t)
-        draw_boy(d,w*.70,base_y,w/900,t)
-        draw_dog(d,w*.50,h*.79,w/1500,t)
-        header_y=h*.07
-        sub_y=h*.86
+    # soft atmospheric glow and distant stars
+    for yy in range(0,h,4):
+        mix=yy/h
+        col=tuple(int(int(sky[i:i+2],16)*(1-mix*.25)+int(terrain[i:i+2],16)*mix*.25) for i in (1,3,5))
+        d.line((0,yy,w,yy),fill=col)
+    for k in range(38):
+        sx=(k*97+int(t*8*(k%3+1)))%w
+        sy=(k*53)%int(h*.64)
+        r=max(1,int(h*(.0025 if k%4 else .004)))
+        d.ellipse((sx-r,sy-r,sx+r,sy+r),fill="#ffffff" if k%3 else light)
+    # giant ringed planet and two moons
+    px,py=w*.78,h*.24
+    d.ellipse((px-w*.17,py-h*.18,px+w*.17,py+h*.18),fill=accent,outline=light,width=max(1,int(h*.004)))
+    d.arc((px-w*.23,py-h*.08,px+w*.23,py+h*.15),190,350,fill=light,width=max(2,int(h*.012)))
+    d.ellipse((w*.13,h*.17,w*.18,h*.22),fill=light)
+    d.ellipse((w*.89,h*.43,w*.92,h*.46),fill=accent)
+    # floating rock shelves / alien landscape
+    d.polygon([(0,h*.68),(w*.12,h*.57),(w*.25,h*.66),(w*.42,h*.55),(w*.58,h*.67),(w*.76,h*.56),(w,h*.66),(w,h),(0,h)],fill=terrain)
+    d.polygon([(0,h*.79),(w*.22,h*.71),(w*.42,h*.78),(w*.62,h*.69),(w*.82,h*.78),(w,h*.72),(w,h),(0,h)],fill=accent)
+    # scene-specific environmental landmark and mission props
+    if index in (0,1):
+        # glowing crystal grove
+        for cx,cy,cs in [(w*.12,h*.64,.08),(w*.87,h*.62,.10),(w*.25,h*.73,.05),(w*.72,h*.73,.06)]:
+            d.polygon([(cx,cy-h*cs),(cx+w*cs*.35,cy),(cx,cy+h*cs*.5),(cx-w*cs*.35,cy)],fill=light,outline="#ffffff")
+            d.line((cx,cy-h*cs*.7,cx,cy+h*cs*.35),fill="#ffffff",width=max(1,int(h*.003)))
+    elif index in (2,3):
+        # local settlement and glowing windows
+        for bx in (w*.12,w*.78):
+            rounded(d,(bx,h*.48,bx+w*.12,h*.72),int(h*.03),accent,light,max(1,int(h*.004)))
+            d.polygon([(bx-w*.02,h*.49),(bx+w*.06,h*.37),(bx+w*.14,h*.49)],fill=light)
+            for wx in (bx+w*.025,bx+w*.075):
+                rounded(d,(wx,h*.54,wx+w*.025,h*.59),4,sky)
     else:
+        # mission beacon / community garden
+        d.ellipse((w*.78,h*.48,w*.88,h*.58),fill=light,outline="#ffffff",width=max(1,int(h*.004)))
+        d.line((w*.83,h*.57,w*.83,h*.72),fill=light,width=max(2,int(h*.01)))
+        for k in range(5):
+            xx=w*(.12+k*.07)
+            d.ellipse((xx,h*.69,xx+w*.025,h*.73),fill=light)
+    # glowing path and small craters
+    d.polygon([(w*.42,h*.68),(w*.58,h*.68),(w*.72,h),(w*.28,h)],fill=light)
+    for cx,cy,rx in [(w*.18,h*.86,w*.035),(w*.83,h*.88,w*.045),(w*.63,h*.75,w*.02)]:
+        d.ellipse((cx-rx,cy-h*.012,cx+rx,cy+h*.012),outline=terrain,width=max(1,int(h*.004)))
+    # heroes: same proportions, signature clothes and badges in every frame
+    if portrait:
         base_y=h*.61
-        draw_girl(d,w*.38,base_y,h/720*.9,t)
-        draw_boy(d,w*.62,base_y,h/720*.9,t)
-        draw_dog(d,w*.79,h*.77,h/1300,t)
-        header_y=h*.055
-        sub_y=h*.83
-    # title banner
-    rounded(d,(w*.07,header_y,w*.93,header_y+h*.10),int(h*.025),"#102e60")
+        draw_girl(d,w*.29,base_y,w/900,t)
+        draw_boy(d,w*.70,base_y,w/900,t)
+        draw_dog(d,w*.50,h*.78,w/1500,t)
+        draw_alien(d,w*.84,h*.75,w/2100,t,light)
+        draw_rocket(d,w*.50,h*.30,w/1500,t)
+        header_y=h*.055; sub_y=h*.845
+    else:
+        base_y=h*.63
+        draw_girl(d,w*.34,base_y,h/720*.9,t)
+        draw_boy(d,w*.57,base_y,h/720*.9,t)
+        draw_dog(d,w*.78,h*.78,h/1300,t)
+        draw_alien(d,w*.90,h*.75,h/1500,t,light)
+        draw_rocket(d,w*.16,h*.31,h/1500,t)
+        header_y=h*.045; sub_y=h*.835
+    # little emotional/action cue changes each scene, keeping model sheets stable
+    cue=["✦","?","!","♥","★","✓"][index]
+    cue_font=font(max(20,int(h*.075)),True)
+    d.text((w*.08,h*.31),cue,font=cue_font,fill=light,stroke_width=1,stroke_fill=sky)
+    # cinematic title ribbon
+    rounded(d,(w*.055,header_y,w*.945,header_y+h*.105),int(h*.026),"#10264f","#f7d77a",max(1,int(h*.003)))
     title=scene[0]
-    f=font(max(15,int(h*.042)),True)
+    f=font(max(15,int(h*.039)),True)
     box=d.textbbox((0,0),title,font=f)
-    d.text(((w-(box[2]-box[0]))/2,header_y+h*.018),title,font=f,fill="#ffffff",stroke_width=1,stroke_fill="#102044")
-    # subtitle panel
-    rounded(d,(w*.055,sub_y,w*.945,sub_y+h*.125),int(h*.022),"#fffdf2","#e5b94c",max(1,int(h*.004)))
+    d.text(((w-(box[2]-box[0]))/2,header_y+h*.02),title,font=f,fill="#ffffff",stroke_width=1,stroke_fill="#102044")
+    # legible caption with wrapped lines and safe margins
+    rounded(d,(w*.045,sub_y,w*.955,sub_y+h*.135),int(h*.025),"#fffdf4","#f3cb63",max(1,int(h*.004)))
     text=scene[1]
-    f2=font(max(13,int(h*(.027 if portrait else .031))),True)
+    f2=font(max(12,int(h*(.025 if portrait else .029))),True)
     max_width=w*.82
-    words=text.split()
-    lines=[]; line=""
+    words=text.split(); lines=[]; line=""
     for word in words:
         test=(line+" "+word).strip()
         if d.textlength(test,font=f2)<=max_width: line=test
@@ -201,18 +260,18 @@ def draw_scene_frame(size, scene, index, frame, portrait):
             if line: lines.append(line)
             line=word
     if line: lines.append(line)
-    line_h=int(h*.038)
-    total=len(lines)*line_h
-    start_y=sub_y+(h*.125-total)/2
+    line_h=int(h*.036)
+    total=min(len(lines),3)*line_h
+    start_y=sub_y+(h*.135-total)/2
     for j,line in enumerate(lines[:3]):
         tw=d.textlength(line,font=f2)
         d.text(((w-tw)/2,start_y+j*line_h),line,font=f2,fill="#17294a")
-    # animated sparkles
-    for k in range(5):
-        sx=(w*(.12+k*.18)+math.sin(t*2+k)*w*.012)
-        sy=h*(.24+(k%2)*.08)
-        r=max(2,int(h*.006))
-        d.ellipse((sx-r,sy-r,sx+r,sy+r),fill="#fff5a6")
+    # subtle drifting sparkles add life without changing character designs
+    for k in range(8):
+        sx=(w*(.08+k*.12)+math.sin(t*1.7+k)*w*.009)%w
+        sy=h*(.23+(k%3)*.055)+math.cos(t*2+k)*h*.008
+        r=max(2,int(h*.005))
+        d.ellipse((sx-r,sy-r,sx+r,sy+r),fill=light)
     return im
 
 def _run(cmd):
@@ -221,33 +280,45 @@ def _run(cmd):
         raise RuntimeError(p.stderr[-1800:])
     return p
 
-def render_episode(title: str, story: str, fmt: str, output: Path, workdir: Path):
+def render_episode(title: str, story: str, fmt: str, output: Path, workdir: Path, planet_name: str = "Aurora-7"):
     portrait=fmt=="9:16"
     width,height=(405,720) if portrait else (720,405)
     frames=workdir/f"frames-{fmt.replace(':','x')}"
     frames.mkdir(parents=True,exist_ok=True)
-    sentences=[x.strip() for x in story.replace("!", ".").replace("?", ".").split(".") if x.strip()]
-    captions=(sentences + [scene[1] for scene in SCENES])[:6]
-    episode_scenes=[(title if i==0 else SCENES[i][0], captions[i], SCENES[i][2]) for i in range(6)]
+    sentences=[x.strip() for x in re.split(r"(?<=[.!?])\\s+",story) if x.strip()]
+    fallback=[
+      f"A nave Estrelinha chega ao planeta {planet_name}.",
+      "Os amigos observam o lugar e conhecem seus habitantes.",
+      "Um desafio precisa de atenção e trabalho em equipe.",
+      "Luna encontra pistas e Tomi organiza um plano seguro.",
+      "Pipo percebe um detalhe e os moradores ajudam a resolver.",
+      "Todos celebram a amizade e a lição aprendida."
+    ]
+    captions=(sentences+fallback)[:6]
+    while len(captions)<6:
+        captions.append(f"No planeta {planet_name}, ajudar fica mais fácil quando trabalhamos juntos.")
+    scene_titles=["UMA NOVA VIAGEM","CONHECENDO O PLANETA","A MISSÃO COMEÇA","UMA IDEIA BRILHANTE","JUNTOS CONSEGUIMOS","A LIÇÃO DA MISSÃO"]
+    episode_scenes=[(title if i==0 else scene_titles[i],captions[i],str(i)) for i in range(6)]
     total=SCENE_SECONDS*FPS
     for scene_index,scene in enumerate(episode_scenes):
         for f in range(total):
-            image=draw_scene_frame((width,height),scene,scene_index,f,portrait)
+            image=draw_scene_frame((width,height),scene,scene_index,f,portrait,planet_name)
             number=scene_index*total+f
-            image.save(frames/f"frame-{number:05d}.jpg",quality=88)
+            image.save(frames/f"frame-{number:05d}.jpg",quality=91)
     low_video=workdir/f"silent-{fmt.replace(':','x')}.mp4"
     _run(["ffmpeg","-y","-loglevel","error","-framerate",str(FPS),"-i",str(frames/"frame-%05d.jpg"),"-c:v","libx264","-preset","ultrafast","-pix_fmt","yuv420p","-vf",f"scale={1920 if not portrait else 1080}:{1080 if not portrait else 1920}:flags=lanczos","-r","30",str(low_video)])
-    narration=" ".join(captions)
+    # Brazilian Portuguese narration with slower pacing, normalized loudness and gentle pauses.
+    narration=" ... ".join(captions)
     wav=workdir/"narration.wav"
     voice_ok=False
     try:
-        _run(["espeak-ng","-v","pt-br","-s","145","-w",str(wav),narration])
+        _run(["espeak-ng","-v","pt-br","-s","132","-p","48","-a","165","-w",str(wav),narration])
         voice_ok=wav.exists() and wav.stat().st_size>1000
     except (FileNotFoundError,RuntimeError):
         voice_ok=False
     output.parent.mkdir(parents=True,exist_ok=True)
     if voice_ok:
-        _run(["ffmpeg","-y","-loglevel","error","-i",str(low_video),"-i",str(wav),"-map","0:v:0","-map","1:a:0","-c:v","copy","-c:a","aac","-b:a","128k","-shortest","-movflags","+faststart",str(output)])
+        _run(["ffmpeg","-y","-loglevel","error","-i",str(low_video),"-i",str(wav),"-map","0:v:0","-map","1:a:0","-c:v","copy","-af","loudnorm=I=-16:TP=-1.5:LRA=11,highpass=f=90,lowpass=f=9000","-c:a","aac","-b:a","160k","-shortest","-movflags","+faststart",str(output)])
     else:
         _run(["ffmpeg","-y","-loglevel","error","-i",str(low_video),"-c:v","copy","-movflags","+faststart",str(output)])
     if not output.exists() or output.stat().st_size<10000:
