@@ -33,7 +33,9 @@ O renderizador mede a duração do áudio e ajusta a velocidade da narração de
 - Cenários espaciais diferentes por planeta, com paletas próprias, luas, planetas com anéis, paisagens, cristais, construções e habitantes alienígenas.
 - Movimento contínuo de personagens, cauda, foguete, estrelas e elementos ambientais.
 - Movimentos simples por quadro e cenários ilustrados.
-- Narração sintetizada em português brasileiro com espeak-ng, ritmo mais pausado e normalização/filtros de áudio, quando disponível.
+- Narração em português brasileiro: usa espeak-ng quando instalado; no runtime Python do ICP, utiliza voz neural Edge TTS (`pt-BR-FranciscaNeural`) com conexão de saída à internet.
+- FFmpeg: usa a instalação do sistema quando disponível; no runtime Python do ICP, usa o binário portátil fornecido por `imageio-ffmpeg`.
+- A duração é medida por ffprobe quando disponível ou Mutagen como alternativa.
 - Renderização MP4 com FFmpeg.
 - Saídas 16:9 (1920×1080) e 9:16 (1080×1920).
 - Jobs em segundo plano e histórico persistido em volume Docker.
@@ -72,6 +74,17 @@ API: http://localhost:8000/docs
 Saúde: http://localhost:8000/api/health
 
 Vídeos, histórico e preferências ficam persistidos em `./data`.
+
+## Publicar no iContainer (Standalone Python)
+
+O projeto pode rodar no módulo Standalone com runtime Python, sem selecionar Node.js. O repositório contém `app.py` na raiz e `requirements.txt` para o instalador do painel.
+
+- Runtime: Python 3.13 (ou versão compatível).
+- Instalação: `pip install -r requirements.txt` (executado pelo build do painel).
+- Comando de inicialização: `python app.py`.
+- Porta: `5000` por padrão; o processo respeita a variável de ambiente `PORT` quando fornecida.
+- Volume persistente recomendado: montar em `/data/jobs` para preservar vídeos, roteiros, configurações e o token OAuth do YouTube durante novos deploys.
+- A renderização usa `imageio-ffmpeg` e `edge-tts` como alternativas portáveis. Edge TTS precisa que o servidor consiga acessar o serviço externo de voz.
 
 ## Endpoints
 
