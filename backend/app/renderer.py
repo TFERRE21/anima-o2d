@@ -392,7 +392,7 @@ def render_episode(title: str, story: str, fmt: str, output: Path, workdir: Path
     _run(["ffmpeg", "-y", "-loglevel", "error", "-framerate", str(FPS),
           "-i", str(frames / "frame-%06d.jpg"), "-c:v", "libx264",
           "-preset", "ultrafast", "-crf", "20", "-pix_fmt", "yuv420p",
-          "-r", "24", str(low_video)])
+          "-r", "24", "-g", "24", "-keyint_min", "24", "-sc_threshold", "0", str(low_video)])
 
     output.parent.mkdir(parents=True, exist_ok=True)
     output_duration = duration_seconds
