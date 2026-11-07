@@ -6,4 +6,8 @@ services:
       - "8000:8000"
     env_file:
       - .env
+    environment:
+      - ANIMA_STORAGE=/data/jobs
+    volumes:
+      - ./data:/data/jobs
     restart: unless-stopped
