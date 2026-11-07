@@ -52,7 +52,7 @@ class PublishRequest(BaseModel):
 
 LOCK = threading.Lock()
 SETTINGS_FILE = STORAGE / "studio-settings.json"
-DEFAULT_STUDIO_SETTINGS = {"auto_generate_formats": ["16:9", "9:16"], "require_review_before_publish": True, "auto_publish_enabled": False, "publish_days": ["Tuesday", "Thursday", "Saturday"], "publish_time": "18:00"}
+DEFAULT_STUDIO_SETTINGS = {"auto_generate_formats": ["16:9", "9:16"], "require_review_before_publish": True, "auto_publish_enabled": False, "auto_production_enabled": False, "production_days": ["Tuesday", "Thursday", "Saturday"], "production_time": "10:00", "publish_days": ["Tuesday", "Thursday", "Saturday"], "publish_time": "18:00"}
 
 def _studio_settings():
     if not SETTINGS_FILE.exists():
@@ -210,6 +210,58 @@ def publish_job(job_id: str, payload: PublishRequest):
     _update(job_id, publications=publications, publication_status=publication["status"])
     return publication
 
+AUTO_STORIES = [
+("O Poder de Pedir Desculpas","Luna e Tomi derrubam uma ponte de brinquedo sem querer. Eles conversam, pedem desculpas e reconstroem juntos. A história ensina empatia e responsabilidade."),
+("A Praça de Todos","Pipo encontra lixo na praça. Com ajuda dos adultos, Luna e Tomi organizam uma ação para cuidar do espaço público."),
+("A Coragem de Dizer Não","Um colega convida Tomi para uma brincadeira perigosa. Tomi diz não e procura um adulto de confiança. A história ensina segurança e coragem."),
+("O Segredo que Não Deve Ser Guardado","Uma criança conta a Luna um segredo que causa medo. Luna escuta e ajuda a criança a procurar um adulto de confiança."),
+("A Vez de Cada Um","Na feira de ciências, todos querem apresentar primeiro. Tomi propõe uma ordem justa e todos participam."),
+("A Palavra Verdadeira","Pipo derruba um vaso durante a brincadeira. Tomi conta a verdade e ajuda a reparar o erro."),
+("Amigos na Diferença","Uma nova criança chega à escola com interesses diferentes. Os amigos encontram uma brincadeira inclusiva."),
+("A Missão da Água","Uma torneira fica aberta na escola. Os amigos chamam a equipe responsável e aprendem a evitar desperdício."),
+("O Desafio da Calma","Tomi perde um jogo e fica irritado. Luna o ajuda a respirar, conversar e tentar novamente."),
+("A Mochila Perdida","Os amigos encontram uma mochila e a entregam à coordenação sem mexer nos pertences.")
+]
+def _create_scheduled_episode():
+    cfg = _studio_settings()
+    if not cfg.get("auto_production_enabled"):
+        return
+    existing = {j.get("title") for j in list_jobs()["jobs"]}
+    choices = [item for item in AUTO_STORIES if item[0] not in existing]
+    title, story = (choices or AUTO_STORIES)[0]
+    payload = GenerateRequest(title=title, story=story, formats=cfg.get("auto_generate_formats", ["16:9","9:16"]))
+    job_id = uuid.uuid4().hex[:12]
+    job = {"id":job_id,"title":title,"status":"queued","progress":0,"message":"Episódio criado automaticamente pela programação do estúdio","formats":payload.formats,"outputs":{},"created_at":datetime.now(timezone.utc).isoformat(),"review_status":"pending_review","publication_status":"awaiting_review","story":story,"episode":"auto-calendar"}
+    with LOCK:
+        JOBS[job_id] = job
+        _save(job_id, job)
+    threading.Thread(target=_run_job,args=(job_id,payload),daemon=True).start()
+
+scheduler = None
+def _refresh_scheduler():
+    from apscheduler.schedulers.background import BackgroundScheduler
+    from apscheduler.triggers.cron import CronTrigger
+    global scheduler
+    if scheduler:
+        scheduler.shutdown(wait=False)
+    scheduler = BackgroundScheduler(timezone="America/Sao_Paulo")
+    cfg = _studio_settings()
+    if cfg.get("auto_production_enabled") and cfg.get("production_days"):
+        day_map={"Monday":"mon","Tuesday":"tue","Wednesday":"wed","Thursday":"thu","Friday":"fri","Saturday":"sat","Sunday":"sun"}
+        hour,minute=cfg.get("production_time","10:00").split(":")
+        trigger=CronTrigger(day_of_week=",".join(day_map[x] for x in cfg["production_days"]),hour=int(hour),minute=int(minute),timezone="America/Sao_Paulo")
+        scheduler.add_job(_create_scheduled_episode,trigger,id="weekly_episode_production",replace_existing=True,max_instances=1,coalesce=True)
+    scheduler.start()
+
+@app.on_event("startup")
+def start_studio_scheduler():
+    _refresh_scheduler()
+
+@app.on_event("shutdown")
+def stop_studio_scheduler():
+    if scheduler:
+        scheduler.shutdown(wait=False)
+
 @app.get("/api/dashboard")
 def dashboard():
     jobs = list_jobs()["jobs"]
@@ -237,6 +289,7 @@ def get_studio_settings():
 @app.put("/api/studio-settings")
 def update_studio_settings(payload: dict[str, Any]):
     allowed = {"auto_generate_formats", "require_review_before_publish", "auto_publish_enabled", "publish_days", "publish_time"}
+    allowed |= {"auto_production_enabled", "production_days", "production_time"}
     if set(payload) - allowed:
         raise HTTPException(400, "Configuração desconhecida.")
     current = _studio_settings()
@@ -244,9 +297,19 @@ def update_studio_settings(payload: dict[str, Any]):
     if current["auto_publish_enabled"]:
         current["auto_publish_enabled"] = False
         raise HTTPException(409, "A publicação automática será liberada após a integração OAuth segura do canal YouTube.")
-    if not isinstance(current["auto_generate_formats"], list) or any(x not in {"16:9", "9:16"} for x in current["auto_generate_formats"]):
+    if not isinstance(current["auto_generate_formats"], list) or not current["auto_generate_formats"] or any(x not in {"16:9", "9:16"} for x in current["auto_generate_formats"]):
         raise HTTPException(400, "Formatos automáticos inválidos.")
+    valid_days = {"Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"}
+    for field in ("production_days", "publish_days"):
+        if not isinstance(current[field], list) or any(day not in valid_days for day in current[field]):
+            raise HTTPException(400, f"Dias inválidos em {field}.")
+    for field in ("production_time", "publish_time"):
+        try:
+            datetime.strptime(current[field], "%H:%M")
+        except (TypeError, ValueError):
+            raise HTTPException(400, f"Horário inválido em {field}.")
     SETTINGS_FILE.write_text(json.dumps(current, ensure_ascii=False, indent=2), encoding="utf-8")
+    _refresh_scheduler()
     return current
 
 @app.post("/api/jobs/{job_id}/review")
