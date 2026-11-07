@@ -16,6 +16,7 @@ from fastapi.responses import FileResponse, RedirectResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from backend.app.worlds import WORLDS, episode_for_world
 
 ROOT = Path(__file__).resolve().parents[2]
 WEB = ROOT / "web"
@@ -38,6 +39,7 @@ class GenerateRequest(BaseModel):
     story: str = Field(default="Luna e Tomi ajudam a escola a resolver um mistério com honestidade e amizade.", min_length=10, max_length=5000)
     formats: list[str] = Field(default_factory=lambda: ["16:9", "9:16"])
     episode: str = "original"
+    planet: str = "Aurora-7"
 
 JOBS: dict[str, dict[str, Any]] = {}
 YOUTUBE_SCOPES = ["https://www.googleapis.com/auth/youtube.upload"]
@@ -94,6 +96,7 @@ def generate(payload: GenerateRequest):
         "publication_status": "not_connected",
         "story": payload.story,
         "episode": payload.episode,
+        "planet": payload.planet,
     }
     with LOCK:
         JOBS[job_id] = job
@@ -210,28 +213,17 @@ def publish_job(job_id: str, payload: PublishRequest):
     _update(job_id, publications=publications, publication_status=publication["status"])
     return publication
 
-AUTO_STORIES = [
-("O Poder de Pedir Desculpas","Luna e Tomi derrubam uma ponte de brinquedo sem querer. Eles conversam, pedem desculpas e reconstroem juntos. A história ensina empatia e responsabilidade."),
-("A Praça de Todos","Pipo encontra lixo na praça. Com ajuda dos adultos, Luna e Tomi organizam uma ação para cuidar do espaço público."),
-("A Coragem de Dizer Não","Um colega convida Tomi para uma brincadeira perigosa. Tomi diz não e procura um adulto de confiança. A história ensina segurança e coragem."),
-("O Segredo que Não Deve Ser Guardado","Uma criança conta a Luna um segredo que causa medo. Luna escuta e ajuda a criança a procurar um adulto de confiança."),
-("A Vez de Cada Um","Na feira de ciências, todos querem apresentar primeiro. Tomi propõe uma ordem justa e todos participam."),
-("A Palavra Verdadeira","Pipo derruba um vaso durante a brincadeira. Tomi conta a verdade e ajuda a reparar o erro."),
-("Amigos na Diferença","Uma nova criança chega à escola com interesses diferentes. Os amigos encontram uma brincadeira inclusiva."),
-("A Missão da Água","Uma torneira fica aberta na escola. Os amigos chamam a equipe responsável e aprendem a evitar desperdício."),
-("O Desafio da Calma","Tomi perde um jogo e fica irritado. Luna o ajuda a respirar, conversar e tentar novamente."),
-("A Mochila Perdida","Os amigos encontram uma mochila e a entregam à coordenação sem mexer nos pertences.")
-]
 def _create_scheduled_episode():
     cfg = _studio_settings()
     if not cfg.get("auto_production_enabled"):
         return
-    existing = {j.get("title") for j in list_jobs()["jobs"]}
-    choices = [item for item in AUTO_STORIES if item[0] not in existing]
-    title, story = (choices or AUTO_STORIES)[0]
-    payload = GenerateRequest(title=title, story=story, formats=cfg.get("auto_generate_formats", ["16:9","9:16"]))
+    all_jobs = list_jobs()["jobs"]
+    used_planets = {j.get("planet") for j in all_jobs if j.get("episode") == "planet-journey"}
+    world = next((w for w in WORLDS if w["planet"] not in used_planets), WORLDS[len(all_jobs) % len(WORLDS)])
+    title, story = episode_for_world(world)
+    payload = GenerateRequest(title=title, story=story, formats=cfg.get("auto_generate_formats", ["16:9","9:16"]), episode="planet-journey", planet=world["planet"])
     job_id = uuid.uuid4().hex[:12]
-    job = {"id":job_id,"title":title,"status":"queued","progress":0,"message":"Episódio criado automaticamente pela programação do estúdio","formats":payload.formats,"outputs":{},"created_at":datetime.now(timezone.utc).isoformat(),"review_status":"pending_review","publication_status":"awaiting_review","story":story,"episode":"auto-calendar"}
+    job = {"id":job_id,"title":title,"status":"queued","progress":0,"message":"Episódio criado automaticamente pela programação do estúdio","formats":payload.formats,"outputs":{},"created_at":datetime.now(timezone.utc).isoformat(),"review_status":"pending_review","publication_status":"awaiting_review","story":story,"episode":"planet-journey","planet":world["planet"]}
     with LOCK:
         JOBS[job_id] = job
         _save(job_id, job)
@@ -386,7 +378,7 @@ def _run_job(job_id: str, payload: GenerateRequest):
         for index, fmt in enumerate(payload.formats):
             _update(job_id, status="processing", progress=int(index * 100 / len(payload.formats)), message=f"Animando versão {fmt}…")
             output = STORAGE / job_id / f"episode-{fmt.replace(':','x')}.mp4"
-            render_episode(payload.title, payload.story, fmt, output, STORAGE / job_id)
+            render_episode(payload.title, payload.story, fmt, output, STORAGE / job_id, planet_name=payload.planet)
             current = _get_job(job_id)
             outputs = dict(current.get("outputs", {}))
             outputs[fmt] = str(output)
