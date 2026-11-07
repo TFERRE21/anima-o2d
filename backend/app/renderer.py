@@ -297,6 +297,9 @@ def _run(cmd):
     return p
 
 def _probe_duration(path: Path) -> float:
+    """Measure duration even when the runtime has FFmpeg but no separate ffprobe."""
+    if not path.exists() or path.stat().st_size == 0:
+        raise RuntimeError("Arquivo de mídia ausente ou vazio: " + str(path.name))
     ffprobe = shutil.which("ffprobe")
     if ffprobe:
         result = subprocess.run(
@@ -306,7 +309,9 @@ def _probe_duration(path: Path) -> float:
         )
         if result.returncode == 0:
             try:
-                return float(result.stdout.strip())
+                duration = float(result.stdout.strip())
+                if duration > 0:
+                    return duration
             except ValueError:
                 pass
     try:
@@ -317,35 +322,148 @@ def _probe_duration(path: Path) -> float:
             return duration
     except Exception:
         pass
-    raise RuntimeError("Não foi possível medir a duração do arquivo: " + str(path.name))
 
-async def _edge_tts_save(text: str, output: Path) -> None:
+    # The portable imageio-ffmpeg package ships ffmpeg but not ffprobe.
+    # FFmpeg prints container/stream duration as soon as it opens the file.
+    process = subprocess.Popen(
+        [_ffmpeg_executable(), "-hide_banner", "-i", str(path)],
+        stdout=subprocess.DEVNULL, stderr=subprocess.PIPE,
+        text=True, errors="replace"
+    )
+    details = []
+    try:
+        if process.stderr:
+            for line in process.stderr:
+                details.append(line.strip())
+                match = re.search(r"Duration:\\s*(\\d+):(\\d+):(\\d+(?:\\.\\d+)?)", line)
+                if match:
+                    hours, minutes, seconds = match.groups()
+                    duration = int(hours) * 3600 + int(minutes) * 60 + float(seconds)
+                    process.terminate()
+                    process.wait(timeout=3)
+                    if duration > 0:
+                        return duration
+                    break
+    finally:
+        if process.poll() is None:
+            process.kill()
+            process.wait()
+    raise RuntimeError(
+        "Não foi possível medir a duração de " + path.name +
+        ". FFmpeg informou: " + " | ".join(details[-4:])
+    )
+
+
+VOICE_PROFILE = {
+    "Narrador": {"voice": "pt-BR-ThalitaNeural", "rate": "+0%", "pitch": "+0Hz", "espeak_pitch": 48},
+    "Luna": {"voice": "pt-BR-FranciscaNeural", "rate": "+2%", "pitch": "+5Hz", "espeak_pitch": 60},
+    "Tomi": {"voice": "pt-BR-AntonioNeural", "rate": "+0%", "pitch": "-3Hz", "espeak_pitch": 43},
+    # Pipo gets a brighter, higher-pitched delivery; the text remains a short playful line.
+    "Pipo": {"voice": "pt-BR-AntonioNeural", "rate": "+8%", "pitch": "+22Hz", "espeak_pitch": 76},
+}
+
+
+async def _edge_tts_save(text: str, output: Path, speaker: str = "Narrador") -> None:
     import edge_tts
+    profile = VOICE_PROFILE.get(speaker, VOICE_PROFILE["Narrador"])
     communicate = edge_tts.Communicate(
         text=text,
-        voice="pt-BR-FranciscaNeural",
-        rate="+0%",
+        voice=profile["voice"],
+        rate=profile["rate"],
         volume="+0%",
-        pitch="+0Hz",
+        pitch=profile["pitch"],
     )
     await communicate.save(str(output))
 
-def _synthesize_narration(text: str, workdir: Path, fmt: str, speech_rate: int) -> tuple[Path, Path]:
+
+def _concat_audio_files(files: list[Path], output: Path, audio_codec: str) -> Path:
+    if not files:
+        raise RuntimeError("O roteiro não possui falas para sintetizar.")
+    manifest = output.parent / (output.stem + "-concat.txt")
+    def quote_path(path: Path) -> str:
+        return path.resolve().as_posix().replace("'", "'\\''")
+    manifest.write_text(
+        "".join("file '" + quote_path(item) + "'\\n" for item in files),
+        encoding="utf-8"
+    )
+    if audio_codec == "pcm_s16le":
+        _run(["ffmpeg", "-y", "-loglevel", "error", "-f", "concat", "-safe", "0",
+              "-i", str(manifest), "-c:a", "pcm_s16le", str(output)])
+    else:
+        _run(["ffmpeg", "-y", "-loglevel", "error", "-f", "concat", "-safe", "0",
+              "-i", str(manifest), "-c:a", "aac", "-b:a", "160k", str(output)])
+    if not output.exists() or output.stat().st_size < 1000:
+        raise RuntimeError("Não foi possível montar as falas dos personagens.")
+    return output
+
+
+async def _synthesize_edge_segments(segments: list[dict], files: list[Path]) -> None:
+    semaphore = asyncio.Semaphore(2)
+
+    async def render_one(segment: dict, path: Path):
+        text = str(segment.get("text", "")).strip()
+        speaker = str(segment.get("speaker", "Narrador"))
+        if not text:
+            raise RuntimeError("Foi encontrada uma fala vazia no roteiro.")
+        async with semaphore:
+            last_error = None
+            for attempt in range(3):
+                try:
+                    await _edge_tts_save(text, path, speaker)
+                    if path.exists() and path.stat().st_size > 500:
+                        return
+                    raise RuntimeError("O serviço de voz retornou um arquivo vazio.")
+                except Exception as exc:
+                    last_error = exc
+                    if attempt < 2:
+                        await asyncio.sleep(1.5 * (attempt + 1))
+            raise RuntimeError(f"Falha na voz de {speaker}: {last_error}")
+
+    await asyncio.gather(*(render_one(segment, path) for segment, path in zip(segments, files)))
+
+
+def _synthesize_segments(segments: list[dict], workdir: Path, fmt: str,
+                         speech_rate: int) -> tuple[Path, Path]:
+    """Create one continuous track by alternating narrator and distinct character voices."""
     suffix = fmt.replace(":", "x")
-    if shutil.which("espeak-ng"):
-        raw = workdir / f"narration-source-{suffix}.wav"
-        fitted = workdir / f"narration-final-{suffix}.wav"
-        _run(["espeak-ng", "-v", "pt-br", "-s", str(speech_rate), "-p", "48", "-a", "165", "-w", str(raw), text])
-        return raw, fitted
-    raw = workdir / f"narration-source-{suffix}.mp3"
-    fitted = workdir / f"narration-final-{suffix}.mp3"
-    try:
-        asyncio.run(_edge_tts_save(text, raw))
-    except Exception as exc:
-        raise RuntimeError("Não foi possível gerar a narração. Verifique a conexão de saída do servidor e a disponibilidade do Edge TTS: " + str(exc)) from exc
-    if not raw.exists() or raw.stat().st_size < 1000:
-        raise RuntimeError("O serviço de voz não retornou uma narração válida.")
+    use_espeak = bool(shutil.which("espeak-ng"))
+    extension = "wav" if use_espeak else "mp3"
+    parts_dir = workdir / f"voice-parts-{suffix}"
+    parts_dir.mkdir(parents=True, exist_ok=True)
+    files = [
+        parts_dir / f"part-{index:03d}.{extension}"
+        for index in range(len(segments))
+    ]
+
+    if use_espeak:
+        for segment, path in zip(segments, files):
+            speaker = str(segment.get("speaker", "Narrador"))
+            profile = VOICE_PROFILE.get(speaker, VOICE_PROFILE["Narrador"])
+            pitch = int(profile["espeak_pitch"])
+            rate = speech_rate + (8 if speaker == "Pipo" else 0)
+            _run([
+                "espeak-ng", "-v", "pt-br", "-s", str(rate), "-p", str(pitch),
+                "-a", "165", "-w", str(path), str(segment.get("text", ""))
+            ])
+    else:
+        try:
+            asyncio.run(_synthesize_edge_segments(segments, files))
+        except Exception as exc:
+            raise RuntimeError(
+                "Não foi possível gerar as falas com voz neural. Verifique a conexão de saída "
+                "do servidor e a disponibilidade do Edge TTS: " + str(exc)
+            ) from exc
+
+    raw = workdir / f"narration-source-{suffix}.{'wav' if use_espeak else 'm4a'}"
+    fitted = workdir / f"narration-final-{suffix}.{'wav' if use_espeak else 'm4a'}"
+    _concat_audio_files(files, raw, "pcm_s16le" if use_espeak else "aac")
     return raw, fitted
+
+
+def _synthesize_narration(text: str, workdir: Path, fmt: str, speech_rate: int) -> tuple[Path, Path]:
+    # Backward-compatible route for jobs generated before character dialogue was added.
+    return _synthesize_segments([{"speaker": "Narrador", "text": text}], workdir, fmt, speech_rate)
+
 
 def _fit_narration(source: Path, output: Path, target_seconds: float) -> float:
     """Stretch/compress narration only as needed to satisfy the format duration contract."""
