@@ -355,7 +355,7 @@ def _probe_duration(path: Path) -> float:
 
 
 VOICE_PROFILE = {
-    "Narrador": {"voice": "pt-BR-ThalitaNeural", "rate": "+0%", "pitch": "+0Hz", "espeak_pitch": 48},
+    "Narrador": {"voice": "pt-BR-ThalitaMultilingualNeural", "rate": "+0%", "pitch": "+0Hz", "espeak_pitch": 48},
     "Luna": {"voice": "pt-BR-FranciscaNeural", "rate": "+2%", "pitch": "+5Hz", "espeak_pitch": 60},
     "Tomi": {"voice": "pt-BR-AntonioNeural", "rate": "+0%", "pitch": "-3Hz", "espeak_pitch": 43},
     # Pipo gets a brighter, higher-pitched delivery; the text remains a short playful line.
