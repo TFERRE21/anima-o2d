@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Anima 2D — Estúdio de animação</title>
+  <style>
+    :root{font-family:Inter,system-ui,Arial,sans-serif;color:#eef2ff;background:#0b1020}
+    *{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 80% 0,#1d3260 0,transparent 34%),#0b1020}
+    .wrap{max-width:1100px;margin:auto;padding:36px 22px}.top{display:flex;justify-content:space-between;align-items:center;gap:16px}
+    .brand{font-size:22px;font-weight:800;letter-spacing:-.6px}.muted{color:#9ba9c7}.pill{border:1px solid #36517e;border-radius:99px;padding:7px 12px;color:#b8d4ff;font-size:12px}
+    h1{font-size:clamp(32px,5vw,54px);line-height:1.04;letter-spacing:-1.8px;margin:54px 0 12px}.lead{color:#aab7d1;max-width:650px;line-height:1.6}
+    .grid{display:grid;grid-template-columns:1.2fr .8fr;gap:18px;margin-top:30px}.card{background:#111a2e;border:1px solid #263653;border-radius:18px;padding:22px;box-shadow:0 16px 45px #0002}
+    label{display:block;font-size:13px;color:#b8c6df;margin:16px 0 8px}input,textarea,select{width:100%;border:1px solid #334766;background:#0b1426;color:#f4f7ff;border-radius:10px;padding:12px;font:inherit}
+    textarea{min-height:150px;resize:vertical}.formats{display:flex;gap:12px;flex-wrap:wrap}.format{flex:1;min-width:150px;border:1px solid #334766;background:#0b1426;border-radius:12px;padding:14px;display:flex;gap:10px;align-items:center}
+    button{border:0;background:#77a8ff;color:#071225;font-weight:800;padding:13px 18px;border-radius:10px;cursor:pointer;margin-top:18px}button:hover{filter:brightness(1.08)}
+    .preview{min-height:240px;border:1px dashed #405779;border-radius:14px;display:grid;place-items:center;text-align:center;padding:20px;color:#9eafd0}
+    .stats{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:16px}.stat{background:#0b1426;border-radius:12px;padding:14px}.stat b{display:block;font-size:21px;margin-bottom:5px}
+    #result{white-space:pre-wrap;color:#9fe4bd;font-size:13px;margin-top:12px}
+    @media(max-width:760px){.grid{grid-template-columns:1fr}.top{align-items:flex-start;flex-direction:column}.wrap{padding:24px 15px}}
+  </style>
+</head>
+<body>
+<main class="wrap">
+  <div class="top"><div class="brand">✦ ANIMA <span style="color:#83adff">2D</span></div><span class="pill">ESTÚDIO DE ANIMAÇÃO • BETA</span></div>
+  <h1>Transforme histórias em<br><span style="color:#83adff">animações 2D.</span></h1>
+  <p class="lead">Crie projetos para YouTube horizontal e Shorts vertical. Prepare roteiro, cenas, narração e publicação em um único fluxo.</p>
+  <section class="grid">
+    <div class="card">
+      <h2>Novo projeto</h2>
+      <label for="title">Nome do projeto</label><input id="title" placeholder="Ex.: A Arca de Noé">
+      <label for="story">História ou ideia do vídeo</label><textarea id="story" placeholder="Descreva a história que deseja transformar em animação..."></textarea>
+      <label>Formatos de saída</label>
+      <div class="formats">
+        <label class="format"><input type="checkbox" value="16:9" checked> <span><b>16:9</b><br><small class="muted">1920 × 1080 • YouTube</small></span></label>
+        <label class="format"><input type="checkbox" value="9:16" checked> <span><b>9:16</b><br><small class="muted">1080 × 1920 • Shorts</small></span></label>
+      </div>
+      <label for="style">Estilo visual</label>
+      <select id="style"><option value="2d_cartoon">Desenho animado 2D</option><option value="2d_cutout">Personagens 2D com rig e movimentos</option><option value="anime">Anime infantil</option></select>
+      <button id="validate">Validar projeto</button><div id="result"></div>
+    </div>
+    <aside class="card">
+      <h2>Central de produção</h2>
+      <div class="preview"><div><div style="font-size:38px">🎬</div><b>Seu próximo episódio começa aqui</b><p>Prévia das cenas e renderizações aparecerá nesta área.</p></div></div>
+      <div class="stats">
+        <div class="stat"><b>16:9</b><small class="muted">Formato horizontal</small></div>
+        <div class="stat"><b>9:16</b><small class="muted">Formato vertical</small></div>
+      </div>
+      <p class="muted" id="status" style="font-size:13px;margin-top:18px">Verificando configuração...</p>
+    </aside>
+  </section>
+</main>
+<script>
+async function init(){try{const r=await fetch('/api/config');const c=await r.json();document.getElementById('status').textContent=c.generation_enabled?'Motor de geração conectado.':'Estrutura inicial pronta — falta configurar o provedor de geração 2D e o OAuth do YouTube.';}catch(e){document.getElementById('status').textContent='API indisponível.'}}
+document.getElementById('validate').addEventListener('click',async()=>{
+ const formats=[...document.querySelectorAll('.format input:checked')].map(x=>x.value);
+ const payload={title:document.getElementById('title').value,story:document.getElementById('story').value,style:document.getElementById('style').value,formats};
+ const out=document.getElementById('result');out.textContent='Validando...';
+ try{const r=await fetch('/api/projects/validate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});const data=await r.json();out.textContent=data.valid?'✓ '+data.message:'⚠ '+(data.error||'Confira os campos.');}catch(e){out.textContent='Não foi possível conectar à API.'}
+});
+init();
+</script>
+</body>
+</html>
