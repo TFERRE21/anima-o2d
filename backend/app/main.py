@@ -126,7 +126,7 @@ def _update(job_id: str, **changes):
 
 def _run_job(job_id: str, payload: GenerateRequest):
     try:
-        from renderer import render_episode
+        from backend.app.renderer import render_episode
         for index, fmt in enumerate(payload.formats):
             _update(job_id, status="processing", progress=int(index * 100 / len(payload.formats)), message=f"Animando versão {fmt}…")
             output = STORAGE / job_id / f"episode-{fmt.replace(':','x')}.mp4"
