@@ -100,23 +100,74 @@ def build_episode_plan(episode_number: int, used_planets: set[str] | None = None
         f"Durante a viagem de volta, os amigos imaginam como os moradores continuarão cuidando de {world['landmark']}. Eles sabem que uma solução só é boa quando a comunidade consegue mantê-la. Por isso, não fizeram tudo pelos habitantes: compartilharam ideias, escutaram quem conhecia o lugar e ajudaram a construir um plano que todos podem usar. Essa é uma das maiores lições da viagem: ajudar também significa ensinar e aprender juntos.",
         f"E agora fica uma pergunta para você: qual atitude poderia melhorar o lugar onde você vive? Talvez organizar um espaço que todos usam, escutar um amigo, cuidar de uma planta ou pedir ajuda a um adulto quando algo parecer perigoso. Pequenas atitudes podem criar grandes mudanças. Os Pequenos Guardiões acreditam que cada pessoa pode fazer parte da solução quando age com cuidado, coragem e bondade."
     ]
-    short_script = (
-        f"Os Pequenos Guardiões chegaram a {planet}, um mundo de {world['biome']}. "
-        f"Luna, Tomi e Pipo conheceram os {world['inhabitants']} e descobriram um desafio: {mission['problem']}. "
-        f"Luna encontrou uma pista perto de {mission['object']}. Tomi organizou um plano seguro e ouviu os moradores. "
-        f"Pipo percebeu um detalhe que ajudou todo mundo. Juntos, com a orientação dos habitantes, eles conseguiram: {mission['solution']}. "
-        f"A aventura ensinou {value}. Quando escutamos, respeitamos as diferenças e trabalhamos em equipe, podemos ajudar a transformar qualquer lugar. "
-        f"Luna diz: Uma boa ideia pode mudar tudo! Tomi completa: Primeiro pensamos, depois ajudamos! Até a próxima viagem!"
-    )
+    dialogues = [
+        {"scene": 0, "speaker": "Luna", "text": f"Tomi, confira os cintos! Quero que nossa chegada a {planet} seja tranquila."},
+        {"scene": 0, "speaker": "Tomi", "text": "Tudo certo, Luna. Rota confirmada. Pipo, preparado para conhecer novos amigos?"},
+        {"scene": 1, "speaker": "Pipo", "text": "Au! Au! Eu vi luzes brilhando lá embaixo!"},
+        {"scene": 2, "speaker": "Luna", "text": "Olá! Somos os Pequenos Guardiões. Queremos conhecer vocês e entender como podemos ajudar."},
+        {"scene": 2, "speaker": "Tomi", "text": "Podem contar o que aconteceu. Vamos ouvir com atenção, sem tirar conclusões antes da hora."},
+        {"scene": 3, "speaker": "Luna", "text": f"Então o desafio é este: {mission['problem']}. Vamos descobrir o que está acontecendo."},
+        {"scene": 3, "speaker": "Tomi", "text": "Cada detalhe importa. Primeiro vamos conversar com os moradores e observar o lugar com segurança."},
+        {"scene": 4, "speaker": "Luna", "text": f"Encontrei uma pista perto de {mission['object']}: {mission['clue']}. Vou registrar no meu caderno!"},
+        {"scene": 5, "speaker": "Tomi", "text": "Minha proposta é dividir as tarefas. Quem conhece melhor esta área pode orientar cada passo."},
+        {"scene": 6, "speaker": "Pipo", "text": "Au! Au! Esperem! Tem mais uma pista aqui perto!"},
+        {"scene": 6, "speaker": "Luna", "text": "Muito bem, Pipo! Sua descoberta combina com as minhas anotações."},
+        {"scene": 7, "speaker": "Tomi", "text": "A primeira tentativa não resolveu tudo, mas agora sabemos mais. Vamos ajustar o plano juntos."},
+        {"scene": 8, "speaker": "Luna", "text": "Moradores, o que vocês acham desta ideia? Queremos ouvir quem conhece este planeta."},
+        {"scene": 8, "speaker": "Tomi", "text": "Quando cada pessoa participa, encontramos soluções mais cuidadosas e ninguém fica de fora."},
+        {"scene": 9, "speaker": "Luna", "text": "Agora sim! Vamos seguir as etapas com calma e conferir cada detalhe."},
+        {"scene": 9, "speaker": "Tomi", "text": "Equipe pronta? Moradores orientando? Então vamos trabalhar juntos!"},
+        {"scene": 10, "speaker": "Pipo", "text": "Au! Au! Conseguimos! Todo mundo ajudou!"},
+        {"scene": 10, "speaker": "Luna", "text": "Conseguimos porque juntamos nossas ideias e respeitamos a experiência dos moradores."},
+        {"scene": 11, "speaker": "Tomi", "text": f"Hoje aprendemos sobre {value}. Pensar, escutar e pedir ajuda também são atitudes de coragem."},
+        {"scene": 11, "speaker": "Luna", "text": "E lembre-se: uma boa ideia pode mudar tudo quando é colocada em prática com carinho!"},
+    ]
+    dialogue_by_scene = {}
+    for line in dialogues:
+        dialogue_by_scene.setdefault(line["scene"], []).append(line)
+    # Keep the long episode conversational: six narrative chapters alternate
+    # with character dialogue so the heroes are heard, not merely described.
+    audio_segments_long = []
+    for block in range(6):
+        first = block * 2
+        narrator_text = " ".join(long_script[first:first + 2])
+        audio_segments_long.append({"speaker": "Narrador", "text": narrator_text, "scene": first})
+        for scene_index in (first, first + 1):
+            audio_segments_long.extend(dialogue_by_scene.get(scene_index, []))
+
+    # Shorts use the most emotional section: the unexpected clue, the failed
+    # first attempt, the team's decision to listen, and the successful solution.
+    short_segments = [
+        {"speaker": "Narrador", "text": f"Na parte mais difícil da missão em {planet}, a primeira tentativa falhou. O problema parecia maior do que todos imaginavam: {mission['problem']}.", "scene": 7},
+        {"speaker": "Luna", "text": f"Esperem! A pista que encontrei perto de {mission['object']} mostra outro caminho: {mission['clue']}.", "scene": 7},
+        {"speaker": "Tomi", "text": "Então vamos mudar o plano. Primeiro ouvimos os moradores, depois dividimos as tarefas e conferimos tudo com segurança.", "scene": 8},
+        {"speaker": "Pipo", "text": "Au! Au! Eu também encontrei uma pista! Olhem aqui!", "scene": 8},
+        {"speaker": "Luna", "text": f"Agora entendi! Se trabalharmos juntos, podemos {mission['solution']}.", "scene": 9},
+        {"speaker": "Tomi", "text": "Equipe e moradores, cada um na sua tarefa. Vamos fazer isso juntos!", "scene": 9},
+        {"speaker": "Narrador", "text": f"Com diálogo e cooperação, a comunidade consegue resolver o desafio. A aventura ensina {value}.", "scene": 10},
+        {"speaker": "Luna", "text": "Uma boa ideia pode mudar tudo! E você, que atitude pode melhorar o lugar onde vive?", "scene": 11},
+    ]
+    long_dialogue_script = " ".join(f"{line['speaker']}: {line['text']}" for line in dialogues)
+    short_script = " ".join(line["text"] for line in short_segments)
+    long_audio_words = sum(len(item["text"].split()) for item in audio_segments_long)
+    short_audio_words = sum(len(item["text"].split()) for item in short_segments)
     return {
         "title": title, "planet": planet, "biome": world["biome"], "palette": world["palette"],
         "value": value, "challenge": mission["problem"], "synopsis": f"Em {planet}, os amigos ajudam os habitantes a resolver um desafio e aprendem sobre {value}.",
-        "story": " ".join(long_script), "long_script": " ".join(long_script),
-        "short_script": short_script, "scenes": [
+        "story": " ".join(long_script) + " " + long_dialogue_script,
+        "long_script": " ".join(long_script), "dialogues": dialogues,
+        "dialogue_script": long_dialogue_script,
+        "audio_segments_long": audio_segments_long, "audio_segments_short": short_segments,
+        "short_script": short_script, "short_highlight": "a pista inesperada, a mudança de plano e a solução em equipe",
+        "short_scene_indices": [6, 7, 8, 9, 10, 11],
+        "scenes": [
             {"title": item[0], "caption": item[1], "visual_action": item[2]} for item in scenes
         ],
         "characters": ["Luna", "Tomi", "Pipo"], "episode": "planet-journey",
-        "word_count_long": len(" ".join(long_script).split()),
-        "word_count_short": len(short_script.split()),
-        "duration_targets": {"16:9": {"min_seconds": 301, "target_seconds": 330}, "9:16": {"min_seconds": 60, "max_seconds": 90, "target_seconds": 75}},
+        "word_count_long": long_audio_words,
+        "word_count_short": short_audio_words,
+        "duration_targets": {
+            "16:9": {"min_seconds": 301, "max_seconds": 599, "target_seconds": 420},
+            "9:16": {"min_seconds": 60, "max_seconds": 90, "target_seconds": 75},
+        },
     }
