@@ -40,6 +40,16 @@ class GenerateRequest(BaseModel):
 
 JOBS: dict[str, dict[str, Any]] = {}
 LOCK = threading.Lock()
+SETTINGS_FILE = STORAGE / "studio-settings.json"
+DEFAULT_STUDIO_SETTINGS = {"auto_generate_formats": ["16:9", "9:16"], "require_review_before_publish": True, "auto_publish_enabled": False, "publish_days": ["Tuesday", "Thursday", "Saturday"], "publish_time": "18:00"}
+
+def _studio_settings():
+    if not SETTINGS_FILE.exists():
+        return DEFAULT_STUDIO_SETTINGS.copy()
+    try:
+        return {**DEFAULT_STUDIO_SETTINGS, **json.loads(SETTINGS_FILE.read_text(encoding="utf-8"))}
+    except (OSError, json.JSONDecodeError):
+        return DEFAULT_STUDIO_SETTINGS.copy()
 
 @app.get("/api/health")
 def health():
@@ -69,12 +79,67 @@ def generate(payload: GenerateRequest):
         "id": job_id, "title": payload.title, "status": "queued", "progress": 0,
         "message": "Na fila de produção", "formats": payload.formats, "outputs": {},
         "created_at": datetime.now(timezone.utc).isoformat(),
+        "review_status": "pending_review",
+        "publication_status": "not_connected",
+        "story": payload.story,
+        "episode": payload.episode,
     }
     with LOCK:
         JOBS[job_id] = job
         _save(job_id, job)
     threading.Thread(target=_run_job, args=(job_id, payload), daemon=True).start()
     return {"job_id": job_id, "status": "queued"}
+
+
+@app.get("/api/dashboard")
+def dashboard():
+    jobs = list_jobs()["jobs"]
+    total = len(jobs)
+    completed = [j for j in jobs if j.get("status") == "done"]
+    failed = [j for j in jobs if j.get("status") == "failed"]
+    active = [j for j in jobs if j.get("status") in {"queued", "processing"}]
+    approved = [j for j in jobs if j.get("review_status") == "approved"]
+    return {
+        "metrics": {
+            "episodes_total": total, "episodes_ready": len(completed),
+            "episodes_processing": len(active), "episodes_failed": len(failed),
+            "awaiting_review": sum(1 for j in completed if j.get("review_status") != "approved"),
+            "approved": len(approved),
+        },
+        "recent_episodes": jobs[:8],
+        "settings": _studio_settings(),
+        "youtube": {"configured": bool(settings.youtube_client_id and settings.youtube_client_secret), "publishing_enabled": False},
+    }
+
+@app.get("/api/studio-settings")
+def get_studio_settings():
+    return _studio_settings()
+
+@app.put("/api/studio-settings")
+def update_studio_settings(payload: dict[str, Any]):
+    allowed = {"auto_generate_formats", "require_review_before_publish", "auto_publish_enabled", "publish_days", "publish_time"}
+    if set(payload) - allowed:
+        raise HTTPException(400, "Configuração desconhecida.")
+    current = _studio_settings()
+    current.update(payload)
+    if current["auto_publish_enabled"]:
+        current["auto_publish_enabled"] = False
+        raise HTTPException(409, "A publicação automática será liberada após a integração OAuth segura do canal YouTube.")
+    if not isinstance(current["auto_generate_formats"], list) or any(x not in {"16:9", "9:16"} for x in current["auto_generate_formats"]):
+        raise HTTPException(400, "Formatos automáticos inválidos.")
+    SETTINGS_FILE.write_text(json.dumps(current, ensure_ascii=False, indent=2), encoding="utf-8")
+    return current
+
+@app.post("/api/jobs/{job_id}/review")
+def review_job(job_id: str, payload: dict[str, str]):
+    job = _get_job(job_id)
+    decision = payload.get("decision")
+    if decision not in {"approved", "changes_requested"}:
+        raise HTTPException(400, "Decisão deve ser approved ou changes_requested.")
+    if job.get("status") != "done":
+        raise HTTPException(409, "Só é possível revisar episódios finalizados.")
+    _update(job_id, review_status=decision, reviewed_at=datetime.now(timezone.utc).isoformat())
+    return _get_job(job_id)
 
 @app.get("/api/jobs")
 def list_jobs():
