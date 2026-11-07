@@ -138,6 +138,7 @@ function statusBadge(j){
 function episodeRow(j,compact=false){
  const outputs=Object.keys(j.outputs||{});
  const download=outputs.map(f=>'<a href="/api/jobs/'+encodeURIComponent(j.id)+'/download/'+encodeURIComponent(f)+'" target="_blank" style="color:#9fc5ff;font-size:11px;margin-right:8px">Baixar '+esc(f)+'</a>').join('');
+ const draft=j.status==='story_ready'?'<button class="btn secondary small" onclick="openStory(\\''+esc(j.id)+'\\')">Ver roteiro</button>':'';
  const review=j.status==='done'&&j.review_status!=='approved'?'<button class="btn good small" onclick="reviewEpisode(\\''+esc(j.id)+'\\',\\'approved\\')">Aprovar</button>':'';
  const publish=j.review_status==='approved'&&youtubeConnected?outputs.map(f=>'<button class="btn secondary small" onclick="publishEpisode(\\''+esc(j.id)+'\\',\\''+esc(f)+'\\')">Publicar '+esc(f)+'</button>').join(' '):'';
  const published=(j.publications||[]).map(p=>'<a href="'+esc(p.url)+'" target="_blank" style="color:#8fe0bf;font-size:11px">YouTube '+esc(p.format)+' ↗</a>').join(' ');
@@ -154,6 +155,22 @@ async function loadDashboard(){
  $('connectYoutube').style.display=d.youtube.configured?'inline-flex':'none';
  renderEpisodes();
  }catch(e){$('systemStatus').textContent='● API indisponível';$('systemStatus').style.color='#ffb7c0';}
+}
+async function openStory(id){
+ try{
+  const r=await fetch('/api/jobs/'+encodeURIComponent(id)+'/story');
+  const data=await r.json();if(!r.ok)throw new Error(data.detail||'Não foi possível carregar o roteiro.');
+  const story=data.story;pendingStoryId=id;pendingFormats=jobs.find(j=>j.id===id)?.formats||['16:9','9:16'];
+  $('storyTitle').textContent=story.title;$('storyPlanet').textContent=story.planet;$('storyBiome').textContent=story.biome;
+  $('storyValue').textContent=story.value;$('storyScenes').textContent=(story.scenes||[]).length;
+  $('storySynopsis').textContent=story.synopsis;
+  $('longWordCount').textContent=(story.word_count_long||story.long_script.split(/\s+/).length)+' palavras · roteiro exclusivo para o episódio longo.';
+  $('shortWordCount').textContent=(story.word_count_short||story.short_script.split(/\s+/).length)+' palavras · roteiro exclusivo para o Shorts.';
+  $('longStoryText').textContent=story.long_script;$('shortStoryText').textContent=story.short_script;
+  $('storyboardList').innerHTML=(story.scenes||[]).map((scene,i)=>'<div class="episode"><div class="thumb">'+String(i+1).padStart(2,'0')+'</div><div><div class="epname">'+esc(scene.title)+'</div><div class="epmeta">'+esc(scene.caption)+'</div><p class="muted">'+esc(scene.visual_action||'')+'</p></div></div>').join('');
+  $('storyPreview').style.display='block';$('renderMessage').textContent='Roteiro recuperado. Revise e aprove para renderizar.';
+  go('create');
+ }catch(e){alert(e.message);}
 }
 async function createEpisode(e){
  e.preventDefault();
