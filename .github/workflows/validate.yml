@@ -18,6 +18,20 @@ jobs:
         run: pip install -r backend/requirements.txt
       - name: Compile Python
         run: python -m compileall -q backend
+      - name: Validate dashboard JavaScript
+        run: |
+          python - <<'PY'
+          import re
+          from pathlib import Path
+          html = Path("web/index.html").read_text(encoding="utf-8")
+          scripts = re.findall(r"<script>([\\s\\S]*?)</script>", html)
+          if not scripts:
+              raise SystemExit("Nenhum script do painel foi encontrado")
+          Path("/tmp/anima-dashboard.js").write_text(scripts[-1], encoding="utf-8")
+          PY
+          node --check /tmp/anima-dashboard.js
+      - name: Check portable media dependencies
+        run: python -c "import edge_tts, imageio_ffmpeg, mutagen; print('Edge TTS, FFmpeg portátil e Mutagen disponíveis')"
       - name: Test story engine
         run: python -m unittest discover -s backend/tests -v
       - name: Build Docker image
