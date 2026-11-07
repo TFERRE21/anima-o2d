@@ -16,16 +16,16 @@ O painel possui:
 
 - Cada episódio recebe um identificador de planeta não repetido, com bioma, habitantes, problema e solução próprios.
 - O motor escolhe uma missão e valor educativo diferentes, preservando Luna, Tomi e Pipo.
-- O roteiro tem 12 cenas de storyboard, narração longa e uma versão resumida escrita separadamente para Shorts.
+- O roteiro tem 12 cenas de storyboard, falas próprias de Luna, Tomi e Pipo, narração do narrador e uma sequência curta construída a partir do clímax da história.
 - A criação do roteiro é uma etapa explícita anterior à renderização: `POST /api/stories/generate`; a prévia fica em `GET /api/jobs/{id}/story`; a animação começa em `POST /api/jobs/{id}/render`.
 - A agenda automática faz a mesma sequência internamente: grava a história completa e depois dispara a renderização.
 
 | Formato | Resolução | Duração exigida |
 |---|---:|---:|
-| Episódio 16:9 | 1920×1080 | Mais de 5 minutos (mínimo validado: 301 s) |
+| Episódio 16:9 | 1920×1080 | Entre 5 e 10 minutos (301–600 s) |
 | Shorts 9:16 | 1080×1920 | Entre 1:00 e 1:30 |
 
-O renderizador mede a duração do áudio e ajusta a velocidade da narração dentro de limites para respeitar a duração de cada formato. Se não conseguir cumprir a faixa, marca o job como falha em vez de entregar um vídeo com duração incorreta.
+O renderizador mede a duração da faixa de áudio final e ajusta a velocidade dentro de limites para respeitar as duas faixas. O episódio longo alterna narrador e falas dos três personagens. O Shorts usa a pista, a virada e a solução da missão — a parte mais impactante — com áudio e seleção de cenas próprios. Se não conseguir cumprir a faixa, marca o job como falha em vez de entregar um vídeo com duração incorreta.
 
 ## Motor de animação atual
 
@@ -33,14 +33,14 @@ O renderizador mede a duração do áudio e ajusta a velocidade da narração de
 - Cenários espaciais diferentes por planeta, com paletas próprias, luas, planetas com anéis, paisagens, cristais, construções e habitantes alienígenas.
 - Movimento contínuo de personagens, cauda, foguete, estrelas e elementos ambientais.
 - Movimentos simples por quadro e cenários ilustrados.
-- Narração em português brasileiro: usa espeak-ng quando instalado; no runtime Python do ICP, utiliza voz neural Edge TTS (`pt-BR-FranciscaNeural`) com conexão de saída à internet.
+- Vozes em português brasileiro: no ICP, Edge TTS alterna `pt-BR-ThalitaMultilingualNeural` (narrador), `pt-BR-FranciscaNeural` (Luna) e `pt-BR-AntonioNeural` (Tomi); Pipo usa a voz de Antonio com pitch elevado. Requer conexão de saída à internet. Em ambientes com espeak-ng, o motor usa variações de pitch para diferenciar as falas.
 - FFmpeg: usa a instalação do sistema quando disponível; no runtime Python do ICP, usa o binário portátil fornecido por `imageio-ffmpeg`.
-- A duração é medida por ffprobe quando disponível ou Mutagen como alternativa.
+- A duração é medida com ffprobe quando disponível, Mutagen e leitura de metadados pelo FFmpeg portátil como alternativas.
 - Renderização MP4 com FFmpeg.
 - Saídas 16:9 (1920×1080) e 9:16 (1080×1920).
 - Jobs em segundo plano e histórico persistido em volume Docker.
 
-> Este é um motor procedural em evolução, não uma ferramenta de animação profissional nem geração de vídeo por IA. Ainda faltam rigging avançado, sincronização labial, vozes neurais consistentes, trilha licenciada e animação quadro a quadro de nível profissional.
+> Este é um motor procedural em evolução, não uma ferramenta de animação profissional nem geração de vídeo por IA. As falas já têm vozes diferenciadas, mas a sincronização labial quadro a quadro, rigging avançado e trilha licenciada ainda não estão implementados.
 
 ## Automação e publicação — estado real
 
