@@ -29,8 +29,12 @@ class RenderDurationTests(unittest.TestCase):
             self.assertTrue(long_video.exists())
             self.assertTrue(short_video.exists())
             self.assertGreater(long_result["duration_seconds"], 300)
+            self.assertLessEqual(long_result["duration_seconds"], 600)
+            self.assertTrue({"Luna", "Tomi", "Pipo", "Narrador"}.issubset(set(long_result["speakers"])))
             self.assertGreaterEqual(short_result["duration_seconds"], 60)
             self.assertLessEqual(short_result["duration_seconds"], 90)
+            self.assertTrue({"Luna", "Tomi", "Pipo", "Narrador"}.issubset(set(short_result["speakers"])))
+            self.assertEqual(short_result["scene_count"], len(plan["short_scene_indices"]))
             self.assertEqual(long_result["resolution"], "1920x1080")
             self.assertEqual(short_result["resolution"], "1080x1920")
 
