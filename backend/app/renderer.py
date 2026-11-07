@@ -354,7 +354,7 @@ def render_episode(title: str, story: str, fmt: str, output: Path, workdir: Path
 
     # Give the final scene a short visual tail after the last spoken line.
     duration_seconds = fitted_duration + 1.2
-    width, height = (405, 720) if portrait else (720, 405)
+    width, height = (406, 720) if portrait else (720, 406)
     frames = workdir / f"frames-{fmt.replace(':','x')}"
     frames.mkdir(parents=True, exist_ok=True)
 
