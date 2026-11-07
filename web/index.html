@@ -2,61 +2,167 @@
 <html lang="pt-BR">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Anima 2D — Pequenos Guardiões</title>
+<title>Anima 2D Studio — Pequenos Guardiões</title>
 <style>
-:root{color-scheme:dark;font-family:Inter,system-ui,Arial,sans-serif;background:#091225;color:#edf3ff}*{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at 75% 0,#183b70 0,transparent 40%),#091225}.wrap{max-width:1180px;margin:auto;padding:28px 20px}.top{display:flex;justify-content:space-between;align-items:center;gap:14px}.brand{font-size:23px;font-weight:900;letter-spacing:-1px}.pill{border:1px solid #31517e;color:#b9d7ff;border-radius:99px;padding:7px 12px;font-size:12px}.hero{padding:38px 0 18px}.hero h1{font-size:clamp(32px,5vw,54px);line-height:1.04;letter-spacing:-1.8px;margin:0 0 12px}.hero p{max-width:690px;color:#aebed8;line-height:1.65}.grid{display:grid;grid-template-columns:1.12fr .88fr;gap:18px}.card{background:#111d33;border:1px solid #263d60;border-radius:18px;padding:22px;box-shadow:0 18px 50px #0003}.card h2{margin:0 0 12px;font-size:19px}label{display:block;font-size:13px;color:#c3d1e8;margin:15px 0 7px}input[type=text],textarea,select{width:100%;padding:12px 13px;background:#091529;border:1px solid #344c70;border-radius:10px;color:#f4f7ff;font:inherit}textarea{min-height:126px;resize:vertical}.formats{display:flex;gap:10px}.format{flex:1;display:flex;gap:10px;align-items:center;background:#0b172b;border:1px solid #344c70;padding:12px;border-radius:12px;margin:0}.format input{width:auto;accent-color:#68a6ff}.format small{display:block;color:#96aaca;margin-top:3px}.btn{background:#64a2ff;color:#07152b;border:0;border-radius:11px;padding:13px 17px;font-weight:850;cursor:pointer;margin-top:17px}.btn:disabled{opacity:.55;cursor:wait}.btn.secondary{background:#243b5f;color:#e8f1ff}.preview{background:linear-gradient(150deg,#142e56,#0a1529);border:1px dashed #49668e;border-radius:14px;min-height:220px;display:grid;place-items:center;text-align:center;padding:18px}.preview .emoji{font-size:54px}.muted{color:#9db0ce;font-size:13px;line-height:1.5}.status{margin-top:16px;background:#091529;border-radius:12px;padding:14px}.bar{height:8px;background:#263c5e;border-radius:20px;overflow:hidden;margin:10px 0}.bar span{display:block;height:100%;width:0;background:linear-gradient(90deg,#59d5a5,#6aa7ff);transition:width .3s}.output{display:flex;justify-content:space-between;align-items:center;gap:10px;border-top:1px solid #263d60;padding:12px 0}.output a{color:#8fc1ff;font-weight:700}.tag{font-size:11px;background:#183b35;color:#9df0c5;border-radius:99px;padding:5px 9px}.history{margin-top:18px}.history-item{padding:12px 0;border-bottom:1px solid #263d60}.foot{margin:18px 0;color:#8195b5;font-size:12px}@media(max-width:800px){.grid{grid-template-columns:1fr}.top{align-items:flex-start;flex-direction:column}.wrap{padding:20px 14px}.formats{flex-direction:column}}
+:root{color-scheme:dark;font-family:Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,sans-serif;background:#080e1c;color:#edf3ff;--panel:#101a2c;--panel2:#0c1628;--line:#263a59;--muted:#91a5c4;--blue:#79aaff;--mint:#70dfb3;--gold:#f6ca69}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at 72% -10%,#203d70 0,transparent 34%),#080e1c}button,input,textarea,select{font:inherit}button{cursor:pointer}
+.shell{display:grid;grid-template-columns:248px minmax(0,1fr);min-height:100vh}.sidebar{background:#0b1425;border-right:1px solid var(--line);padding:24px 16px;display:flex;flex-direction:column;gap:24px}.logo{font-size:22px;font-weight:950;letter-spacing:-1px;padding:2px 10px}.logo span{color:var(--blue)}.series{margin:0 8px;padding:14px;border:1px solid #30466a;border-radius:15px;background:linear-gradient(145deg,#182d4c,#101a2c)}.series small{color:#a6bbd8}.series b{display:block;margin:6px 0}.navlabel{font-size:10px;letter-spacing:1.5px;color:#7388a8;padding:0 12px;margin-bottom:-14px}.nav{display:grid;gap:6px}.nav button{border:0;background:transparent;color:#a8bad4;text-align:left;padding:12px;border-radius:10px;display:flex;gap:12px;align-items:center}.nav button.active,.nav button:hover{background:#1a2b47;color:white}.nav .ico{width:20px;text-align:center}.sidebottom{margin-top:auto;border-top:1px solid var(--line);padding:16px 10px;color:var(--muted);font-size:12px;line-height:1.6}.main{padding:28px clamp(18px,3vw,42px);max-width:1500px;width:100%;margin:auto}.topbar{display:flex;justify-content:space-between;align-items:center;gap:15px}.eyebrow{font-size:11px;letter-spacing:1.5px;color:#9ab5da;text-transform:uppercase}.topbar h1{font-size:25px;margin:5px 0 0;letter-spacing:-.7px}.topright{display:flex;align-items:center;gap:10px}.statuspill{border:1px solid #315a56;background:#102a2a;color:#9ce8cb;border-radius:99px;padding:8px 12px;font-size:11px}.avatar{width:36px;height:36px;border-radius:12px;background:#233e68;display:grid;place-items:center}.page{display:none}.page.active{display:block}.welcome{margin:28px 0 20px;padding:25px 28px;border:1px solid #30496f;border-radius:19px;background:linear-gradient(105deg,#172d4c 0%,#172741 56%,#342c4b 100%);position:relative;overflow:hidden;display:flex;justify-content:space-between;align-items:center;gap:20px}.welcome h2{font-size:clamp(24px,3vw,34px);margin:0 0 9px;letter-spacing:-1px}.welcome p{color:#c1cde0;max-width:590px;line-height:1.55;margin:0}.welcomeart{width:250px;max-width:34%;flex-shrink:0}.btn{border:0;background:var(--blue);color:#09152a;padding:11px 16px;border-radius:10px;font-weight:850}.btn:hover{filter:brightness(1.08)}.btn.secondary{background:#243b5c;color:#e6efff;border:1px solid #3b5478}.btn.ghost{background:transparent;color:#bad2f8;border:1px solid #3b5478}.btn.good{background:#174d43;color:#b0f4d8;border:1px solid #287b66}.btn.warn{background:#533b24;color:#ffdda4;border:1px solid #795a34}.btn.small{padding:7px 10px;font-size:11px}.metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:13px;margin:17px 0}.metric{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:17px}.metric .mhead{display:flex;justify-content:space-between;color:var(--muted);font-size:12px}.metric strong{font-size:29px;display:block;margin:12px 0 3px;letter-spacing:-1px}.metric small{color:#8499b9}.layout{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(270px,.8fr);gap:16px;margin-top:16px}.card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:19px;min-width:0}.cardhead{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:14px}.cardhead h3{margin:0;font-size:15px}.muted{color:var(--muted);font-size:12px;line-height:1.55}.episode{display:grid;grid-template-columns:72px minmax(0,1fr) auto;gap:13px;align-items:center;padding:12px 0;border-bottom:1px solid #243650}.episode:last-child{border-bottom:0}.thumb{width:72px;height:58px;border-radius:10px;background:linear-gradient(145deg,#315b85,#a66c8b);display:grid;place-items:center;font-size:25px}.epname{font-weight:750;font-size:13px}.epmeta{color:var(--muted);font-size:11px;margin-top:5px}.badge{display:inline-flex;border-radius:99px;padding:5px 8px;font-size:10px;font-weight:750;background:#263953;color:#c4d7f4}.badge.ready{background:#153b34;color:#9ce6c9}.badge.pending{background:#4a3921;color:#f7d99b}.badge.failed{background:#4b252e;color:#ffb7c0}.pipeline{display:grid;gap:13px}.pipe{display:flex;gap:11px;align-items:flex-start}.pipen{width:25px;height:25px;flex-shrink:0;border-radius:8px;background:#1b3457;color:#9dc4ff;display:grid;place-items:center;font-size:11px;font-weight:800}.pipe b{font-size:12px}.pipe small{display:block;color:var(--muted);margin-top:3px;line-height:1.4}.charactergrid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}.character{background:var(--panel2);border:1px solid #263c5c;border-radius:14px;padding:12px;text-align:center}.character svg{width:100%;height:115px}.character b{display:block;font-size:12px;margin-top:5px}.character small{color:var(--muted);font-size:10px}.sectionintro{margin:28px 0 18px}.sectionintro h2{font-size:24px;margin:0 0 6px}.sectionintro p{color:var(--muted);font-size:13px;margin:0}.formgrid{display:grid;grid-template-columns:1fr 1fr;gap:13px}.field{margin-bottom:14px}.field.full{grid-column:1/-1}.field label{display:block;color:#b6c8e2;font-size:12px;margin-bottom:7px}.field input,.field textarea,.field select{width:100%;background:#091426;border:1px solid #344b6d;color:#f2f6ff;border-radius:10px;padding:12px;outline:none}.field textarea{min-height:110px;resize:vertical}.checks{display:flex;gap:12px;flex-wrap:wrap}.check{display:flex;align-items:center;gap:8px;background:#0b172a;border:1px solid #344b6d;padding:11px 13px;border-radius:10px;font-size:12px}.check input{accent-color:#75aaff}.toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center}.empty{padding:30px;text-align:center;color:var(--muted);font-size:13px}.settingrow{display:flex;justify-content:space-between;align-items:center;gap:18px;padding:15px 0;border-bottom:1px solid #263a59}.settingrow:last-child{border:0}.settingrow b{font-size:13px}.settingrow p{margin:4px 0 0;color:var(--muted);font-size:11px}.switch{appearance:none;width:42px;height:24px;background:#354761;border-radius:99px;position:relative;cursor:pointer;flex-shrink:0}.switch:checked{background:#24785e}.switch:before{content:"";position:absolute;width:18px;height:18px;left:3px;top:3px;background:white;border-radius:50%;transition:.2s}.switch:checked:before{left:21px}.notice{background:#302a1d;border:1px solid #65512e;color:#f4d79e;border-radius:12px;padding:13px;font-size:12px;line-height:1.55;margin-top:14px}.notice.info{background:#142a42;border-color:#2d4e72;color:#bad8ff}.progress{height:7px;background:#263a59;border-radius:99px;overflow:hidden;margin:9px 0}.progress span{display:block;height:100%;background:linear-gradient(90deg,#58d6a7,#77aaff)}.footer{font-size:11px;color:#7286a5;margin:24px 0 10px}
+@media(max-width:950px){.shell{grid-template-columns:76px minmax(0,1fr)}.sidebar{padding:20px 9px}.logo{font-size:0;text-align:center}.logo:first-letter{font-size:22px}.logo span{display:none}.series,.navlabel,.nav button .txt,.sidebottom{display:none}.nav button{justify-content:center;font-size:18px}.layout{grid-template-columns:1fr}.welcomeart{max-width:28%}}
+@media(max-width:650px){.main{padding:18px 13px}.metrics{grid-template-columns:repeat(2,1fr)}.welcome{padding:20px}.welcomeart{display:none}.topbar h1{font-size:20px}.statuspill{display:none}.formgrid{grid-template-columns:1fr}.field.full{grid-column:auto}.charactergrid{gap:6px}.character{padding:7px}.character svg{height:85px}.episode{grid-template-columns:54px minmax(0,1fr)}.thumb{width:54px;height:50px}.episode .epactions{grid-column:2}.topright{gap:6px}}
 </style>
 </head>
 <body>
-<main class="wrap">
-<header class="top"><div class="brand">✦ ANIMA <span style="color:#75aaff">2D</span></div><span class="pill">ESTÚDIO DE ANIMAÇÃO INFANTIL</span></header>
-<section class="hero"><h1>Pequenos Guardiões.<br><span style="color:#78adff">Grandes atitudes.</span></h1><p>Crie episódios animados com Luna, Tomi e Pipo. O motor atual gera cenas 2D animadas, narração sintetizada em português e arquivos MP4 em formato horizontal e vertical.</p></section>
-<section class="grid">
-<div class="card">
-<h2>🎬 Criar episódio</h2>
-<label for="title">Título do episódio</label><input id="title" type="text" value="O Mistério das Mochilas" maxlength="100">
-<label for="story">História / tema educativo</label><textarea id="story">Na escola do bairro, algumas mochilas aparecem trocadas. Luna observa as etiquetas, Tomi decide conferir os nomes com a professora e Pipo ajuda a encontrar uma pista. Eles descobrem que foi uma troca por engano e ensinam que honestidade e responsabilidade ajudam todo mundo.</textarea>
-<label>Formatos de vídeo</label><div class="formats">
-<label class="format"><input type="checkbox" value="16:9" checked><span><b>16:9 — YouTube</b><small>1920 × 1080 horizontal</small></span></label>
-<label class="format"><input type="checkbox" value="9:16" checked><span><b>9:16 — Shorts</b><small>1080 × 1920 vertical</small></span></label>
-</div>
-<button class="btn" id="generate">▶ Gerar animação 2D</button>
-<div class="muted" id="notice">A geração pode levar alguns minutos. Você pode fechar a página; o processamento continua no servidor.</div>
-</div>
-<aside class="card">
-<h2>✨ Personagens da série</h2>
-<div class="preview"><div><div class="emoji">🦸‍♀️ 🦸‍♂️ 🐶</div><b>Luna • Tomi • Pipo</b><p class="muted">Amizade, coragem, honestidade e respeito.</p></div></div>
-<div class="status"><b id="jobTitle">Pronto para criar</b><div class="bar"><span id="progress"></span></div><div class="muted" id="jobMessage">Escolha os formatos e gere seu primeiro episódio.</div><div id="downloads"></div></div>
-<div class="history"><h2 style="margin-top:20px">📚 Produções recentes</h2><div id="history" class="muted">Carregando...</div></div>
+<div class="shell">
+<aside class="sidebar">
+<div class="logo">✦ ANIMA <span>STUDIO</span></div>
+<div class="series"><small>SÉRIE EM PRODUÇÃO</small><b>Pequenos Guardiões</b><small>Temporada 01 · A Liga do Bem</small></div>
+<div class="navlabel">ESTÚDIO</div>
+<nav class="nav">
+<button class="active" data-page="dashboard"><span class="ico">▦</span><span class="txt">Visão geral</span></button>
+<button data-page="episodes"><span class="ico">▤</span><span class="txt">Episódios</span></button>
+<button data-page="create"><span class="ico">✦</span><span class="txt">Criar episódio</span></button>
+<button data-page="automation"><span class="ico">◷</span><span class="txt">Automação</span></button>
+</nav>
+<div class="navlabel">PUBLICAÇÃO</div>
+<nav class="nav">
+<button data-page="publishing"><span class="ico">↗</span><span class="txt">YouTube & postagens</span></button>
+</nav>
+<div class="sidebottom">ANIMA 2D STUDIO<br>Pequenas histórias. Grandes valores.</div>
 </aside>
+<main class="main">
+<header class="topbar"><div><div class="eyebrow">CENTRAL DE PRODUÇÃO</div><h1 id="pageTitle">Visão geral</h1></div><div class="topright"><span class="statuspill" id="systemStatus">● Sistema conectado</span><div class="avatar">✦</div></div></header>
+
+<section class="page active" id="page-dashboard">
+<div class="welcome">
+<div><div class="eyebrow">BEM-VINDO AO ESTÚDIO</div><h2>Histórias que inspiram.<br><span style="color:#9dc2ff">Heróis que ensinam.</span></h2><p>Acompanhe a criação dos episódios, revise os vídeos e organize a rotina de publicação dos Pequenos Guardiões.</p><button class="btn" style="margin-top:17px" onclick="go('create')">＋ Criar novo episódio</button></div>
+<div class="welcomeart">
+<svg viewBox="0 0 300 190" role="img" aria-label="Luna, Tomi e Pipo">
+<circle cx="150" cy="90" r="82" fill="#ffffff" opacity=".07"/><path d="M38 170 Q150 115 265 170" fill="none" stroke="#8db8ef" opacity=".5" stroke-width="3"/>
+<g transform="translate(88 90)"><path d="M-22 44 L-26 78 M20 44 L25 78" stroke="#43345f" stroke-width="13" stroke-linecap="round"/><rect x="-31" y="0" width="62" height="58" rx="17" fill="#e83b9b" stroke="#522b60" stroke-width="3"/><circle cx="0" cy="-30" r="34" fill="#f2bd98" stroke="#704330" stroke-width="4"/><path d="M-34 -33 Q-38 -73 0 -66 Q37 -73 34 -30 L22 -43 L5 -57 L-17 -43Z" fill="#704330"/><circle cx="-12" cy="-29" r="4" fill="#30233b"/><circle cx="12" cy="-29" r="4" fill="#30233b"/><path d="M-8 -12 Q0 -4 8 -12" fill="none" stroke="#a64d58" stroke-width="3"/><path d="M-25 -48 Q0 -61 25 -48" stroke="#ff70c1" stroke-width="7" fill="none"/><path d="M0 7 l5 10 11 1 -8 7 2 11 -10 -6 -10 6 2 -11 -8 -7 11 -1Z" fill="#ffdc62"/></g>
+<g transform="translate(190 93)"><path d="M-20 43 L-24 78 M20 43 L24 78" stroke="#253b68" stroke-width="13" stroke-linecap="round"/><rect x="-31" y="0" width="62" height="58" rx="17" fill="#2464ad" stroke="#1c3153" stroke-width="3"/><circle cx="0" cy="-30" r="34" fill="#efb68e" stroke="#573624" stroke-width="4"/><path d="M-34 -33 L-29 -68 -9 -53 2 -76 14 -50 34 -65 29 -28Z" fill="#69412d"/><circle cx="-12" cy="-29" r="4" fill="#27334b"/><circle cx="12" cy="-29" r="4" fill="#27334b"/><path d="M-8 -12 Q0 -4 8 -12" fill="none" stroke="#995047" stroke-width="3"/><path d="M0 7 l5 10 11 1 -8 7 2 11 -10 -6 -10 6 2 -11 -8 -7 11 -1Z" fill="#ffdc62"/></g>
+<g transform="translate(146 151)"><ellipse cx="0" cy="8" rx="27" ry="19" fill="#c98243" stroke="#75452b" stroke-width="3"/><circle cx="0" cy="-14" r="23" fill="#d99655" stroke="#75452b" stroke-width="3"/><ellipse cx="-25" cy="-12" rx="9" ry="19" fill="#89512e"/><ellipse cx="25" cy="-12" rx="9" ry="19" fill="#89512e"/><ellipse cx="0" cy="-5" rx="12" ry="8" fill="#f6d7ae"/><circle cx="-8" cy="-17" r="3" fill="#241a17"/><circle cx="8" cy="-17" r="3" fill="#241a17"/><circle cx="0" cy="-7" r="4" fill="#241a17"/><path d="M-15 5 H15" stroke="#24528a" stroke-width="9" stroke-linecap="round"/></g>
+</svg>
+</div></div>
+<div class="metrics">
+<div class="metric"><div class="mhead"><span>Episódios criados</span><span>▤</span></div><strong id="mTotal">—</strong><small>no estúdio</small></div>
+<div class="metric"><div class="mhead"><span>Prontos para revisão</span><span>◷</span></div><strong id="mReview">—</strong><small>aguardando aprovação</small></div>
+<div class="metric"><div class="mhead"><span>Em produção</span><span>✦</span></div><strong id="mActive">—</strong><small>renderização em andamento</small></div>
+<div class="metric"><div class="mhead"><span>Finalizados</span><span>✓</span></div><strong id="mReady">—</strong><small>vídeos renderizados</small></div>
+</div>
+<div class="layout">
+<div class="card"><div class="cardhead"><h3>Últimos episódios</h3><button class="btn ghost small" onclick="go('episodes')">Ver todos →</button></div><div id="recentEpisodes" class="muted">Carregando episódios…</div></div>
+<div class="card"><div class="cardhead"><h3>Fluxo de produção</h3><span class="badge ready">AO VIVO</span></div><div class="pipeline">
+<div class="pipe"><span class="pipen">1</span><div><b>Roteiro e história</b><small>Definir aventura e valor educativo.</small></div></div>
+<div class="pipe"><span class="pipen">2</span><div><b>Animação 2D</b><small>Personagens, cenas e movimentos.</small></div></div>
+<div class="pipe"><span class="pipen">3</span><div><b>Renderização dupla</b><small>YouTube 16:9 e Shorts 9:16.</small></div></div>
+<div class="pipe"><span class="pipen">4</span><div><b>Revisão editorial</b><small>Conferir qualidade e adequação infantil.</small></div></div>
+<div class="pipe"><span class="pipen">5</span><div><b>Publicação</b><small>Agendamento após conectar o canal.</small></div></div>
+</div></div></div>
+<div class="card" style="margin-top:16px"><div class="cardhead"><h3>Elenco principal</h3><span class="muted">Identidade visual da série</span></div><div class="charactergrid">
+<div class="character"><svg viewBox="0 0 100 130"><circle cx="50" cy="39" r="28" fill="#f2bd98" stroke="#704330" stroke-width="3"/><path d="M22 40 Q15 4 50 7 Q87 2 78 45 L68 29 50 17 30 34Z" fill="#704330"/><path d="M26 23 Q50 8 74 24" stroke="#ff70c1" stroke-width="6" fill="none"/><circle cx="40" cy="39" r="3" fill="#30233b"/><circle cx="60" cy="39" r="3" fill="#30233b"/><path d="M43 51 Q50 58 57 51" fill="none" stroke="#a64d58" stroke-width="2"/><rect x="23" y="70" width="54" height="48" rx="14" fill="#e83b9b"/><path d="M50 78 l5 9 10 1 -8 7 2 10 -9 -5 -9 5 2 -10 -8 -7 10 -1Z" fill="#ffdc62"/></svg><b>Luna</b><small>Inventora corajosa</small></div>
+<div class="character"><svg viewBox="0 0 100 130"><circle cx="50" cy="39" r="28" fill="#efb68e" stroke="#573624" stroke-width="3"/><path d="M22 38 L26 5 42 20 53 2 63 22 80 8 77 43Z" fill="#69412d"/><circle cx="40" cy="39" r="3" fill="#27334b"/><circle cx="60" cy="39" r="3" fill="#27334b"/><path d="M43 51 Q50 58 57 51" fill="none" stroke="#995047" stroke-width="2"/><rect x="23" y="70" width="54" height="48" rx="14" fill="#2464ad"/><path d="M50 78 l5 9 10 1 -8 7 2 10 -9 -5 -9 5 2 -10 -8 -7 10 -1Z" fill="#ffdc62"/></svg><b>Tomi</b><small>Estrategista leal</small></div>
+<div class="character"><svg viewBox="0 0 100 130"><ellipse cx="50" cy="91" rx="35" ry="27" fill="#c98243" stroke="#75452b" stroke-width="3"/><circle cx="50" cy="45" r="29" fill="#d99655" stroke="#75452b" stroke-width="3"/><ellipse cx="21" cy="43" rx="10" ry="25" fill="#89512e"/><ellipse cx="79" cy="43" rx="10" ry="25" fill="#89512e"/><ellipse cx="50" cy="57" rx="15" ry="10" fill="#f6d7ae"/><circle cx="40" cy="42" r="3" fill="#241a17"/><circle cx="60" cy="42" r="3" fill="#241a17"/><circle cx="50" cy="55" r="4" fill="#241a17"/><rect x="30" y="78" width="40" height="15" rx="7" fill="#24528a"/></svg><b>Pipo</b><small>Cão companheiro</small></div>
+</div></div>
 </section>
-<p class="foot">Anima 2D • Versão inicial do motor procedural. A publicação no YouTube ainda requer configuração OAuth e será adicionada numa etapa própria. Revise o conteúdo antes de publicar como conteúdo infantil.</p>
+
+<section class="page" id="page-create">
+<div class="sectionintro"><h2>Criar novo episódio</h2><p>Conte uma história e escolha os formatos. O estúdio cuida da renderização.</p></div>
+<div class="card"><form id="createForm"><div class="formgrid">
+<div class="field full"><label for="title">Título do episódio</label><input id="title" required maxlength="100" value="O Mistério das Mochilas"></div>
+<div class="field full"><label for="story">História / tema educativo</label><textarea id="story" required minlength="10">Na escola do bairro, algumas mochilas aparecem trocadas. Luna observa as etiquetas, Tomi decide conferir os nomes com a professora e Pipo ajuda a encontrar uma pista. Eles descobrem que foi uma troca por engano e ensinam que honestidade e responsabilidade ajudam todo mundo.</textarea></div>
+<div class="field full"><label>Formatos de saída</label><div class="checks"><label class="check"><input type="checkbox" name="format" value="16:9" checked> YouTube horizontal · 1920×1080</label><label class="check"><input type="checkbox" name="format" value="9:16" checked> Shorts vertical · 1080×1920</label></div></div>
+</div><div class="toolbar"><button class="btn" id="createBtn">✦ Gerar episódio</button><span class="muted" id="createMessage">O processamento continua no servidor enquanto você acompanha o painel.</span></div></form></div>
+<div class="card" id="activeJobCard" style="margin-top:16px;display:none"><div class="cardhead"><h3 id="activeJobTitle">Produção iniciada</h3><span class="badge pending" id="activeJobBadge">EM FILA</span></div><div class="progress"><span id="activeJobProgress" style="width:0%"></span></div><p class="muted" id="activeJobMessage"></p><div id="activeJobDownloads"></div></div>
+</section>
+
+<section class="page" id="page-episodes">
+<div class="sectionintro"><h2>Biblioteca de episódios</h2><p>Todos os episódios criados, seus formatos, renderização e revisão.</p></div>
+<div class="card"><div class="cardhead"><h3>Temporada 01</h3><button class="btn small" onclick="go('create')">＋ Novo episódio</button></div><div id="allEpisodes">Carregando…</div></div>
+</section>
+
+<section class="page" id="page-automation">
+<div class="sectionintro"><h2>Central de automação</h2><p>Configure o fluxo de produção e a rotina editorial da série.</p></div>
+<div class="layout">
+<div class="card"><div class="cardhead"><h3>Preferências de produção</h3><span class="badge ready">CONFIGURÁVEL</span></div>
+<div class="settingrow"><div><b>Gerar os dois formatos</b><p>Produzir versão horizontal e Shorts para cada episódio.</p></div><input class="switch" id="autoBoth" type="checkbox" checked></div>
+<div class="settingrow"><div><b>Exigir revisão antes de publicar</b><p>Evita que um vídeo seja publicado sem conferência.</p></div><input class="switch" id="requireReview" type="checkbox" checked></div>
+<div class="settingrow"><div><b>Publicação automática no YouTube</b><p>Será habilitada quando a integração OAuth do canal estiver pronta.</p></div><input class="switch" id="autoPublish" type="checkbox" disabled></div>
+<div class="notice">A automação de publicação ainda não está conectada. As preferências ficam salvas, mas nenhum vídeo será enviado ao YouTube por enquanto.</div>
+<button class="btn" id="saveSettings" style="margin-top:16px">Salvar preferências</button><span id="settingsMessage" class="muted" style="margin-left:10px"></span>
+</div>
+<div class="card"><div class="cardhead"><h3>Rotina editorial sugerida</h3><span class="badge">PLANEJAMENTO</span></div>
+<p class="muted">Dias e horário sugeridos para organizar as futuras postagens. Ainda não cria agendamentos no YouTube.</p>
+<div class="field"><label>Frequência</label><div class="checks"><label class="check"><input type="checkbox" class="day" value="Tuesday" checked> Terça</label><label class="check"><input type="checkbox" class="day" value="Thursday" checked> Quinta</label><label class="check"><input type="checkbox" class="day" value="Saturday" checked> Sábado</label></div></div>
+<div class="field"><label for="publishTime">Horário preferencial</label><input id="publishTime" type="time" value="18:00"></div>
+<button class="btn secondary" id="saveSchedule">Salvar rotina</button><p class="muted" id="scheduleMessage"></p>
+</div></div>
+</section>
+
+<section class="page" id="page-publishing">
+<div class="sectionintro"><h2>YouTube & postagens</h2><p>Acompanhe o preparo dos vídeos e a conexão com o canal.</p></div>
+<div class="layout">
+<div class="card"><div class="cardhead"><h3>Status da integração</h3><span class="badge pending" id="ytBadge">AGUARDANDO CONFIGURAÇÃO</span></div><h2 style="font-size:21px">Canal do YouTube</h2><p class="muted">A publicação real exige credenciais OAuth do Google, autorização do proprietário do canal e configuração segura no servidor.</p><div class="notice info">Nenhum vídeo será publicado sem autorização. Quando a integração estiver ativa, o painel poderá acompanhar uploads, links, status e agendamentos.</div><div style="margin-top:15px" class="muted">Estado atual: <b id="ytStatus">Não conectado</b></div></div>
+<div class="card"><div class="cardhead"><h3>Fila de postagem</h3><span class="badge">EM PREPARAÇÃO</span></div><div id="postingQueue" class="empty">Os episódios finalizados aparecerão aqui para revisão e futura publicação.</div></div>
+</div>
+<div class="card" style="margin-top:16px"><div class="cardhead"><h3>Checklist antes de publicar</h3></div><div class="pipeline"><div class="pipe"><span class="pipen">✓</span><div><b>Vídeo renderizado</b><small>Verificar imagem, áudio e duração.</small></div></div><div class="pipe"><span class="pipen">✓</span><div><b>Revisão de conteúdo infantil</b><small>Conferir linguagem, segurança e mensagem educativa.</small></div></div><div class="pipe"><span class="pipen">3</span><div><b>Metadados e miniatura</b><small>Título, descrição, classificação de público infantil e thumbnail.</small></div></div><div class="pipe"><span class="pipen">4</span><div><b>Upload autorizado</b><small>Enviar e acompanhar o processamento no YouTube Studio.</small></div></div></div></div>
+</section>
+<div class="footer">ANIMA 2D STUDIO · Pequenos Guardiões — A Liga do Bem · Painel em evolução</div>
 </main>
+</div>
 <script>
 const $=id=>document.getElementById(id);
-let poller=null;
-function setJob(job){
- $('jobTitle').textContent=job.title||'Produção';
- $('progress').style.width=(job.progress||0)+'%';
- $('jobMessage').textContent=(job.status||'')+' — '+(job.message||'');
- const links=Object.entries(job.outputs||{}).map(([fmt])=>'<div class="output"><span>'+fmt+'</span><a href="/api/jobs/'+job.id+'/download/'+encodeURIComponent(fmt)+'" target="_blank">Baixar MP4 ↓</a></div>').join('');
- $('downloads').innerHTML=links;
- if(job.status==='done'||job.status==='failed'){if(poller){clearInterval(poller);poller=null;}$('generate').disabled=false;$('generate').textContent='▶ Gerar outro episódio';}
+const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+let jobs=[],poll=null;
+const labels={dashboard:'Visão geral',episodes:'Episódios',create:'Criar episódio',automation:'Automação',publishing:'YouTube & postagens'};
+function go(page){document.querySelectorAll('.page').forEach(x=>x.classList.remove('active'));$('page-'+page).classList.add('active');document.querySelectorAll('.nav button').forEach(x=>x.classList.toggle('active',x.dataset.page===page));$('pageTitle').textContent=labels[page];if(page==='episodes'||page==='publishing')renderEpisodes();if(page==='automation')loadSettings();window.scrollTo({top:0,behavior:'smooth'});}
+document.querySelectorAll('.nav button').forEach(b=>b.addEventListener('click',()=>go(b.dataset.page)));
+function statusBadge(j){if(j.status==='failed')return '<span class="badge failed">Falhou</span>';if(j.status==='processing'||j.status==='queued')return '<span class="badge pending">Em produção</span>';if(j.review_status==='approved')return '<span class="badge ready">Aprovado</span>';return '<span class="badge pending">Aguardando revisão</span>';}
+function episodeRow(j,compact=false){
+ const outputs=Object.keys(j.outputs||{});const download=outputs.map(f=>'<a href="/api/jobs/'+encodeURIComponent(j.id)+'/download/'+encodeURIComponent(f)+'" target="_blank" style="color:#9fc5ff;font-size:11px;margin-right:10px">Baixar '+esc(f)+'</a>').join('');
+ const review=j.status==='done'&&j.review_status!=='approved'?'<button class="btn good small" onclick="reviewEpisode(\''+esc(j.id)+'\',\'approved\')">Aprovar</button>':'';
+ return '<div class="episode"><div class="thumb">🎬</div><div><div class="epname">'+esc(j.title)+'</div><div class="epmeta">'+new Date(j.created_at).toLocaleString('pt-BR')+' · '+esc((j.formats||[]).join(' + '))+'</div><div style="margin-top:7px">'+statusBadge(j)+' <span style="margin-left:7px">'+download+'</span></div></div><div class="epactions">'+review+'</div></div>';
 }
-async function refreshHistory(){
- try{const r=await fetch('/api/jobs');const d=await r.json();$('history').innerHTML=(d.jobs||[]).slice(0,6).map(j=>'<div class="history-item"><b>'+j.title+'</b><br><span class="muted">'+j.status+' · '+(j.progress||0)+'%</span></div>').join('')||'Nenhuma produção ainda.';}catch(e){$('history').textContent='API indisponível.'}
+function renderEpisodes(){
+ const html=jobs.length?jobs.map(j=>episodeRow(j)).join(''):'<div class="empty">Ainda não há episódios. Crie o primeiro!</div>';
+ $('allEpisodes').innerHTML=html;
+ const done=jobs.filter(j=>j.status==='done');
+ $('postingQueue').innerHTML=done.length?done.map(j=>'<div class="episode"><div class="thumb">📺</div><div><div class="epname">'+esc(j.title)+'</div><div class="epmeta">'+(j.review_status==='approved'?'Revisado e aprovado':'Aguardando revisão editorial')+'</div></div><div>'+statusBadge(j)+'</div></div>').join(''):'<div class="empty">Nenhum episódio finalizado ainda.</div>';
 }
-async function watch(id){
- const tick=async()=>{try{const r=await fetch('/api/jobs/'+id);if(!r.ok)throw new Error('Não foi possível consultar a produção.');const job=await r.json();setJob(job);refreshHistory();}catch(e){$('jobMessage').textContent=e.message;}};
- await tick();if(poller)clearInterval(poller);poller=setInterval(tick,2500);
+async function loadDashboard(){
+ try{const [jr,dr]=await Promise.all([fetch('/api/jobs'),fetch('/api/dashboard')]);if(!jr.ok||!dr.ok)throw new Error('API indisponível');jobs=(await jr.json()).jobs||[];const d=await dr.json(),m=d.metrics;
+ $('mTotal').textContent=m.episodes_total;$('mReview').textContent=m.awaiting_review;$('mActive').textContent=m.episodes_processing;$('mReady').textContent=m.episodes_ready;
+ $('recentEpisodes').innerHTML=jobs.length?jobs.slice(0,5).map(j=>episodeRow(j,true)).join(''):'<div class="empty">Seu primeiro episódio está esperando para nascer.</div>';
+ $('systemStatus').textContent='● Sistema conectado';$('systemStatus').style.color='#9ce8cb';
+ $('ytBadge').textContent=d.youtube.configured?'CREDENCIAIS DETECTADAS':'AGUARDANDO CONFIGURAÇÃO';$('ytStatus').textContent=d.youtube.configured?'Credenciais presentes; OAuth e upload ainda não implementados':'Não conectado';
+ renderEpisodes();
+ }catch(e){$('systemStatus').textContent='● API indisponível';$('systemStatus').style.color='#ffb7c0';}
 }
-$('generate').addEventListener('click',async()=>{
- const formats=[...document.querySelectorAll('.format input:checked')].map(x=>x.value);
- if(!formats.length){$('jobMessage').textContent='Selecione pelo menos um formato.';return;}
- const payload={title:$('title').value.trim(),story:$('story').value.trim(),formats};
- $('generate').disabled=true;$('generate').textContent='Preparando…';$('downloads').innerHTML='';$('progress').style.width='0%';
- try{const r=await fetch('/api/generate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});const data=await r.json();if(!r.ok)throw new Error(data.detail||'Falha ao iniciar geração.');$('jobMessage').textContent='Episódio enviado para a fila.';await watch(data.job_id);}catch(e){$('jobMessage').textContent=e.message;$('generate').disabled=false;$('generate').textContent='▶ Tentar novamente';}
-});
-refreshHistory();
+async function createEpisode(e){
+ e.preventDefault();const formats=[...document.querySelectorAll('input[name="format"]:checked')].map(x=>x.value);
+ if(!formats.length){$('createMessage').textContent='Selecione pelo menos um formato.';return;}
+ const btn=$('createBtn');btn.disabled=true;btn.textContent='Preparando…';$('createMessage').textContent='Enviando para o motor de animação…';
+ try{const r=await fetch('/api/generate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({title:$('title').value.trim(),story:$('story').value.trim(),formats})});const data=await r.json();if(!r.ok)throw new Error(data.detail||'Erro ao iniciar produção');$('createMessage').textContent='Episódio enviado para a fila. Acompanhe o progresso abaixo.';$('activeJobCard').style.display='block';watchJob(data.job_id);go('create');}
+ catch(err){$('createMessage').textContent=err.message;btn.disabled=false;btn.textContent='✦ Gerar episódio';}
+}
+$('createForm').addEventListener('submit',createEpisode);
+function watchJob(id){
+ if(poll)clearInterval(poll);
+ const tick=async()=>{try{const r=await fetch('/api/jobs/'+encodeURIComponent(id));const j=await r.json();$('activeJobTitle').textContent=j.title;$('activeJobBadge').textContent=j.status.toUpperCase();$('activeJobProgress').style.width=(j.progress||0)+'%';$('activeJobMessage').textContent=j.message;$('activeJobDownloads').innerHTML=Object.keys(j.outputs||{}).map(f=>'<p><a style="color:#9fc5ff" href="/api/jobs/'+encodeURIComponent(id)+'/download/'+encodeURIComponent(f)+'" target="_blank">Baixar vídeo '+esc(f)+' ↓</a></p>').join('');await loadDashboard();if(j.status==='done'||j.status==='failed'){clearInterval(poll);poll=null;$('createBtn').disabled=false;$('createBtn').textContent='✦ Gerar outro episódio';}}catch(e){$('activeJobMessage').textContent='Aguardando resposta do servidor…';}};
+ tick();poll=setInterval(tick,2500);
+}
+async function reviewEpisode(id,decision){
+ try{const r=await fetch('/api/jobs/'+encodeURIComponent(id)+'/review',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({decision})});const d=await r.json();if(!r.ok)throw new Error(d.detail||'Falha ao salvar revisão');await loadDashboard();}catch(e){alert(e.message);}
+}
+async function loadSettings(){
+ try{const r=await fetch('/api/studio-settings');const s=await r.json();$('autoBoth').checked=(s.auto_generate_formats||[]).length===2;$('requireReview').checked=!!s.require_review_before_publish;$('autoPublish').checked=false;$('publishTime').value=s.publish_time||'18:00';document.querySelectorAll('.day').forEach(x=>x.checked=(s.publish_days||[]).includes(x.value));}catch(e){}
+}
+async function saveSettings(extra={}){
+ const formats=$('autoBoth').checked?['16:9','9:16']:['16:9'];
+ const payload={auto_generate_formats:formats,require_review_before_publish:$('requireReview').checked,auto_publish_enabled:false,...extra};
+ try{const r=await fetch('/api/studio-settings',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});const d=await r.json();if(!r.ok)throw new Error(d.detail||'Erro ao salvar');$('settingsMessage').textContent='Preferências salvas.';$('scheduleMessage').textContent='Rotina editorial salva.';}catch(e){$('settingsMessage').textContent=e.message;$('scheduleMessage').textContent=e.message;}
+}
+$('saveSettings').addEventListener('click',()=>saveSettings());
+$('saveSchedule').addEventListener('click',()=>saveSettings({publish_days:[...document.querySelectorAll('.day:checked')].map(x=>x.value),publish_time:$('publishTime').value}));
+loadDashboard();loadSettings();setInterval(loadDashboard,8000);
 </script>
 </body></html>
