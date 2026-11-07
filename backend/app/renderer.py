@@ -181,7 +181,7 @@ def render_episode(title: str, story: str, fmt: str, output: Path, workdir: Path
     width,height=(405,720) if portrait else (720,405)
     frames=workdir/f"frames-{fmt.replace(':','x')}"
     frames.mkdir(parents=True,exist_ok=True)
-    sentences=[x.strip() for x in re.split(r"(?<=[.!?])\\s+", story) if x.strip()]
+    sentences=[x.strip() for x in story.replace("!", ".").replace("?", ".").split(".") if x.strip()]
     captions=(sentences + [scene[1] for scene in SCENES])[:6]
     episode_scenes=[(title if i==0 else SCENES[i][0], captions[i], SCENES[i][2]) for i in range(6)]
     total=SCENE_SECONDS*FPS
