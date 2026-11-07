@@ -1,0 +1,9 @@
+services:
+  anima2d:
+    build: .
+    container_name: anima2d
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    restart: unless-stopped
