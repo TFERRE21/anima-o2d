@@ -24,7 +24,7 @@ jobs:
           import re
           from pathlib import Path
           html = Path("web/index.html").read_text(encoding="utf-8")
-          scripts = re.findall(r"<script>([\\s\\S]*?)</script>", html)
+          scripts = re.findall(r"<script>([\s\S]*?)</script>", html)
           if not scripts:
               raise SystemExit("Nenhum script do painel foi encontrado")
           Path("/tmp/anima-dashboard.js").write_text(scripts[-1], encoding="utf-8")
