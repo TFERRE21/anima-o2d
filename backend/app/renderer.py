@@ -383,7 +383,7 @@ def _concat_audio_files(files: list[Path], output: Path, audio_codec: str) -> Pa
     def quote_path(path: Path) -> str:
         return path.resolve().as_posix().replace("'", "'\\''")
     manifest.write_text(
-        "".join("file '" + quote_path(item) + "'\\n" for item in files),
+        "".join("file '" + quote_path(item) + "'\n" for item in files),
         encoding="utf-8"
     )
     if audio_codec == "pcm_s16le":
