@@ -181,17 +181,17 @@ def render_episode(title: str, story: str, fmt: str, output: Path, workdir: Path
     width,height=(405,720) if portrait else (720,405)
     frames=workdir/f"frames-{fmt.replace(':','x')}"
     frames.mkdir(parents=True,exist_ok=True)
+    sentences=[x.strip() for x in re.split(r"(?<=[.!?])\\s+", story) if x.strip()]
+    captions=(sentences + [scene[1] for scene in SCENES])[:6]
+    episode_scenes=[(title if i==0 else SCENES[i][0], captions[i], SCENES[i][2]) for i in range(6)]
     total=SCENE_SECONDS*FPS
-    for scene_index,scene in enumerate(SCENES):
+    for scene_index,scene in enumerate(episode_scenes):
         for f in range(total):
             image=draw_scene_frame((width,height),scene,scene_index,f,portrait)
             number=scene_index*total+f
             image.save(frames/f"frame-{number:05d}.jpg",quality=88)
     low_video=workdir/f"silent-{fmt.replace(':','x')}.mp4"
     _run(["ffmpeg","-y","-loglevel","error","-framerate",str(FPS),"-i",str(frames/"frame-%05d.jpg"),"-c:v","libx264","-preset","ultrafast","-pix_fmt","yuv420p","-vf",f"scale={1920 if not portrait else 1080}:{1080 if not portrait else 1920}:flags=lanczos","-r","30",str(low_video)])
-    # Personaliza a narração com o texto enviado no painel.
-    sentences=[x.strip() for x in re.split(r"(?<=[.!?])\\s+", story) if x.strip()]
-    captions=(sentences + [s[1] for s in SCENES])[:6]
     narration=" ".join(captions)
     wav=workdir/"narration.wav"
     voice_ok=False
