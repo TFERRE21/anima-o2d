@@ -1,72 +1,73 @@
-# Anima 2D — Pequenos Guardiões
+# Anima 2D Studio — Pequenos Guardiões
 
-Estúdio para criar episódios infantis 2D com Luna, Tomi e Pipo, exportando versões horizontais e verticais.
+Estúdio web para produção de episódios infantis 2D com Luna, Tomi e Pipo.
 
-## O que já funciona nesta primeira versão
+## Painel do estúdio
 
-- Painel web conectado à API.
-- Geração de um episódio de demonstração com personagens 2D desenhados por código (Pillow).
-- Movimentos simples de balanço, braços e detalhes animados ao longo das cenas.
-- Roteiro informado no painel usado nas legendas e na narração sintetizada com espeak-ng em português.
+O painel possui:
+- Visão geral com indicadores de episódios criados, em produção, finalizados e aguardando revisão.
+- Biblioteca de episódios com status, formatos e downloads.
+- Criação de episódios e acompanhamento da renderização em tempo real.
+- Aprovação editorial de episódios finalizados.
+- Preferências de produção e rotina editorial.
+- Área de acompanhamento da integração com YouTube.
+
+## Motor de animação atual
+
+- Personagens 2D desenhados proceduralmente com Pillow, com visual aprimorado, figurinos, emblemas e detalhes faciais.
+- Movimentos simples por quadro e cenários ilustrados.
+- Narração sintetizada com espeak-ng em português, quando disponível.
 - Renderização MP4 com FFmpeg.
-- Exportação em **16:9 (1920×1080)** e **9:16 (1080×1920)**.
-- Jobs em segundo plano, barra de progresso, histórico persistido e links para baixar os arquivos.
-- Docker Compose com volume persistente em `./data`.
+- Saídas 16:9 (1920×1080) e 9:16 (1080×1920).
+- Jobs em segundo plano e histórico persistido em volume Docker.
 
-> Esta é uma base funcional de animação procedural 2D, não um gerador de vídeo por IA nem uma produção de estúdio completa. O desenho atual usa personagens vetoriais simples, cenas predefinidas e voz sintética básica. Rigging avançado, sincronização labial, trilha licenciada, geração de arte por IA e publicação OAuth no YouTube ainda precisam ser integrados e testados.
+> Este é um MVP funcional de animação procedural, não uma ferramenta de animação profissional nem geração de vídeo por IA. Ainda faltam rigging avançado, sincronização labial, vozes neurais consistentes, trilha licenciada e geração dinâmica de cenários por IA.
+
+## Automação e publicação — estado real
+
+O painel salva preferências de formatos, revisão obrigatória e rotina editorial sugerida. A fila de episódios, renderização e atualização de status são automáticas após iniciar uma geração.
+
+**A publicação automática no YouTube ainda não está implementada.** A tela de postagens informa o estado da conexão, mas o upload, OAuth, agendamento real, miniaturas e métricas do canal dependem da próxima etapa de integração com YouTube Data API e autorização segura do proprietário do canal. O botão de publicação automática permanece bloqueado até essa integração.
 
 ## Série original
 
 **Pequenos Guardiões — A Liga do Bem**
-
 - Luna: inventora corajosa.
 - Tomi: estrategista leal.
 - Pipo: cão companheiro.
 
-A série ensina respeito, honestidade, amizade, empatia, responsabilidade, cidadania e segurança. Os protagonistas resolvem conflitos com diálogo, raciocínio e ajuda de adultos, sem violência gráfica.
+A série ensina honestidade, amizade, empatia, responsabilidade, cidadania e segurança. Os protagonistas resolvem conflitos com diálogo, raciocínio e ajuda de adultos, sem violência gráfica.
 
-### Documentos criativos
-- [Bíblia da série e personagens](docs/biblia-da-serie.md)
+Documentos criativos:
+- [Bíblia da série](docs/biblia-da-serie.md)
 - [Episódio 01 — O Mistério das Mochilas](docs/episodio-01-o-misterio-das-mochilas.md)
-- [Pipeline de animação e exportação dupla](docs/pipeline-de-animacao.md)
+- [Pipeline de animação](docs/pipeline-de-animacao.md)
 
 ## Executar com Docker
 
 ```bash
 cp .env.example .env
-docker compose up --build -d
+docker compose up -d --build
 ```
 
 Painel: http://localhost:8000  
 API: http://localhost:8000/docs  
 Saúde: http://localhost:8000/api/health
 
-Os vídeos e metadados ficam em `./data` no host.
+Vídeos, histórico e preferências ficam persistidos em `./data`.
 
-## Executar sem Docker
+## Endpoints
 
-Instale FFmpeg, espeak-ng e fontes DejaVu; depois:
+- `GET /api/health`
+- `GET /api/config`
+- `GET /api/dashboard`
+- `GET/PUT /api/studio-settings`
+- `POST /api/generate`
+- `GET /api/jobs`
+- `GET /api/jobs/{id}`
+- `POST /api/jobs/{id}/review`
+- `GET /api/jobs/{id}/download/{fmt}`
 
-```bash
-pip install -r backend/requirements.txt
-ANIMA_STORAGE=./data uvicorn backend.app.main:app --app-dir . --host 0.0.0.0 --port 8000
-```
+## Segurança antes de publicar em VPS
 
-## API principal
-
-- `GET /api/health` — saúde do serviço.
-- `GET /api/config` — formatos e dependências detectadas.
-- `POST /api/generate` — cria job de renderização.
-- `GET /api/jobs` — histórico.
-- `GET /api/jobs/{id}` — progresso e arquivos.
-- `GET /api/jobs/{id}/download/{fmt}` — baixa MP4 (`16:9` ou `9:16`).
-
-## Próximas integrações
-
-1. Melhorar os modelos dos personagens e criar rigs 2D reutilizáveis.
-2. Adicionar TTS neural com vozes consistentes e trilha sonora licenciada.
-3. Implementar storyboard e geração de cenários/arte assistida por IA.
-4. Adicionar OAuth do YouTube, upload, miniaturas e agendamento após autorização do dono do canal.
-5. Criar testes visuais e de áudio para cada renderização.
-
-Nunca coloque tokens ou chaves reais no Git. Revise o vídeo e os direitos de todos os recursos antes de publicar, especialmente por se tratar de conteúdo infantil.
+O MVP ainda não tem autenticação de usuário. Não o exponha publicamente sem colocar autenticação, HTTPS, proteção de endpoints e limites de uso. Nunca envie chaves OAuth para o Git. Configure credenciais em secrets do ambiente quando a integração YouTube for implementada.
