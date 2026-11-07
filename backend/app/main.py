@@ -73,7 +73,16 @@ def _studio_settings():
 
 @app.get("/api/health")
 def health():
-    return {"status": "ok", "app": settings.app_name, "version": "0.2.0", "ffmpeg": _has("ffmpeg")}
+    return {
+        "status": "ok",
+        "app": settings.app_name,
+        "version": "0.2.1",
+        "runtime": "python",
+        "port": int(os.getenv("PORT", "5000")),
+        "ffmpeg": _has("ffmpeg"),
+        "tts": _has("tts"),
+        "storage_writable": os.access(STORAGE, os.W_OK),
+    }
 
 @app.get("/api/config")
 def config():
@@ -83,7 +92,8 @@ def config():
             {"id": "9:16", "width": 1080, "height": 1920, "label": "YouTube Shorts"},
         ],
         "youtube_oauth_configured": bool(settings.youtube_client_id and settings.youtube_client_secret),
-        "generation_enabled": _has("ffmpeg"),
+        "generation_enabled": _has("ffmpeg") and _has("tts"),
+        "media": {"ffmpeg": _has("ffmpeg"), "tts": _has("tts")},
         "engine": "Anima 2D Planet Adventure Studio — procedural 2D animation",
     }
 
@@ -154,8 +164,8 @@ def render_story(job_id: str, payload: RenderRequest):
     formats = payload.formats or job.get("formats", ["16:9", "9:16"])
     if not formats or any(x not in {"16:9", "9:16"} for x in formats):
         raise HTTPException(400, "Formatos inválidos.")
-    if not _has("ffmpeg") or not _has("espeak-ng"):
-        raise HTTPException(503, "FFmpeg e espeak-ng precisam estar instalados.")
+    if not _has("ffmpeg") or not _has("tts"):
+        raise HTTPException(503, "Motor de mídia incompleto. É necessário FFmpeg (imageio-ffmpeg) e voz (espeak-ng ou edge-tts).")
     _update(job_id, status="queued", stage="render_queued", progress=8,
             message="Roteiro aprovado. Preparando cenas e narração.", formats=formats,
             review_status="pending_review", outputs={}, error=None)
@@ -418,6 +428,22 @@ def download(job_id: str, fmt: str):
 
 def _has(binary: str) -> bool:
     from shutil import which
+    if binary == "ffmpeg":
+        if which("ffmpeg"):
+            return True
+        try:
+            from imageio_ffmpeg import get_ffmpeg_exe
+            return bool(get_ffmpeg_exe())
+        except Exception:
+            return False
+    if binary in {"tts", "espeak-ng"}:
+        if which("espeak-ng"):
+            return True
+        try:
+            import importlib.util
+            return importlib.util.find_spec("edge_tts") is not None
+        except (ImportError, ValueError):
+            return False
     return which(binary) is not None
 
 def _save(job_id: str, job: dict):
