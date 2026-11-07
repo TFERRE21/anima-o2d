@@ -31,7 +31,7 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
 settings = Settings()
-app = FastAPI(title=settings.app_name, version="0.2.0")
+app = FastAPI(title=settings.app_name, version="0.2.2")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=False, allow_methods=["*"], allow_headers=["*"])
 
 class GenerateRequest(BaseModel):
@@ -76,7 +76,7 @@ def health():
     return {
         "status": "ok",
         "app": settings.app_name,
-        "version": "0.2.1",
+        "version": "0.2.2",
         "runtime": "python",
         "port": int(os.getenv("PORT", "5000")),
         "ffmpeg": _has("ffmpeg"),
@@ -112,10 +112,13 @@ def generate_story(payload: StoryRequest):
         plan["topic"] = topic
         plan["synopsis"] += " Tema especial: " + topic + "."
         plan["long_script"] += topic_text
-        plan["story"] = plan["long_script"]
-        plan["short_script"] += f" O tema especial desta aventura é {topic}; procure uma maneira gentil de praticá-lo hoje."
-        plan["word_count_long"] = len(plan["long_script"].split())
-        plan["word_count_short"] = len(plan["short_script"].split())
+        plan["story"] = plan["long_script"] + " " + plan.get("dialogue_script", "")
+        plan.setdefault("audio_segments_long", []).append({"speaker": "Narrador", "text": topic_text.strip()})
+        short_extra = f" O tema especial desta aventura é {topic}; procure uma maneira gentil de praticá-lo hoje."
+        plan["short_script"] += short_extra
+        plan.setdefault("audio_segments_short", []).append({"speaker": "Narrador", "text": short_extra.strip()})
+        plan["word_count_long"] = sum(len(item.get("text", "").split()) for item in plan["audio_segments_long"])
+        plan["word_count_short"] = sum(len(item.get("text", "").split()) for item in plan["audio_segments_short"])
     job_id = uuid.uuid4().hex[:12]
     job = {
         "id": job_id, "title": plan["title"], "status": "story_ready", "stage": "story_written",
