@@ -154,15 +154,24 @@ function episodeRow(j,compact=false){
  return '<div class="episode"><div class="thumb">🎬</div><div><div class="epname">'+esc(j.title)+'</div><div class="epmeta">'+new Date(j.created_at).toLocaleString('pt-BR')+' · '+esc((j.formats||[]).join(' + '))+(j.planet?' · 🌍 '+esc(j.planet):'')+(j.rendered_durations?' · '+Object.entries(j.rendered_durations).map(([f,v])=>f+' '+Math.floor(v/60)+':'+String(Math.floor(v%60)).padStart(2,'0')).join(' / '):'')+'</div><div style="margin-top:7px">'+statusBadge(j)+' <span style="margin-left:7px">'+download+' '+published+'</span></div></div><div class="epactions">'+draft+' '+review+' '+publish+'</div></div>';
 }
 async function loadDashboard(){
- try{const [jr,dr]=await Promise.all([fetch('/api/jobs'),fetch('/api/dashboard')]);if(!jr.ok||!dr.ok)throw new Error('API indisponível');jobs=(await jr.json()).jobs||[];const d=await dr.json(),m=d.metrics;
- $('mTotal').textContent=m.episodes_total;$('mReview').textContent=m.awaiting_review;$('mActive').textContent=m.episodes_processing;$('mReady').textContent=m.episodes_ready;$('mPosts').textContent=m.posts_published||0;
- $('recentEpisodes').innerHTML=jobs.length?jobs.slice(0,5).map(j=>episodeRow(j,true)).join(''):'<div class="empty">Seu primeiro episódio está esperando para nascer.</div>';
- $('systemStatus').textContent='● Sistema conectado';$('systemStatus').style.color='#9ce8cb';
- youtubeConnected=!!d.youtube.connected;
- $('ytBadge').textContent=youtubeConnected?'CANAL CONECTADO':(d.youtube.configured?'PRONTO PARA CONECTAR':'AGUARDANDO CONFIGURAÇÃO');
- $('ytStatus').textContent=youtubeConnected?'Canal autorizado. Upload e agendamento disponíveis.':(d.youtube.configured?'Credenciais presentes; falta autorizar o canal.':'Não conectado');
- $('connectYoutube').style.display=d.youtube.configured?'inline-flex':'none';
- renderEpisodes();
+ try{
+  const [jr,dr,hr]=await Promise.all([fetch('/api/jobs'),fetch('/api/dashboard'),fetch('/api/health')]);
+  if(!jr.ok||!dr.ok||!hr.ok)throw new Error('API indisponível');
+  jobs=(await jr.json()).jobs||[];
+  const d=await dr.json(),m=d.metrics,health=await hr.json();
+  $('mTotal').textContent=m.episodes_total;$('mReview').textContent=m.awaiting_review;$('mActive').textContent=m.episodes_processing;$('mReady').textContent=m.episodes_ready;$('mPosts').textContent=m.posts_published||0;
+  $('recentEpisodes').innerHTML=jobs.length?jobs.slice(0,5).map(j=>episodeRow(j,true)).join(''):'<div class="empty">Seu primeiro episódio está esperando para nascer.</div>';
+  const missing=[];
+  if(!health.ffmpeg)missing.push('FFmpeg');
+  if(!health.tts)missing.push('voz');
+  if(!health.storage_writable)missing.push('armazenamento');
+  $('systemStatus').textContent=missing.length?'● API online · falta '+missing.join(', '):'● Sistema conectado · mídia pronta';
+  $('systemStatus').style.color=missing.length?'#f5d28d':'#9ce8cb';
+  youtubeConnected=!!d.youtube.connected;
+  $('ytBadge').textContent=youtubeConnected?'CANAL CONECTADO':(d.youtube.configured?'PRONTO PARA CONECTAR':'AGUARDANDO CONFIGURAÇÃO');
+  $('ytStatus').textContent=youtubeConnected?'Canal autorizado. Upload e agendamento disponíveis.':(d.youtube.configured?'Credenciais presentes; falta autorizar o canal.':'Não conectado');
+  $('connectYoutube').style.display=d.youtube.configured?'inline-flex':'none';
+  renderEpisodes();
  }catch(e){$('systemStatus').textContent='● API indisponível';$('systemStatus').style.color='#ffb7c0';}
 }
 async function openStory(id){
