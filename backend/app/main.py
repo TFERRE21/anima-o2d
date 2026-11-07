@@ -87,30 +87,76 @@ def config():
         "engine": "Anima 2D Planet Adventure Studio — procedural 2D animation",
     }
 
-@app.post("/api/generate", status_code=202)
-def generate(payload: GenerateRequest):
+@app.post("/api/stories/generate", status_code=201)
+def generate_story(payload: StoryRequest):
     allowed = {"16:9", "9:16"}
     if not payload.formats or any(x not in allowed for x in payload.formats):
         raise HTTPException(400, "Selecione 16:9 e/ou 9:16.")
-    if not _has("ffmpeg"):
-        raise HTTPException(503, "FFmpeg não está instalado no servidor.")
+    existing = list_jobs()["jobs"]
+    planet_jobs = [j for j in existing if j.get("episode") == "planet-journey"]
+    used_planets = {j.get("planet") for j in planet_jobs if j.get("planet")}
+    plan = build_episode_plan(len(planet_jobs), used_planets)
+    if payload.topic and payload.topic.strip().lower() not in {"aventura surpresa", "surpresa", "livre"}:
+        plan["topic"] = payload.topic.strip()
+        plan["synopsis"] += " Tema especial: " + payload.topic.strip() + "."
     job_id = uuid.uuid4().hex[:12]
     job = {
-        "id": job_id, "title": payload.title, "status": "queued", "progress": 0,
-        "message": "Na fila de produção", "formats": payload.formats, "outputs": {},
+        "id": job_id, "title": plan["title"], "status": "story_ready", "stage": "story_written",
+        "progress": 5, "message": "História original criada. Revise o roteiro antes de renderizar.",
+        "formats": payload.formats, "outputs": {},
         "created_at": datetime.now(timezone.utc).isoformat(),
-        "review_status": "pending_review",
-        "publication_status": "not_connected",
-        "story": payload.story,
-        "episode": payload.episode,
-        "planet": payload.planet,
+        "review_status": "story_review", "publication_status": "not_ready",
+        "story": plan["long_script"], "short_story": plan["short_script"],
+        "story_plan": plan, "episode": "planet-journey", "planet": plan["planet"],
+        "value": plan["value"], "synopsis": plan["synopsis"],
+        "duration_targets": plan["duration_targets"], "topic": payload.topic,
     }
     with LOCK:
         JOBS[job_id] = job
         _save(job_id, job)
-    threading.Thread(target=_run_job, args=(job_id, payload), daemon=True).start()
-    return {"job_id": job_id, "status": "queued"}
+    return {"job_id": job_id, "status": "story_ready", "story": plan, "message": "Roteiro criado antes da animação."}
 
+@app.post("/api/generate", status_code=201)
+def generate(payload: GenerateRequest):
+    # Compatibility endpoint: create a story draft first; never render immediately.
+    result = generate_story(StoryRequest(formats=payload.formats, topic=payload.story[:120]))
+    job_id = result["job_id"]
+    if payload.title and payload.title.strip():
+        plan = result["story"]
+        plan["title"] = payload.title.strip()
+        _update(job_id, title=payload.title.strip(), story_plan=plan)
+        result["story"] = plan
+    return result
+
+@app.get("/api/jobs/{job_id}/story")
+def get_story(job_id: str):
+    job = _get_job(job_id)
+    if not job.get("story_plan"):
+        raise HTTPException(404, "Este episódio não possui roteiro estruturado.")
+    return {"id": job_id, "title": job["title"], "planet": job.get("planet"),
+            "synopsis": job.get("synopsis"), "value": job.get("value"),
+            "story": job["story_plan"], "status": job.get("status")}
+
+@app.post("/api/jobs/{job_id}/render", status_code=202)
+def render_story(job_id: str, payload: RenderRequest):
+    job = _get_job(job_id)
+    if not job.get("story_plan"):
+        raise HTTPException(409, "Crie o roteiro antes da animação.")
+    if job.get("status") not in {"story_ready", "failed"}:
+        raise HTTPException(409, "O episódio já está em renderização ou foi finalizado.")
+    formats = payload.formats or job.get("formats", ["16:9", "9:16"])
+    if not formats or any(x not in {"16:9", "9:16"} for x in formats):
+        raise HTTPException(400, "Formatos inválidos.")
+    if not _has("ffmpeg") or not _has("espeak-ng"):
+        raise HTTPException(503, "FFmpeg e espeak-ng precisam estar instalados.")
+    _update(job_id, status="queued", stage="render_queued", progress=8,
+            message="Roteiro aprovado. Preparando cenas e narração.", formats=formats,
+            review_status="pending_review", outputs={}, error=None)
+    render_payload = GenerateRequest(title=job["title"], story=job["story"],
+                                     formats=formats, episode="planet-journey",
+                                     planet=job["planet"])
+    threading.Thread(target=_run_job, args=(job_id, render_payload), daemon=True).start()
+    return {"job_id": job_id, "status": "queued", "message": "Renderização iniciada após a criação do roteiro."}
 
 
 
