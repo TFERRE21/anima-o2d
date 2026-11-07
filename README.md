@@ -5,7 +5,22 @@ Plataforma para criar vídeos animados 2D e preparar publicações no YouTube em
 - **16:9** — 1920×1080 (vídeo horizontal)
 - **9:16** — 1080×1920 (Shorts vertical)
 
-## Escopo
+## Série original: Pequenos Guardiões — A Liga do Bem
+
+Duas crianças e seu cão companheiro ajudam a comunidade, resolvem mistérios e ensinam valores por meio de aventuras sem violência gráfica.
+
+- **Luna:** inventora corajosa, curiosa e empática.
+- **Tomi:** estrategista leal, calmo e justo.
+- **Pipo:** cão caramelo brincalhão e atento.
+
+Valores: respeito, honestidade, amizade, empatia, responsabilidade, cidadania, segurança e cuidado com os animais e o meio ambiente.
+
+### Documentação criativa
+- [Bíblia da série e personagens](docs/biblia-da-serie.md)
+- [Episódio 01 — O Mistério das Mochilas](docs/episodio-01-o-misterio-das-mochilas.md)
+- [Pipeline de animação e exportação dupla](docs/pipeline-de-animacao.md)
+
+## Escopo da plataforma
 
 - Cadastro de projetos e histórias.
 - Roteiro dividido em cenas.
@@ -37,6 +52,6 @@ Documentação: http://localhost:8000/docs
 
 Copie `.env.example` para `.env` e configure as credenciais do provedor de geração e do YouTube. Nunca coloque chaves reais no Git.
 
-## Importante
+## Estado do projeto
 
-O projeto inicial oferece a estrutura da aplicação e endpoints de saúde/configuração. A geração real de imagens/vídeos depende de um provedor de IA configurado; a publicação depende da autorização OAuth do canal. Não há publicação automática ativada por padrão.
+A estrutura inicial da aplicação, painel básico e documentos criativos estão versionados. A geração real de cenas, rigging/animação, sincronização labial, fila de renderização e integração OAuth ainda precisam ser implementadas e testadas. A publicação automática permanece desativada até configuração e autorização explícitas.
