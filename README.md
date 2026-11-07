@@ -1,57 +1,72 @@
-# Anima 2D
+# Anima 2D — Pequenos Guardiões
 
-Plataforma para criar vídeos animados 2D e preparar publicações no YouTube em dois formatos:
+Estúdio para criar episódios infantis 2D com Luna, Tomi e Pipo, exportando versões horizontais e verticais.
 
-- **16:9** — 1920×1080 (vídeo horizontal)
-- **9:16** — 1080×1920 (Shorts vertical)
+## O que já funciona nesta primeira versão
 
-## Série original: Pequenos Guardiões — A Liga do Bem
+- Painel web conectado à API.
+- Geração de um episódio de demonstração com personagens 2D desenhados por código (Pillow).
+- Movimentos simples de balanço, braços e detalhes animados ao longo das cenas.
+- Roteiro informado no painel usado nas legendas e na narração sintetizada com espeak-ng em português.
+- Renderização MP4 com FFmpeg.
+- Exportação em **16:9 (1920×1080)** e **9:16 (1080×1920)**.
+- Jobs em segundo plano, barra de progresso, histórico persistido e links para baixar os arquivos.
+- Docker Compose com volume persistente em `./data`.
 
-Duas crianças e seu cão companheiro ajudam a comunidade, resolvem mistérios e ensinam valores por meio de aventuras sem violência gráfica.
+> Esta é uma base funcional de animação procedural 2D, não um gerador de vídeo por IA nem uma produção de estúdio completa. O desenho atual usa personagens vetoriais simples, cenas predefinidas e voz sintética básica. Rigging avançado, sincronização labial, trilha licenciada, geração de arte por IA e publicação OAuth no YouTube ainda precisam ser integrados e testados.
 
-- **Luna:** inventora corajosa, curiosa e empática.
-- **Tomi:** estrategista leal, calmo e justo.
-- **Pipo:** cão caramelo brincalhão e atento.
+## Série original
 
-Valores: respeito, honestidade, amizade, empatia, responsabilidade, cidadania, segurança e cuidado com os animais e o meio ambiente.
+**Pequenos Guardiões — A Liga do Bem**
 
-### Documentação criativa
+- Luna: inventora corajosa.
+- Tomi: estrategista leal.
+- Pipo: cão companheiro.
+
+A série ensina respeito, honestidade, amizade, empatia, responsabilidade, cidadania e segurança. Os protagonistas resolvem conflitos com diálogo, raciocínio e ajuda de adultos, sem violência gráfica.
+
+### Documentos criativos
 - [Bíblia da série e personagens](docs/biblia-da-serie.md)
 - [Episódio 01 — O Mistério das Mochilas](docs/episodio-01-o-misterio-das-mochilas.md)
 - [Pipeline de animação e exportação dupla](docs/pipeline-de-animacao.md)
 
-## Escopo da plataforma
-
-- Cadastro de projetos e histórias.
-- Roteiro dividido em cenas.
-- Personagens e identidade visual consistentes.
-- Geração de imagens/cenas por provedor configurável.
-- Narração em português, música e legendas.
-- Renderização e composição com FFmpeg.
-- Pré-visualização e exportação MP4.
-- Publicação no YouTube via OAuth e YouTube Data API, com opção de agendamento.
-- Painel de jobs, status, erros e histórico.
-
-## Arquitetura inicial
-
-- Backend: Python + FastAPI.
-- Renderização: FFmpeg.
-- Frontend: HTML/CSS/JavaScript inicial (sem dependência de build).
-- Execução: Docker Compose.
-
-## Desenvolvimento local
+## Executar com Docker
 
 ```bash
-docker compose up --build
+cp .env.example .env
+docker compose up --build -d
 ```
 
-API: http://localhost:8000  
-Documentação: http://localhost:8000/docs
+Painel: http://localhost:8000  
+API: http://localhost:8000/docs  
+Saúde: http://localhost:8000/api/health
 
-## Configuração
+Os vídeos e metadados ficam em `./data` no host.
 
-Copie `.env.example` para `.env` e configure as credenciais do provedor de geração e do YouTube. Nunca coloque chaves reais no Git.
+## Executar sem Docker
 
-## Estado do projeto
+Instale FFmpeg, espeak-ng e fontes DejaVu; depois:
 
-A estrutura inicial da aplicação, painel básico e documentos criativos estão versionados. A geração real de cenas, rigging/animação, sincronização labial, fila de renderização e integração OAuth ainda precisam ser implementadas e testadas. A publicação automática permanece desativada até configuração e autorização explícitas.
+```bash
+pip install -r backend/requirements.txt
+ANIMA_STORAGE=./data uvicorn backend.app.main:app --app-dir . --host 0.0.0.0 --port 8000
+```
+
+## API principal
+
+- `GET /api/health` — saúde do serviço.
+- `GET /api/config` — formatos e dependências detectadas.
+- `POST /api/generate` — cria job de renderização.
+- `GET /api/jobs` — histórico.
+- `GET /api/jobs/{id}` — progresso e arquivos.
+- `GET /api/jobs/{id}/download/{fmt}` — baixa MP4 (`16:9` ou `9:16`).
+
+## Próximas integrações
+
+1. Melhorar os modelos dos personagens e criar rigs 2D reutilizáveis.
+2. Adicionar TTS neural com vozes consistentes e trilha sonora licenciada.
+3. Implementar storyboard e geração de cenários/arte assistida por IA.
+4. Adicionar OAuth do YouTube, upload, miniaturas e agendamento após autorização do dono do canal.
+5. Criar testes visuais e de áudio para cada renderização.
+
+Nunca coloque tokens ou chaves reais no Git. Revise o vídeo e os direitos de todos os recursos antes de publicar, especialmente por se tratar de conteúdo infantil.
