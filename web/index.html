@@ -127,14 +127,21 @@ let jobs=[],poll=null,youtubeConnected=false,pendingStoryId=null,pendingFormats=
 const labels={dashboard:'Visão geral',episodes:'Episódios',create:'Criar episódio',automation:'Automação',publishing:'YouTube & postagens'};
 function go(page){document.querySelectorAll('.page').forEach(x=>x.classList.remove('active'));$('page-'+page).classList.add('active');document.querySelectorAll('.nav button').forEach(x=>x.classList.toggle('active',x.dataset.page===page));$('pageTitle').textContent=labels[page];if(page==='episodes'||page==='publishing')renderEpisodes();if(page==='automation')loadSettings();window.scrollTo({top:0,behavior:'smooth'});}
 document.querySelectorAll('.nav button').forEach(b=>b.addEventListener('click',()=>go(b.dataset.page)));
-function statusBadge(j){if(j.status==='failed')return '<span class="badge failed">Falhou</span>';if(j.status==='processing'||j.status==='queued')return '<span class="badge pending">Em produção</span>';if(j.review_status==='approved')return '<span class="badge ready">Aprovado</span>';return '<span class="badge pending">Aguardando revisão</span>';}
+function statusBadge(j){
+ if(j.status==='failed')return '<span class="badge failed">Falhou</span>';
+ if(j.status==='story_ready')return '<span class="badge pending">Roteiro pronto</span>';
+ if(j.status==='processing'||j.status==='queued')return '<span class="badge pending">'+esc((j.stage||'em produção').replaceAll('_',' '))+'</span>';
+ if(j.review_status==='approved')return '<span class="badge ready">Aprovado</span>';
+ if(j.status==='done')return '<span class="badge pending">Aguardando revisão</span>';
+ return '<span class="badge">'+esc(j.status||'Novo')+'</span>';
+}
 function episodeRow(j,compact=false){
  const outputs=Object.keys(j.outputs||{});
  const download=outputs.map(f=>'<a href="/api/jobs/'+encodeURIComponent(j.id)+'/download/'+encodeURIComponent(f)+'" target="_blank" style="color:#9fc5ff;font-size:11px;margin-right:8px">Baixar '+esc(f)+'</a>').join('');
  const review=j.status==='done'&&j.review_status!=='approved'?'<button class="btn good small" onclick="reviewEpisode(\\''+esc(j.id)+'\\',\\'approved\\')">Aprovar</button>':'';
  const publish=j.review_status==='approved'&&youtubeConnected?outputs.map(f=>'<button class="btn secondary small" onclick="publishEpisode(\\''+esc(j.id)+'\\',\\''+esc(f)+'\\')">Publicar '+esc(f)+'</button>').join(' '):'';
  const published=(j.publications||[]).map(p=>'<a href="'+esc(p.url)+'" target="_blank" style="color:#8fe0bf;font-size:11px">YouTube '+esc(p.format)+' ↗</a>').join(' ');
- return '<div class="episode"><div class="thumb">🎬</div><div><div class="epname">'+esc(j.title)+'</div><div class="epmeta">'+new Date(j.created_at).toLocaleString('pt-BR')+' · '+esc((j.formats||[]).join(' + '))+(j.planet?' · 🌍 '+esc(j.planet):'')+'</div><div style="margin-top:7px">'+statusBadge(j)+' <span style="margin-left:7px">'+download+' '+published+'</span></div></div><div class="epactions">'+review+' '+publish+'</div></div>';
+ return '<div class="episode"><div class="thumb">🎬</div><div><div class="epname">'+esc(j.title)+'</div><div class="epmeta">'+new Date(j.created_at).toLocaleString('pt-BR')+' · '+esc((j.formats||[]).join(' + '))+(j.planet?' · 🌍 '+esc(j.planet):'')+(j.rendered_durations?' · '+Object.entries(j.rendered_durations).map(([f,v])=>f+' '+Math.floor(v/60)+':'+String(Math.floor(v%60)).padStart(2,'0')).join(' / '):'')+'</div><div style="margin-top:7px">'+statusBadge(j)+' <span style="margin-left:7px">'+download+' '+published+'</span></div></div><div class="epactions">'+review+' '+publish+'</div></div>';
 }
 async function loadDashboard(){
  try{const [jr,dr]=await Promise.all([fetch('/api/jobs'),fetch('/api/dashboard')]);if(!jr.ok||!dr.ok)throw new Error('API indisponível');jobs=(await jr.json()).jobs||[];const d=await dr.json(),m=d.metrics;
