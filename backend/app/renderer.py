@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import asyncio
 import math
 import re
+import shutil
 import subprocess
 from pathlib import Path
 from PIL import Image, ImageDraw, ImageFont
@@ -275,24 +277,75 @@ def draw_scene_frame(size, scene, index, frame, portrait, planet_name="Aurora-7"
         d.ellipse((sx-r,sy-r,sx+r,sy+r),fill=light)
     return im
 
+def _ffmpeg_executable() -> str:
+    system_ffmpeg = shutil.which("ffmpeg")
+    if system_ffmpeg:
+        return system_ffmpeg
+    try:
+        from imageio_ffmpeg import get_ffmpeg_exe
+        return get_ffmpeg_exe()
+    except Exception as exc:
+        raise RuntimeError("FFmpeg não encontrado. Instale imageio-ffmpeg ou FFmpeg no sistema.") from exc
+
 def _run(cmd):
-    p=subprocess.run(cmd,stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True)
+    command = list(cmd)
+    if command and command[0] == "ffmpeg":
+        command[0] = _ffmpeg_executable()
+    p=subprocess.run(command,stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True)
     if p.returncode:
         raise RuntimeError(p.stderr[-1800:])
     return p
 
 def _probe_duration(path: Path) -> float:
-    result = subprocess.run(
-        ["ffprobe", "-v", "error", "-show_entries", "format=duration",
-         "-of", "default=noprint_wrappers=1:nokey=1", str(path)],
-        stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
-    )
-    if result.returncode:
-        raise RuntimeError("Não foi possível medir a duração do áudio: " + result.stderr[-600:])
+    ffprobe = shutil.which("ffprobe")
+    if ffprobe:
+        result = subprocess.run(
+            [ffprobe, "-v", "error", "-show_entries", "format=duration",
+             "-of", "default=noprint_wrappers=1:nokey=1", str(path)],
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
+        )
+        if result.returncode == 0:
+            try:
+                return float(result.stdout.strip())
+            except ValueError:
+                pass
     try:
-        return float(result.stdout.strip())
-    except ValueError as exc:
-        raise RuntimeError("Duração do áudio inválida.") from exc
+        from mutagen import File as MutagenFile
+        media = MutagenFile(str(path))
+        duration = float(media.info.length) if media and media.info else 0.0
+        if duration > 0:
+            return duration
+    except Exception:
+        pass
+    raise RuntimeError("Não foi possível medir a duração do arquivo: " + str(path.name))
+
+async def _edge_tts_save(text: str, output: Path) -> None:
+    import edge_tts
+    communicate = edge_tts.Communicate(
+        text=text,
+        voice="pt-BR-FranciscaNeural",
+        rate="+0%",
+        volume="+0%",
+        pitch="+0Hz",
+    )
+    await communicate.save(str(output))
+
+def _synthesize_narration(text: str, workdir: Path, fmt: str, speech_rate: int) -> tuple[Path, Path]:
+    suffix = fmt.replace(":", "x")
+    if shutil.which("espeak-ng"):
+        raw = workdir / f"narration-source-{suffix}.wav"
+        fitted = workdir / f"narration-final-{suffix}.wav"
+        _run(["espeak-ng", "-v", "pt-br", "-s", str(speech_rate), "-p", "48", "-a", "165", "-w", str(raw), text])
+        return raw, fitted
+    raw = workdir / f"narration-source-{suffix}.mp3"
+    fitted = workdir / f"narration-final-{suffix}.mp3"
+    try:
+        asyncio.run(_edge_tts_save(text, raw))
+    except Exception as exc:
+        raise RuntimeError("Não foi possível gerar a narração. Verifique a conexão de saída do servidor e a disponibilidade do Edge TTS: " + str(exc)) from exc
+    if not raw.exists() or raw.stat().st_size < 1000:
+        raise RuntimeError("O serviço de voz não retornou uma narração válida.")
+    return raw, fitted
 
 def _fit_narration(source: Path, output: Path, target_seconds: float) -> float:
     """Stretch/compress narration only as needed to satisfy the format duration contract."""
@@ -327,10 +380,7 @@ def render_episode(title: str, story: str, fmt: str, output: Path, workdir: Path
         speech_rate = 132
         min_duration, max_duration, target_duration = 301.0, None, 315.0
 
-    voice_raw = workdir / f"narration-source-{fmt.replace(':','x')}.wav"
-    voice_fit = workdir / f"narration-final-{fmt.replace(':','x')}.wav"
-    _run(["espeak-ng", "-v", "pt-br", "-s", str(speech_rate), "-p", "48", "-a", "165",
-          "-w", str(voice_raw), narration_text])
+    voice_raw, voice_fit = _synthesize_narration(narration_text, workdir, fmt, speech_rate)
     initial_duration = _probe_duration(voice_raw)
 
     if portrait:
