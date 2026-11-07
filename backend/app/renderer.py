@@ -335,7 +335,7 @@ def _probe_duration(path: Path) -> float:
         if process.stderr:
             for line in process.stderr:
                 details.append(line.strip())
-                match = re.search(r"Duration:\\s*(\\d+):(\\d+):(\\d+(?:\\.\\d+)?)", line)
+                match = re.search(r"Duration:\s*(\d+):(\d+):(\d+(?:\.\d+)?)", line)
                 if match:
                     hours, minutes, seconds = match.groups()
                     duration = int(hours) * 3600 + int(minutes) * 60 + float(seconds)
@@ -554,8 +554,8 @@ def render_episode(title: str, story: str, fmt: str, output: Path, workdir: Path
         if not render_scenes:
             raise RuntimeError("O roteiro não contém cenas para o destaque do Shorts.")
 
-    total_frames = max(1, int(math.ceil(duration_seconds * FPS)))
     scene_count = len(render_scenes)
+    total_frames = max(1, int(math.ceil(duration_seconds * FPS)))
     for frame_number in range(total_frames):
         scene_index = min(scene_count - 1, int(frame_number * scene_count / total_frames))
         scene_start = int(scene_index * total_frames / scene_count)
