@@ -14,14 +14,16 @@ O painel possui:
 
 ## Motor de animação atual
 
-- Personagens 2D desenhados proceduralmente com Pillow, com visual aprimorado, figurinos, emblemas e detalhes faciais.
+- Personagens 2D desenhados proceduralmente com Pillow, mantendo figurinos, emblemas e proporções consistentes entre cenas.
+- Cenários espaciais diferentes por planeta, com paletas próprias, luas, planetas com anéis, paisagens, cristais, construções e habitantes alienígenas.
+- Movimento contínuo de personagens, cauda, foguete, estrelas e elementos ambientais.
 - Movimentos simples por quadro e cenários ilustrados.
-- Narração sintetizada com espeak-ng em português, quando disponível.
+- Narração sintetizada em português brasileiro com espeak-ng, ritmo mais pausado e normalização/filtros de áudio, quando disponível.
 - Renderização MP4 com FFmpeg.
 - Saídas 16:9 (1920×1080) e 9:16 (1080×1920).
 - Jobs em segundo plano e histórico persistido em volume Docker.
 
-> Este é um MVP funcional de animação procedural, não uma ferramenta de animação profissional nem geração de vídeo por IA. Ainda faltam rigging avançado, sincronização labial, vozes neurais consistentes, trilha licenciada e geração dinâmica de cenários por IA.
+> Este é um motor procedural em evolução, não uma ferramenta de animação profissional nem geração de vídeo por IA. Ainda faltam rigging avançado, sincronização labial, vozes neurais consistentes, trilha licenciada e animação quadro a quadro de nível profissional.
 
 ## Automação e publicação — estado real
 
@@ -36,7 +38,7 @@ O painel salva preferências de formatos, revisão obrigatória e rotina editori
 - Tomi: estrategista leal.
 - Pipo: cão companheiro.
 
-A série ensina honestidade, amizade, empatia, responsabilidade, cidadania e segurança. Os protagonistas resolvem conflitos com diálogo, raciocínio e ajuda de adultos, sem violência gráfica.
+A série ensina honestidade, amizade, empatia, responsabilidade, cidadania e segurança. **Todos os episódios levam Luna, Tomi e Pipo a um planeta diferente**, onde conhecem os habitantes e ajudam a resolver um desafio com diálogo, raciocínio e cooperação, sem violência gráfica. O gerador mantém um catálogo de mundos e cria novos identificadores para não repetir destinos.
 
 Documentos criativos:
 - [Bíblia da série](docs/biblia-da-serie.md)
