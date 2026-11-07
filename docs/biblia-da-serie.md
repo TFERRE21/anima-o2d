@@ -61,3 +61,22 @@ Respeito, honestidade, amizade, empatia, responsabilidade, cidadania, segurança
 - 16:9 — 1920×1080, episódio principal para YouTube.
 - 9:16 — 1080×1920, versão vertical reeditada para Shorts.
 - Os formatos devem ser renderizados como composições próprias, não apenas cortados: manter rostos, ação e texto dentro da área segura.
+
+
+## Universo de viagens planetárias — regra obrigatória da série
+
+Todos os episódios, sem exceção, acontecem em um planeta diferente. Luna, Tomi e Pipo viajam na nave Estrelinha, conhecem os habitantes, identificam um desafio local e ajudam a comunidade com inteligência, empatia e cooperação. Cada planeta possui bioma, cores, arquitetura e problema próprios. Os protagonistas mantêm exatamente os mesmos modelos, roupas, cores, proporções e emblemas.
+
+O gerador começa por dez mundos originais (Aurora-7, Vermelhão, Oceânia Azul, Flora-Lume, Nuvem Doce, Gelus-9, Vulcânia Verde, Anel de Safira, Pétala-3 e Eco-Lua) e cria identificadores inéditos ao expandir a temporada. Nenhum episódio deve repetir o planeta de uma aventura anterior.
+
+### Estrutura obrigatória de cada aventura espacial
+
+1. Viagem na nave Estrelinha e chegada ao novo planeta.
+2. Apresentação visual do planeta e de seus habitantes.
+3. Descoberta de um problema comunitário ou ambiental.
+4. Luna observa pistas e cria uma solução segura.
+5. Tomi organiza a cooperação; Pipo percebe um detalhe importante.
+6. Os amigos trabalham com os habitantes e adultos responsáveis.
+7. Encerramento com o valor aprendido e uma atitude positiva para praticar.
+
+A série não ensina crianças a confrontar perigos. Os heróis pedem ajuda aos adultos e nunca usam violência.
