@@ -12,7 +12,7 @@ from typing import Any
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, RedirectResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -26,6 +26,7 @@ class Settings(BaseSettings):
     app_name: str = "Anima 2D"
     youtube_client_id: str = ""
     youtube_client_secret: str = ""
+    youtube_redirect_uri: str = "http://localhost:8000/api/youtube/callback"
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
 settings = Settings()
@@ -39,6 +40,16 @@ class GenerateRequest(BaseModel):
     episode: str = "original"
 
 JOBS: dict[str, dict[str, Any]] = {}
+YOUTUBE_SCOPES = ["https://www.googleapis.com/auth/youtube.upload"]
+YOUTUBE_TOKEN_FILE = STORAGE / "youtube-token.json"
+OAUTH_STATES: set[str] = set()
+
+class PublishRequest(BaseModel):
+    format: str
+    scheduled_at: str | None = None
+    privacy_status: str = "public"
+    description: str = ""
+
 LOCK = threading.Lock()
 SETTINGS_FILE = STORAGE / "studio-settings.json"
 DEFAULT_STUDIO_SETTINGS = {"auto_generate_formats": ["16:9", "9:16"], "require_review_before_publish": True, "auto_publish_enabled": False, "publish_days": ["Tuesday", "Thursday", "Saturday"], "publish_time": "18:00"}
@@ -91,6 +102,114 @@ def generate(payload: GenerateRequest):
     return {"job_id": job_id, "status": "queued"}
 
 
+
+
+def _youtube_credentials():
+    if not YOUTUBE_TOKEN_FILE.exists():
+        raise HTTPException(409, "Conecte o canal do YouTube antes de publicar.")
+    from google.oauth2.credentials import Credentials
+    from google.auth.transport.requests import Request
+    credentials = Credentials.from_authorized_user_file(str(YOUTUBE_TOKEN_FILE), YOUTUBE_SCOPES)
+    if credentials.expired and credentials.refresh_token:
+        credentials.refresh(Request())
+        YOUTUBE_TOKEN_FILE.write_text(credentials.to_json(), encoding="utf-8")
+    if not credentials.valid:
+        raise HTTPException(401, "Autorização do YouTube expirada. Conecte o canal novamente.")
+    return credentials
+
+@app.get("/api/youtube/status")
+def youtube_status():
+    configured = bool(settings.youtube_client_id and settings.youtube_client_secret)
+    connected = YOUTUBE_TOKEN_FILE.exists()
+    return {"configured": configured, "connected": connected, "publishing_enabled": connected}
+
+@app.get("/api/youtube/connect")
+def youtube_connect():
+    if not settings.youtube_client_id or not settings.youtube_client_secret:
+        raise HTTPException(409, "Configure YOUTUBE_CLIENT_ID e YOUTUBE_CLIENT_SECRET no ambiente do servidor.")
+    from google_auth_oauthlib.flow import Flow
+    flow = Flow.from_client_config(
+        {"web": {"client_id": settings.youtube_client_id, "client_secret": settings.youtube_client_secret,
+                 "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+                 "token_uri": "https://oauth2.googleapis.com/token",
+                 "redirect_uris": [settings.youtube_redirect_uri]}},
+        scopes=YOUTUBE_SCOPES,
+    )
+    flow.redirect_uri = settings.youtube_redirect_uri
+    url, state = flow.authorization_url(access_type="offline", include_granted_scopes="true", prompt="consent")
+    OAUTH_STATES.add(state)
+    return RedirectResponse(url)
+
+@app.get("/api/youtube/callback")
+def youtube_callback(code: str = "", state: str = "", error: str = ""):
+    if error:
+        return HTMLResponse("<h2>Conexão com YouTube não autorizada.</h2><p>Você pode fechar esta janela.</p>", status_code=400)
+    if not state or state not in OAUTH_STATES:
+        raise HTTPException(400, "Estado OAuth inválido. Inicie a conexão novamente.")
+    OAUTH_STATES.discard(state)
+    from google_auth_oauthlib.flow import Flow
+    flow = Flow.from_client_config(
+        {"web": {"client_id": settings.youtube_client_id, "client_secret": settings.youtube_client_secret,
+                 "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+                 "token_uri": "https://oauth2.googleapis.com/token",
+                 "redirect_uris": [settings.youtube_redirect_uri]}},
+        scopes=YOUTUBE_SCOPES, state=state,
+    )
+    flow.redirect_uri = settings.youtube_redirect_uri
+    flow.fetch_token(code=code)
+    YOUTUBE_TOKEN_FILE.write_text(flow.credentials.to_json(), encoding="utf-8")
+    return HTMLResponse("<h2>Canal conectado com sucesso!</h2><p>Volte ao Anima 2D Studio. Esta janela pode ser fechada.</p>")
+
+@app.post("/api/jobs/{job_id}/publish")
+def publish_job(job_id: str, payload: PublishRequest):
+    job = _get_job(job_id)
+    if job.get("status") != "done":
+        raise HTTPException(409, "O episódio precisa estar renderizado antes do envio.")
+    if job.get("review_status") != "approved":
+        raise HTTPException(409, "Aprove o episódio na revisão editorial antes de publicar.")
+    if payload.format not in job.get("outputs", {}):
+        raise HTTPException(404, "Formato de vídeo não encontrado.")
+    if payload.privacy_status not in {"public", "unlisted", "private"}:
+        raise HTTPException(400, "Privacidade inválida.")
+    credentials = _youtube_credentials()
+    from googleapiclient.discovery import build
+    from googleapiclient.http import MediaFileUpload
+    video_path = Path(job["outputs"][payload.format])
+    if not video_path.exists():
+        raise HTTPException(404, "Arquivo de vídeo não encontrado.")
+    status = {"privacyStatus": payload.privacy_status, "selfDeclaredMadeForKids": True}
+    if payload.scheduled_at:
+        try:
+            scheduled = datetime.fromisoformat(payload.scheduled_at.replace("Z", "+00:00"))
+            if scheduled.tzinfo is None:
+                raise ValueError("Informe o fuso horário.")
+            if scheduled <= datetime.now(timezone.utc):
+                raise ValueError("A data precisa estar no futuro.")
+            status = {"privacyStatus": "private", "publishAt": scheduled.astimezone(timezone.utc).isoformat().replace("+00:00", "Z"), "selfDeclaredMadeForKids": True}
+        except ValueError as exc:
+            raise HTTPException(400, f"Agendamento inválido: {exc}")
+    title = job["title"][:85] + (" #Shorts" if payload.format == "9:16" else "")
+    description = (payload.description or "Uma aventura dos Pequenos Guardiões — A Liga do Bem!\\n\\nUma história que ensina amizade, honestidade, respeito e responsabilidade.").strip()
+    try:
+        youtube = build("youtube", "v3", credentials=credentials)
+        request = youtube.videos().insert(
+            part="snippet,status",
+            body={"snippet": {"title": title, "description": description, "categoryId": "22", "defaultLanguage": "pt-BR"},
+                  "status": status},
+            media_body=MediaFileUpload(str(video_path), mimetype="video/mp4", resumable=True),
+        )
+        response = request.execute()
+    except Exception as exc:
+        raise HTTPException(502, f"Falha no envio ao YouTube: {exc}")
+    video_id = response.get("id", "")
+    publication = {"video_id": video_id, "url": "https://www.youtube.com/watch?v=" + video_id,
+                   "format": payload.format, "status": "scheduled" if payload.scheduled_at else payload.privacy_status,
+                   "scheduled_at": payload.scheduled_at, "uploaded_at": datetime.now(timezone.utc).isoformat()}
+    publications = list(job.get("publications", []))
+    publications.append(publication)
+    _update(job_id, publications=publications, publication_status=publication["status"])
+    return publication
+
 @app.get("/api/dashboard")
 def dashboard():
     jobs = list_jobs()["jobs"]
@@ -108,7 +227,7 @@ def dashboard():
         },
         "recent_episodes": jobs[:8],
         "settings": _studio_settings(),
-        "youtube": {"configured": bool(settings.youtube_client_id and settings.youtube_client_secret), "publishing_enabled": False},
+        "youtube": {"configured": bool(settings.youtube_client_id and settings.youtube_client_secret), "connected": YOUTUBE_TOKEN_FILE.exists(), "publishing_enabled": YOUTUBE_TOKEN_FILE.exists()},
     }
 
 @app.get("/api/studio-settings")
