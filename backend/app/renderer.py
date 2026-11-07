@@ -6,7 +6,7 @@ import subprocess
 from pathlib import Path
 from PIL import Image, ImageDraw, ImageFont
 
-FPS = 10
+FPS = 8
 SCENE_SECONDS = 4
 SCENES = [
     ("UM DIA NA ESCOLA", "Na escola do bairro, algumas mochilas aparecem trocadas.", "school"),
@@ -280,46 +280,137 @@ def _run(cmd):
         raise RuntimeError(p.stderr[-1800:])
     return p
 
-def render_episode(title: str, story: str, fmt: str, output: Path, workdir: Path, planet_name: str = "Aurora-7"):
-    portrait=fmt=="9:16"
-    width,height=(405,720) if portrait else (720,405)
-    frames=workdir/f"frames-{fmt.replace(':','x')}"
-    frames.mkdir(parents=True,exist_ok=True)
-    sentences=[x.strip() for x in re.split(r"(?<=[.!?])\\s+",story) if x.strip()]
-    fallback=[
-      f"A nave Estrelinha chega ao planeta {planet_name}.",
-      "Os amigos observam o lugar e conhecem seus habitantes.",
-      "Um desafio precisa de atenção e trabalho em equipe.",
-      "Luna encontra pistas e Tomi organiza um plano seguro.",
-      "Pipo percebe um detalhe e os moradores ajudam a resolver.",
-      "Todos celebram a amizade e a lição aprendida."
-    ]
-    captions=(sentences+fallback)[:6]
-    while len(captions)<6:
-        captions.append(f"No planeta {planet_name}, ajudar fica mais fácil quando trabalhamos juntos.")
-    scene_titles=["UMA NOVA VIAGEM","CONHECENDO O PLANETA","A MISSÃO COMEÇA","UMA IDEIA BRILHANTE","JUNTOS CONSEGUIMOS","A LIÇÃO DA MISSÃO"]
-    episode_scenes=[(title if i==0 else scene_titles[i],captions[i],str(i)) for i in range(6)]
-    total=SCENE_SECONDS*FPS
-    for scene_index,scene in enumerate(episode_scenes):
-        for f in range(total):
-            image=draw_scene_frame((width,height),scene,scene_index,f,portrait,planet_name)
-            number=scene_index*total+f
-            image.save(frames/f"frame-{number:05d}.jpg",quality=91)
-    low_video=workdir/f"silent-{fmt.replace(':','x')}.mp4"
-    _run(["ffmpeg","-y","-loglevel","error","-framerate",str(FPS),"-i",str(frames/"frame-%05d.jpg"),"-c:v","libx264","-preset","ultrafast","-pix_fmt","yuv420p","-vf",f"scale={1920 if not portrait else 1080}:{1080 if not portrait else 1920}:flags=lanczos","-r","30",str(low_video)])
-    # Brazilian Portuguese narration with slower pacing, normalized loudness and gentle pauses.
-    narration=" ... ".join(captions)
-    wav=workdir/"narration.wav"
-    voice_ok=False
+def _probe_duration(path: Path) -> float:
+    result = subprocess.run(
+        ["ffprobe", "-v", "error", "-show_entries", "format=duration",
+         "-of", "default=noprint_wrappers=1:nokey=1", str(path)],
+        stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
+    )
+    if result.returncode:
+        raise RuntimeError("Não foi possível medir a duração do áudio: " + result.stderr[-600:])
     try:
-        _run(["espeak-ng","-v","pt-br","-s","132","-p","48","-a","165","-w",str(wav),narration])
-        voice_ok=wav.exists() and wav.stat().st_size>1000
-    except (FileNotFoundError,RuntimeError):
-        voice_ok=False
-    output.parent.mkdir(parents=True,exist_ok=True)
-    if voice_ok:
-        _run(["ffmpeg","-y","-loglevel","error","-i",str(low_video),"-i",str(wav),"-map","0:v:0","-map","1:a:0","-c:v","copy","-af","loudnorm=I=-16:TP=-1.5:LRA=11,highpass=f=90,lowpass=f=9000","-c:a","aac","-b:a","160k","-shortest","-movflags","+faststart",str(output)])
+        return float(result.stdout.strip())
+    except ValueError as exc:
+        raise RuntimeError("Duração do áudio inválida.") from exc
+
+def _fit_narration(source: Path, output: Path, target_seconds: float) -> float:
+    """Stretch/compress narration only as needed to satisfy the format duration contract."""
+    actual = _probe_duration(source)
+    if actual <= 0:
+        raise RuntimeError("A narração foi gerada vazia.")
+    factor = actual / target_seconds
+    if 0.96 <= factor <= 1.04:
+        output.write_bytes(source.read_bytes())
+        return _probe_duration(output)
+    factor = min(2.0, max(0.5, factor))
+    _run(["ffmpeg", "-y", "-loglevel", "error", "-i", str(source),
+          "-filter:a", f"atempo={factor:.5f}", "-ar", "44100", str(output)])
+    return _probe_duration(output)
+
+def render_episode(title: str, story: str, fmt: str, output: Path, workdir: Path,
+                   planet_name: str = "Aurora-7", story_plan: dict | None = None):
+    """Render separate long-form and vertical-short edits from one approved story plan."""
+    plan = story_plan or {}
+    portrait = fmt == "9:16"
+    if fmt not in {"16:9", "9:16"}:
+        raise ValueError("Formato de renderização não reconhecido.")
+
+    # A 16:9 episode is a full-length narrated story (>5 min).
+    # The 9:16 Short receives its own condensed narration and scene timing (60–90 s).
+    if portrait:
+        narration_text = plan.get("short_script") or story
+        speech_rate = 136
+        min_duration, max_duration, target_duration = 60.0, 90.0, 74.0
     else:
-        _run(["ffmpeg","-y","-loglevel","error","-i",str(low_video),"-c:v","copy","-movflags","+faststart",str(output)])
-    if not output.exists() or output.stat().st_size<10000:
+        narration_text = plan.get("long_script") or story
+        speech_rate = 132
+        min_duration, max_duration, target_duration = 301.0, None, 315.0
+
+    voice_raw = workdir / f"narration-source-{fmt.replace(':','x')}.wav"
+    voice_fit = workdir / f"narration-final-{fmt.replace(':','x')}.wav"
+    _run(["espeak-ng", "-v", "pt-br", "-s", str(speech_rate), "-p", "48", "-a", "165",
+          "-w", str(voice_raw), narration_text])
+    initial_duration = _probe_duration(voice_raw)
+
+    if portrait:
+        if initial_duration < 70:
+            fitted_duration = _fit_narration(voice_raw, voice_fit, 72.0)
+        elif initial_duration > 88:
+            fitted_duration = _fit_narration(voice_raw, voice_fit, 87.0)
+        else:
+            voice_fit.write_bytes(voice_raw.read_bytes())
+            fitted_duration = _probe_duration(voice_fit)
+        if not (60 <= fitted_duration <= 90):
+            raise RuntimeError(f"A narração Shorts ficou fora da faixa de 1:00 a 1:30 ({fitted_duration:.1f}s).")
+    else:
+        if initial_duration < 305:
+            fitted_duration = _fit_narration(voice_raw, voice_fit, 310.0)
+        else:
+            voice_fit.write_bytes(voice_raw.read_bytes())
+            fitted_duration = _probe_duration(voice_fit)
+        if fitted_duration <= 300:
+            raise RuntimeError(f"A narração horizontal ficou abaixo de 5 minutos ({fitted_duration:.1f}s).")
+
+    # Give the final scene a short visual tail after the last spoken line.
+    duration_seconds = fitted_duration + 1.2
+    width, height = (405, 720) if portrait else (720, 405)
+    frames = workdir / f"frames-{fmt.replace(':','x')}"
+    frames.mkdir(parents=True, exist_ok=True)
+
+    planned_scenes = plan.get("scenes") or []
+    if planned_scenes:
+        render_scenes = [(item.get("title", f"CENA {i+1}"),
+                          item.get("caption", item.get("visual_action", "")),
+                          item.get("visual_action", ""))
+                         for i, item in enumerate(planned_scenes)]
+    else:
+        render_scenes = [
+            ("A NOVA MISSÃO", "Os Pequenos Guardiões chegam a um planeta diferente.", ""),
+            ("CONHECENDO O LUGAR", "Luna, Tomi e Pipo observam o novo mundo.", ""),
+            ("NOVOS AMIGOS", "Os habitantes contam o que está acontecendo.", ""),
+            ("A DESCOBERTA", "Luna encontra uma pista importante.", ""),
+            ("UM PLANO SEGURO", "Tomi organiza a equipe e pede ajuda.", ""),
+            ("A SOLUÇÃO", "Todos trabalham juntos para ajudar a comunidade.", ""),
+            ("A LIÇÃO", "Amizade e cooperação fazem a diferença.", ""),
+        ]
+    if not render_scenes:
+        raise RuntimeError("O roteiro não contém cenas para animar.")
+
+    total_frames = max(1, int(math.ceil(duration_seconds * FPS)))
+    scene_count = len(render_scenes)
+    for frame_number in range(total_frames):
+        scene_index = min(scene_count - 1, int(frame_number * scene_count / total_frames))
+        scene_start = int(scene_index * total_frames / scene_count)
+        local_frame = frame_number - scene_start
+        scene = render_scenes[scene_index]
+        image = draw_scene_frame((width, height), scene, scene_index, local_frame,
+                                 portrait, planet_name)
+        image.save(frames / f"frame-{frame_number:06d}.jpg", quality=91)
+
+    low_video = workdir / f"silent-{fmt.replace(':','x')}.mp4"
+    _run(["ffmpeg", "-y", "-loglevel", "error", "-framerate", str(FPS),
+          "-i", str(frames / "frame-%06d.jpg"), "-c:v", "libx264",
+          "-preset", "ultrafast", "-crf", "20", "-pix_fmt", "yuv420p",
+          "-r", "24", str(low_video)])
+
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output_duration = duration_seconds
+    _run(["ffmpeg", "-y", "-loglevel", "error", "-i", str(low_video), "-i", str(voice_fit),
+          "-filter_complex", "[1:a]apad=pad_dur=2, loudnorm=I=-16:TP=-1.5:LRA=11, highpass=f=90, lowpass=f=9000[a]",
+          "-map", "0:v:0", "-map", "[a]", "-t", f"{output_duration:.3f}",
+          "-c:v", "copy", "-c:a", "aac", "-b:a", "160k", "-movflags", "+faststart",
+          str(output)])
+    if not output.exists() or output.stat().st_size < 10000:
         raise RuntimeError("O arquivo de vídeo não foi gerado corretamente.")
+    actual_video_duration = _probe_duration(output)
+    if portrait and not (60 <= actual_video_duration <= 90):
+        raise RuntimeError(f"O vídeo Shorts ficou fora da faixa de 1:00 a 1:30 ({actual_video_duration:.1f}s).")
+    if not portrait and actual_video_duration <= 300:
+        raise RuntimeError(f"O episódio horizontal ficou abaixo de 5 minutos ({actual_video_duration:.1f}s).")
+    return {
+        "duration_seconds": round(actual_video_duration, 2),
+        "narration_seconds": round(fitted_duration, 2),
+        "resolution": "1080x1920" if portrait else "1920x1080",
+        "scene_count": scene_count,
+        "narration_word_count": len(narration_text.split()),
+    }
