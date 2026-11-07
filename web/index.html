@@ -170,7 +170,7 @@ async function saveSettings(extra={}){
  try{const r=await fetch('/api/studio-settings',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});const d=await r.json();if(!r.ok)throw new Error(d.detail||'Erro ao salvar');$('settingsMessage').textContent='Preferências salvas.';$('scheduleMessage').textContent='Rotina editorial salva.';}catch(e){$('settingsMessage').textContent=e.message;$('scheduleMessage').textContent=e.message;}
 }
 $('saveSettings').addEventListener('click',()=>saveSettings());
-$('saveSchedule').addEventListener('click',()=>saveSettings({publish_days:[...document.querySelectorAll('.productionDay:checked')].map(x=>x.value),production_time:$('productionTime').value}));
+$('saveSchedule').addEventListener('click',()=>saveSettings({production_days:[...document.querySelectorAll('.productionDay:checked')].map(x=>x.value),production_time:$('productionTime').value}));
 loadDashboard();loadSettings();setInterval(loadDashboard,8000);
 </script>
 </body></html>
