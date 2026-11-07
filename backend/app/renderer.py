@@ -174,7 +174,8 @@ def draw_rocket(d, x, y, s, t):
 def draw_scene_frame(size, scene, index, frame, portrait, planet_name="Aurora-7"):
     w,h=size
     t=frame/FPS
-    sky,accent,light,terrain=WORLD_VISUALS.get(planet_name,WORLD_VISUALS["Aurora-7"])
+    base_planet = next((name for name in WORLD_VISUALS if planet_name == name or planet_name.startswith(name + " ")), "Aurora-7")
+    sky,accent,light,terrain=WORLD_VISUALS.get(base_planet,WORLD_VISUALS["Aurora-7"])
     im=Image.new("RGB",(w,h),sky)
     d=ImageDraw.Draw(im)
     # soft atmospheric glow and distant stars
