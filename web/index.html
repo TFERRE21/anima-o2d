@@ -1,64 +1,62 @@
 <!doctype html>
 <html lang="pt-BR">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Anima 2D — Estúdio de animação</title>
-  <style>
-    :root{font-family:Inter,system-ui,Arial,sans-serif;color:#eef2ff;background:#0b1020}
-    *{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 80% 0,#1d3260 0,transparent 34%),#0b1020}
-    .wrap{max-width:1100px;margin:auto;padding:36px 22px}.top{display:flex;justify-content:space-between;align-items:center;gap:16px}
-    .brand{font-size:22px;font-weight:800;letter-spacing:-.6px}.muted{color:#9ba9c7}.pill{border:1px solid #36517e;border-radius:99px;padding:7px 12px;color:#b8d4ff;font-size:12px}
-    h1{font-size:clamp(32px,5vw,54px);line-height:1.04;letter-spacing:-1.8px;margin:54px 0 12px}.lead{color:#aab7d1;max-width:650px;line-height:1.6}
-    .grid{display:grid;grid-template-columns:1.2fr .8fr;gap:18px;margin-top:30px}.card{background:#111a2e;border:1px solid #263653;border-radius:18px;padding:22px;box-shadow:0 16px 45px #0002}
-    label{display:block;font-size:13px;color:#b8c6df;margin:16px 0 8px}input,textarea,select{width:100%;border:1px solid #334766;background:#0b1426;color:#f4f7ff;border-radius:10px;padding:12px;font:inherit}
-    textarea{min-height:150px;resize:vertical}.formats{display:flex;gap:12px;flex-wrap:wrap}.format{flex:1;min-width:150px;border:1px solid #334766;background:#0b1426;border-radius:12px;padding:14px;display:flex;gap:10px;align-items:center}
-    button{border:0;background:#77a8ff;color:#071225;font-weight:800;padding:13px 18px;border-radius:10px;cursor:pointer;margin-top:18px}button:hover{filter:brightness(1.08)}
-    .preview{min-height:240px;border:1px dashed #405779;border-radius:14px;display:grid;place-items:center;text-align:center;padding:20px;color:#9eafd0}
-    .stats{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:16px}.stat{background:#0b1426;border-radius:12px;padding:14px}.stat b{display:block;font-size:21px;margin-bottom:5px}
-    #result{white-space:pre-wrap;color:#9fe4bd;font-size:13px;margin-top:12px}
-    @media(max-width:760px){.grid{grid-template-columns:1fr}.top{align-items:flex-start;flex-direction:column}.wrap{padding:24px 15px}}
-  </style>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Anima 2D — Pequenos Guardiões</title>
+<style>
+:root{color-scheme:dark;font-family:Inter,system-ui,Arial,sans-serif;background:#091225;color:#edf3ff}*{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at 75% 0,#183b70 0,transparent 40%),#091225}.wrap{max-width:1180px;margin:auto;padding:28px 20px}.top{display:flex;justify-content:space-between;align-items:center;gap:14px}.brand{font-size:23px;font-weight:900;letter-spacing:-1px}.pill{border:1px solid #31517e;color:#b9d7ff;border-radius:99px;padding:7px 12px;font-size:12px}.hero{padding:38px 0 18px}.hero h1{font-size:clamp(32px,5vw,54px);line-height:1.04;letter-spacing:-1.8px;margin:0 0 12px}.hero p{max-width:690px;color:#aebed8;line-height:1.65}.grid{display:grid;grid-template-columns:1.12fr .88fr;gap:18px}.card{background:#111d33;border:1px solid #263d60;border-radius:18px;padding:22px;box-shadow:0 18px 50px #0003}.card h2{margin:0 0 12px;font-size:19px}label{display:block;font-size:13px;color:#c3d1e8;margin:15px 0 7px}input[type=text],textarea,select{width:100%;padding:12px 13px;background:#091529;border:1px solid #344c70;border-radius:10px;color:#f4f7ff;font:inherit}textarea{min-height:126px;resize:vertical}.formats{display:flex;gap:10px}.format{flex:1;display:flex;gap:10px;align-items:center;background:#0b172b;border:1px solid #344c70;padding:12px;border-radius:12px;margin:0}.format input{width:auto;accent-color:#68a6ff}.format small{display:block;color:#96aaca;margin-top:3px}.btn{background:#64a2ff;color:#07152b;border:0;border-radius:11px;padding:13px 17px;font-weight:850;cursor:pointer;margin-top:17px}.btn:disabled{opacity:.55;cursor:wait}.btn.secondary{background:#243b5f;color:#e8f1ff}.preview{background:linear-gradient(150deg,#142e56,#0a1529);border:1px dashed #49668e;border-radius:14px;min-height:220px;display:grid;place-items:center;text-align:center;padding:18px}.preview .emoji{font-size:54px}.muted{color:#9db0ce;font-size:13px;line-height:1.5}.status{margin-top:16px;background:#091529;border-radius:12px;padding:14px}.bar{height:8px;background:#263c5e;border-radius:20px;overflow:hidden;margin:10px 0}.bar span{display:block;height:100%;width:0;background:linear-gradient(90deg,#59d5a5,#6aa7ff);transition:width .3s}.output{display:flex;justify-content:space-between;align-items:center;gap:10px;border-top:1px solid #263d60;padding:12px 0}.output a{color:#8fc1ff;font-weight:700}.tag{font-size:11px;background:#183b35;color:#9df0c5;border-radius:99px;padding:5px 9px}.history{margin-top:18px}.history-item{padding:12px 0;border-bottom:1px solid #263d60}.foot{margin:18px 0;color:#8195b5;font-size:12px}@media(max-width:800px){.grid{grid-template-columns:1fr}.top{align-items:flex-start;flex-direction:column}.wrap{padding:20px 14px}.formats{flex-direction:column}}
+</style>
 </head>
 <body>
 <main class="wrap">
-  <div class="top"><div class="brand">✦ ANIMA <span style="color:#83adff">2D</span></div><span class="pill">ESTÚDIO DE ANIMAÇÃO • BETA</span></div>
-  <h1>Transforme histórias em<br><span style="color:#83adff">animações 2D.</span></h1>
-  <p class="lead">Crie projetos para YouTube horizontal e Shorts vertical. Prepare roteiro, cenas, narração e publicação em um único fluxo.</p>
-  <section class="grid">
-    <div class="card">
-      <h2>Novo projeto</h2>
-      <label for="title">Nome do projeto</label><input id="title" placeholder="Ex.: A Arca de Noé">
-      <label for="story">História ou ideia do vídeo</label><textarea id="story" placeholder="Descreva a história que deseja transformar em animação..."></textarea>
-      <label>Formatos de saída</label>
-      <div class="formats">
-        <label class="format"><input type="checkbox" value="16:9" checked> <span><b>16:9</b><br><small class="muted">1920 × 1080 • YouTube</small></span></label>
-        <label class="format"><input type="checkbox" value="9:16" checked> <span><b>9:16</b><br><small class="muted">1080 × 1920 • Shorts</small></span></label>
-      </div>
-      <label for="style">Estilo visual</label>
-      <select id="style"><option value="2d_cartoon">Desenho animado 2D</option><option value="2d_cutout">Personagens 2D com rig e movimentos</option><option value="anime">Anime infantil</option></select>
-      <button id="validate">Validar projeto</button><div id="result"></div>
-    </div>
-    <aside class="card">
-      <h2>Central de produção</h2>
-      <div class="preview"><div><div style="font-size:38px">🎬</div><b>Seu próximo episódio começa aqui</b><p>Prévia das cenas e renderizações aparecerá nesta área.</p></div></div>
-      <div class="stats">
-        <div class="stat"><b>16:9</b><small class="muted">Formato horizontal</small></div>
-        <div class="stat"><b>9:16</b><small class="muted">Formato vertical</small></div>
-      </div>
-      <p class="muted" id="status" style="font-size:13px;margin-top:18px">Verificando configuração...</p>
-    </aside>
-  </section>
+<header class="top"><div class="brand">✦ ANIMA <span style="color:#75aaff">2D</span></div><span class="pill">ESTÚDIO DE ANIMAÇÃO INFANTIL</span></header>
+<section class="hero"><h1>Pequenos Guardiões.<br><span style="color:#78adff">Grandes atitudes.</span></h1><p>Crie episódios animados com Luna, Tomi e Pipo. O motor atual gera cenas 2D animadas, narração sintetizada em português e arquivos MP4 em formato horizontal e vertical.</p></section>
+<section class="grid">
+<div class="card">
+<h2>🎬 Criar episódio</h2>
+<label for="title">Título do episódio</label><input id="title" type="text" value="O Mistério das Mochilas" maxlength="100">
+<label for="story">História / tema educativo</label><textarea id="story">Na escola do bairro, algumas mochilas aparecem trocadas. Luna observa as etiquetas, Tomi decide conferir os nomes com a professora e Pipo ajuda a encontrar uma pista. Eles descobrem que foi uma troca por engano e ensinam que honestidade e responsabilidade ajudam todo mundo.</textarea>
+<label>Formatos de vídeo</label><div class="formats">
+<label class="format"><input type="checkbox" value="16:9" checked><span><b>16:9 — YouTube</b><small>1920 × 1080 horizontal</small></span></label>
+<label class="format"><input type="checkbox" value="9:16" checked><span><b>9:16 — Shorts</b><small>1080 × 1920 vertical</small></span></label>
+</div>
+<button class="btn" id="generate">▶ Gerar animação 2D</button>
+<div class="muted" id="notice">A geração pode levar alguns minutos. Você pode fechar a página; o processamento continua no servidor.</div>
+</div>
+<aside class="card">
+<h2>✨ Personagens da série</h2>
+<div class="preview"><div><div class="emoji">🦸‍♀️ 🦸‍♂️ 🐶</div><b>Luna • Tomi • Pipo</b><p class="muted">Amizade, coragem, honestidade e respeito.</p></div></div>
+<div class="status"><b id="jobTitle">Pronto para criar</b><div class="bar"><span id="progress"></span></div><div class="muted" id="jobMessage">Escolha os formatos e gere seu primeiro episódio.</div><div id="downloads"></div></div>
+<div class="history"><h2 style="margin-top:20px">📚 Produções recentes</h2><div id="history" class="muted">Carregando...</div></div>
+</aside>
+</section>
+<p class="foot">Anima 2D • Versão inicial do motor procedural. A publicação no YouTube ainda requer configuração OAuth e será adicionada numa etapa própria. Revise o conteúdo antes de publicar como conteúdo infantil.</p>
 </main>
 <script>
-async function init(){try{const r=await fetch('/api/config');const c=await r.json();document.getElementById('status').textContent=c.generation_enabled?'Motor de geração conectado.':'Estrutura inicial pronta — falta configurar o provedor de geração 2D e o OAuth do YouTube.';}catch(e){document.getElementById('status').textContent='API indisponível.'}}
-document.getElementById('validate').addEventListener('click',async()=>{
+const $=id=>document.getElementById(id);
+let poller=null;
+function setJob(job){
+ $('jobTitle').textContent=job.title||'Produção';
+ $('progress').style.width=(job.progress||0)+'%';
+ $('jobMessage').textContent=(job.status||'')+' — '+(job.message||'');
+ const links=Object.entries(job.outputs||{}).map(([fmt])=>'<div class="output"><span>'+fmt+'</span><a href="/api/jobs/'+job.id+'/download/'+encodeURIComponent(fmt)+'" target="_blank">Baixar MP4 ↓</a></div>').join('');
+ $('downloads').innerHTML=links;
+ if(job.status==='done'||job.status==='failed'){if(poller){clearInterval(poller);poller=null;}$('generate').disabled=false;$('generate').textContent='▶ Gerar outro episódio';}
+}
+async function refreshHistory(){
+ try{const r=await fetch('/api/jobs');const d=await r.json();$('history').innerHTML=(d.jobs||[]).slice(0,6).map(j=>'<div class="history-item"><b>'+j.title+'</b><br><span class="muted">'+j.status+' · '+(j.progress||0)+'%</span></div>').join('')||'Nenhuma produção ainda.';}catch(e){$('history').textContent='API indisponível.'}
+}
+async function watch(id){
+ const tick=async()=>{try{const r=await fetch('/api/jobs/'+id);if(!r.ok)throw new Error('Não foi possível consultar a produção.');const job=await r.json();setJob(job);refreshHistory();}catch(e){$('jobMessage').textContent=e.message;}};
+ await tick();if(poller)clearInterval(poller);poller=setInterval(tick,2500);
+}
+$('generate').addEventListener('click',async()=>{
  const formats=[...document.querySelectorAll('.format input:checked')].map(x=>x.value);
- const payload={title:document.getElementById('title').value,story:document.getElementById('story').value,style:document.getElementById('style').value,formats};
- const out=document.getElementById('result');out.textContent='Validando...';
- try{const r=await fetch('/api/projects/validate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});const data=await r.json();out.textContent=data.valid?'✓ '+data.message:'⚠ '+(data.error||'Confira os campos.');}catch(e){out.textContent='Não foi possível conectar à API.'}
+ if(!formats.length){$('jobMessage').textContent='Selecione pelo menos um formato.';return;}
+ const payload={title:$('title').value.trim(),story:$('story').value.trim(),formats};
+ $('generate').disabled=true;$('generate').textContent='Preparando…';$('downloads').innerHTML='';$('progress').style.width='0%';
+ try{const r=await fetch('/api/generate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});const data=await r.json();if(!r.ok)throw new Error(data.detail||'Falha ao iniciar geração.');$('jobMessage').textContent='Episódio enviado para a fila.';await watch(data.job_id);}catch(e){$('jobMessage').textContent=e.message;$('generate').disabled=false;$('generate').textContent='▶ Tentar novamente';}
 });
-init();
+refreshHistory();
 </script>
-</body>
-</html>
+</body></html>
