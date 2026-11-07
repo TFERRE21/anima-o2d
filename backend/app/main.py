@@ -271,18 +271,28 @@ def _create_scheduled_episode():
     if not cfg.get("auto_production_enabled"):
         return
     all_jobs = list_jobs()["jobs"]
-    used_planets = {j.get("planet") for j in all_jobs if j.get("episode") == "planet-journey"}
-    world = next((dict(w) for w in WORLDS if w["planet"] not in used_planets), dict(WORLDS[len(all_jobs) % len(WORLDS)]))
-    if world["planet"] in used_planets:
-        world["planet"] = f'{world["planet"]} {len(used_planets) + 1}'
-    title, story = episode_for_world(world)
-    payload = GenerateRequest(title=title, story=story, formats=cfg.get("auto_generate_formats", ["16:9","9:16"]), episode="planet-journey", planet=world["planet"])
+    planet_jobs = [j for j in all_jobs if j.get("episode") == "planet-journey"]
+    used_planets = {j.get("planet") for j in planet_jobs if j.get("planet")}
+    plan = build_episode_plan(len(planet_jobs), used_planets)
+    formats = cfg.get("auto_generate_formats", ["16:9", "9:16"])
+    payload = GenerateRequest(title=plan["title"], story=plan["long_script"],
+                              formats=formats, episode="planet-journey", planet=plan["planet"])
     job_id = uuid.uuid4().hex[:12]
-    job = {"id":job_id,"title":title,"status":"queued","progress":0,"message":"Episódio criado automaticamente pela programação do estúdio","formats":payload.formats,"outputs":{},"created_at":datetime.now(timezone.utc).isoformat(),"review_status":"pending_review","publication_status":"awaiting_review","story":story,"episode":"planet-journey","planet":world["planet"]}
+    # The complete story is generated and persisted before the render worker starts.
+    job = {
+        "id": job_id, "title": plan["title"], "status": "queued", "stage": "story_written",
+        "progress": 5, "message": "Roteiro original concluído; preparando a animação automática.",
+        "formats": formats, "outputs": {}, "created_at": datetime.now(timezone.utc).isoformat(),
+        "review_status": "pending_review", "publication_status": "awaiting_review",
+        "story": plan["long_script"], "short_story": plan["short_script"],
+        "story_plan": plan, "episode": "planet-journey", "planet": plan["planet"],
+        "value": plan["value"], "synopsis": plan["synopsis"],
+        "duration_targets": plan["duration_targets"],
+    }
     with LOCK:
         JOBS[job_id] = job
         _save(job_id, job)
-    threading.Thread(target=_run_job,args=(job_id,payload),daemon=True).start()
+    threading.Thread(target=_run_job, args=(job_id, payload), daemon=True).start()
 
 scheduler = None
 def _refresh_scheduler():
@@ -431,16 +441,29 @@ def _run_job(job_id: str, payload: GenerateRequest):
     try:
         from backend.app.renderer import render_episode
         for index, fmt in enumerate(payload.formats):
-            _update(job_id, status="processing", progress=int(index * 100 / len(payload.formats)), message=f"Animando versão {fmt}…")
+            stage = "rendering_long" if fmt == "16:9" else "rendering_short"
+            _update(job_id, status="processing", stage=stage,
+                    progress=int(index * 100 / len(payload.formats)),
+                    message=f"Renderizando versão {fmt} com roteiro próprio…")
             output = STORAGE / job_id / f"episode-{fmt.replace(':','x')}.mp4"
-            render_episode(payload.title, payload.story, fmt, output, STORAGE / job_id, planet_name=payload.planet)
+            current = _get_job(job_id)
+            metadata = render_episode(
+                payload.title, payload.story, fmt, output, STORAGE / job_id,
+                planet_name=payload.planet, story_plan=current.get("story_plan")
+            )
             current = _get_job(job_id)
             outputs = dict(current.get("outputs", {}))
             outputs[fmt] = str(output)
-            _update(job_id, outputs=outputs, progress=int((index + 1) * 100 / len(payload.formats)), message=f"Versão {fmt} pronta.")
-        _update(job_id, status="done", progress=100, message="Episódio renderizado com sucesso.")
+            durations = dict(current.get("rendered_durations", {}))
+            durations[fmt] = metadata.get("duration_seconds")
+            _update(job_id, outputs=outputs, rendered_durations=durations,
+                    progress=int((index + 1) * 100 / len(payload.formats)),
+                    message=f"Versão {fmt} pronta ({metadata.get('duration_seconds', 0):.0f} segundos).")
+        _update(job_id, status="done", stage="ready_for_review", progress=100,
+                message="Episódio completo: roteiro, animação e narrações renderizados.")
     except Exception as exc:
-        _update(job_id, status="failed", message=f"Falha na renderização: {exc}")
+        _update(job_id, status="failed", stage="render_error", error=str(exc),
+                message=f"Falha na renderização: {exc}")
 
 if WEB.exists():
     app.mount("/", StaticFiles(directory=WEB, html=True), name="web")
