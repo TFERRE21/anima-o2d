@@ -32,60 +32,105 @@ def rounded(draw, box, radius, fill, outline=None, width=1):
 
 def draw_girl(d, x, y, s, t):
     bob = math.sin(t * 5) * 3 * s
-    # legs and boots
-    d.line((x-18*s,y+100*s+bob,x-24*s,y+145*s), fill="#3d315e", width=max(5,int(12*s)))
-    d.line((x+18*s,y+100*s+bob,x+25*s,y+145*s), fill="#3d315e", width=max(5,int(12*s)))
-    d.ellipse((x-43*s,y+136*s,x-9*s,y+154*s), fill="#30243f")
-    d.ellipse((x+8*s,y+136*s,x+43*s,y+154*s), fill="#30243f")
-    # arms
-    d.line((x-30*s,y+28*s+bob,x-62*s,y+78*s+math.sin(t*4)*8*s), fill="#e8a47f", width=max(5,int(14*s)))
-    d.line((x+30*s,y+28*s+bob,x+58*s,y+70*s+math.cos(t*4)*8*s), fill="#e8a47f", width=max(5,int(14*s)))
-    # torso
-    rounded(d,(x-38*s,y+12*s+bob,x+38*s,y+112*s+bob),18*s,"#d92d91","#7b185b",max(1,int(3*s)))
-    d.polygon([(x-15*s,y+40*s+bob),(x,y+27*s+bob),(x+15*s,y+40*s+bob),(x,y+55*s+bob)],fill="#ffd64d")
-    d.ellipse((x-10*s,y+34*s+bob,x+10*s,y+54*s+bob),fill="#fff2a6")
-    # head, hair and face
-    d.ellipse((x-43*s,y-62*s+bob,x+43*s,y+28*s+bob),fill="#75452f")
-    d.ellipse((x-35*s,y-55*s+bob,x+35*s,y+25*s+bob),fill="#f2bd98")
-    d.ellipse((x-39*s,y-65*s+bob,x-8*s,y-25*s+bob),fill="#75452f")
-    d.ellipse((x+7*s,y-66*s+bob,x+42*s,y-20*s+bob),fill="#75452f")
-    d.ellipse((x-22*s,y-24*s+bob,x-12*s,y-10*s+bob),fill="#30231e")
-    d.ellipse((x+12*s,y-24*s+bob,x+22*s,y-10*s+bob),fill="#30231e")
-    d.arc((x-16*s,y-6*s+bob,x+17*s,y+15*s+bob),0,180,fill="#9e4e45",width=max(1,int(2*s)))
-    # goggles
-    d.arc((x-34*s,y-53*s+bob,x+34*s,y-23*s+bob),180,355,fill="#ff5db7",width=max(3,int(7*s)))
-    d.line((x-34*s,y-40*s+bob,x+34*s,y-40*s+bob),fill="#ff5db7",width=max(2,int(4*s)))
+    ink = "#432b43"
+    # Boots, legs and gloves
+    d.line((x-17*s,y+100*s+bob,x-23*s,y+143*s), fill="#533b78", width=max(5,int(13*s)))
+    d.line((x+17*s,y+100*s+bob,x+23*s,y+143*s), fill="#533b78", width=max(5,int(13*s)))
+    rounded(d,(x-43*s,y+136*s,x-7*s,y+157*s),8*s,"#332448",ink,max(1,int(3*s)))
+    rounded(d,(x+7*s,y+136*s,x+43*s,y+157*s),8*s,"#332448",ink,max(1,int(3*s)))
+    # Arms and gloves
+    d.line((x-31*s,y+30*s+bob,x-62*s,y+73*s+math.sin(t*4)*7*s),fill="#e9aa88",width=max(6,int(15*s)))
+    d.line((x+31*s,y+30*s+bob,x+59*s,y+69*s+math.cos(t*4)*7*s),fill="#e9aa88",width=max(6,int(15*s)))
+    d.ellipse((x-70*s,y+65*s,x-52*s,y+83*s),fill="#ffcf55",outline=ink,width=max(1,int(2*s)))
+    d.ellipse((x+52*s,y+61*s,x+70*s,y+79*s),fill="#ffcf55",outline=ink,width=max(1,int(2*s)))
+    # Suit, collar, belt and emblem
+    rounded(d,(x-39*s,y+8*s+bob,x+39*s,y+113*s+bob),20*s,"#e83b9b",ink,max(2,int(3*s)))
+    d.polygon([(x-17*s,y+12*s+bob),(x,y+31*s+bob),(x+17*s,y+12*s+bob)],fill="#ffd5ed")
+    d.arc((x-26*s,y+48*s+bob,x+26*s,y+100*s+bob),5,175,fill="#ff91cf",width=max(1,int(3*s)))
+    rounded(d,(x-38*s,y+91*s+bob,x+38*s,y+103*s+bob),5*s,"#713e91",ink,max(1,int(2*s)))
+    d.ellipse((x-13*s,y+43*s+bob,x+13*s,y+69*s+bob),fill="#ffd54d",outline="#9a6321",width=max(1,int(2*s)))
+    d.polygon([(x,y+46*s+bob),(x+5*s,y+55*s+bob),(x+12*s,y+56*s+bob),(x+5*s,y+62*s+bob),(x+7*s,y+68*s+bob),(x,y+64*s+bob),(x-7*s,y+68*s+bob),(x-5*s,y+61*s+bob),(x-12*s,y+56*s+bob),(x-4*s,y+55*s+bob)],fill="#fff8c8")
+    # Hair silhouette and face
+    d.ellipse((x-47*s,y-69*s+bob,x+47*s,y+33*s+bob),fill="#613c2e",outline=ink,width=max(1,int(3*s)))
+    d.ellipse((x-35*s,y-56*s+bob,x+35*s,y+27*s+bob),fill="#f4c09d",outline="#b87962",width=max(1,int(2*s)))
+    d.ellipse((x-43*s,y-43*s+bob,x-23*s,y+15*s+bob),fill="#613c2e")
+    d.ellipse((x+23*s,y-43*s+bob,x+43*s,y+15*s+bob),fill="#613c2e")
+    d.pieslice((x-39*s,y-73*s+bob,x+40*s,y-12*s+bob),180,355,fill="#704330",outline=ink,width=max(1,int(2*s)))
+    # Side fringe and little star clip
+    d.polygon([(x-34*s,y-54*s+bob),(x-5*s,y-65*s+bob),(x+5*s,y-36*s+bob),(x-17*s,y-28*s+bob)],fill="#704330")
+    d.ellipse((x+29*s,y-53*s+bob,x+43*s,y-39*s+bob),fill="#ffcf54",outline=ink,width=max(1,int(2*s)))
+    # Eyes, highlights, brows, cheeks and smile
+    d.arc((x-25*s,y-33*s+bob,x-7*s,y-24*s+bob),185,350,fill=ink,width=max(1,int(2*s)))
+    d.arc((x+7*s,y-33*s+bob,x+25*s,y-24*s+bob),185,350,fill=ink,width=max(1,int(2*s)))
+    for ex in (-16,16):
+        d.ellipse((x+(ex-5)*s,y-25*s+bob,x+(ex+5)*s,y-10*s+bob),fill="#fff")
+        d.ellipse((x+(ex-2)*s,y-22*s+bob,x+(ex+3)*s,y-11*s+bob),fill="#342a35")
+        d.ellipse((x+(ex-1)*s,y-21*s+bob,x+(ex+1)*s,y-18*s+bob),fill="#fff")
+    d.ellipse((x-29*s,y-5*s+bob,x-19*s,y+2*s+bob),fill="#ee8c91")
+    d.ellipse((x+19*s,y-5*s+bob,x+29*s,y+2*s+bob),fill="#ee8c91")
+    d.arc((x-12*s,y-5*s+bob,x+12*s,y+12*s+bob),5,170,fill="#a64d58",width=max(1,int(3*s)))
+    # Signature pink inventor goggles
+    d.arc((x-37*s,y-62*s+bob,x+37*s,y-27*s+bob),185,355,fill="#ff70c1",width=max(4,int(7*s)))
+    d.line((x-35*s,y-44*s+bob,x+35*s,y-44*s+bob),fill="#ff70c1",width=max(2,int(4*s)))
+    d.ellipse((x-4*s,y-50*s+bob,x+4*s,y-42*s+bob),fill="#ffe8f6")
 
 def draw_boy(d, x, y, s, t):
     bob = math.sin(t*5+1)*3*s
-    d.line((x-17*s,y+100*s+bob,x-20*s,y+145*s),fill="#253b68",width=max(5,int(13*s)))
-    d.line((x+17*s,y+100*s+bob,x+23*s,y+145*s),fill="#253b68",width=max(5,int(13*s)))
-    d.ellipse((x-40*s,y+137*s,x-5*s,y+155*s),fill="#17233c")
-    d.ellipse((x+7*s,y+137*s,x+42*s,y+155*s),fill="#17233c")
-    d.line((x-30*s,y+30*s+bob,x-57*s,y+77*s+math.cos(t*4)*8*s),fill="#d99b76",width=max(5,int(14*s)))
-    d.line((x+30*s,y+30*s+bob,x+58*s,y+75*s+math.sin(t*4)*8*s),fill="#d99b76",width=max(5,int(14*s)))
-    rounded(d,(x-38*s,y+12*s+bob,x+38*s,y+112*s+bob),18*s,"#173c78","#10254c",max(1,int(3*s)))
-    d.polygon([(x-15*s,y+40*s+bob),(x,y+27*s+bob),(x+15*s,y+40*s+bob),(x,y+55*s+bob)],fill="#ffd34e")
-    d.ellipse((x-43*s,y-62*s+bob,x+43*s,y+28*s+bob),fill="#573624")
-    d.ellipse((x-35*s,y-55*s+bob,x+35*s,y+25*s+bob),fill="#eeb28b")
-    for dx in [-28,-8,12,30]:
-        d.ellipse((x+dx*s,y-62*s+bob,x+(dx+22)*s,y-37*s+bob),fill="#573624")
-    d.ellipse((x-22*s,y-24*s+bob,x-12*s,y-10*s+bob),fill="#241a17")
-    d.ellipse((x+12*s,y-24*s+bob,x+22*s,y-10*s+bob),fill="#241a17")
-    d.arc((x-16*s,y-6*s+bob,x+17*s,y+15*s+bob),0,180,fill="#914d3e",width=max(1,int(2*s)))
-    rounded(d,(x+28*s,y+30*s+bob,x+48*s,y+52*s+bob),7*s,"#54d9ff")
+    ink = "#23304f"
+    d.line((x-17*s,y+100*s+bob,x-21*s,y+143*s),fill="#28406e",width=max(6,int(14*s)))
+    d.line((x+17*s,y+100*s+bob,x+23*s,y+143*s),fill="#28406e",width=max(6,int(14*s)))
+    rounded(d,(x-42*s,y+136*s,x-6*s,y+157*s),8*s,"#172a50",ink,max(1,int(3*s)))
+    rounded(d,(x+6*s,y+136*s,x+42*s,y+157*s),8*s,"#172a50",ink,max(1,int(3*s)))
+    d.line((x-31*s,y+29*s+bob,x-58*s,y+73*s+math.cos(t*4)*7*s),fill="#e5a780",width=max(6,int(15*s)))
+    d.line((x+31*s,y+29*s+bob,x+58*s,y+70*s+math.sin(t*4)*7*s),fill="#e5a780",width=max(6,int(15*s)))
+    d.ellipse((x-67*s,y+66*s,x-50*s,y+83*s),fill="#ffd04f",outline=ink,width=max(1,int(2*s)))
+    d.ellipse((x+50*s,y+63*s,x+67*s,y+80*s),fill="#ffd04f",outline=ink,width=max(1,int(2*s)))
+    rounded(d,(x-39*s,y+8*s+bob,x+39*s,y+113*s+bob),20*s,"#2464ad",ink,max(2,int(3*s)))
+    d.polygon([(x-17*s,y+12*s+bob),(x,y+30*s+bob),(x+17*s,y+12*s+bob)],fill="#e4f4ff")
+    rounded(d,(x-38*s,y+91*s+bob,x+38*s,y+103*s+bob),5*s,"#f1b936",ink,max(1,int(2*s)))
+    d.ellipse((x-13*s,y+42*s+bob,x+13*s,y+68*s+bob),fill="#ffd34d",outline="#966b23",width=max(1,int(2*s)))
+    d.polygon([(x,y+45*s+bob),(x+5*s,y+54*s+bob),(x+12*s,y+55*s+bob),(x+5*s,y+61*s+bob),(x+7*s,y+67*s+bob),(x,y+63*s+bob),(x-7*s,y+67*s+bob),(x-5*s,y+60*s+bob),(x-12*s,y+55*s+bob),(x-4*s,y+54*s+bob)],fill="#fff8c8")
+    # Face and layered swept hair
+    d.ellipse((x-45*s,y-68*s+bob,x+45*s,y+31*s+bob),fill="#573624",outline=ink,width=max(1,int(3*s)))
+    d.ellipse((x-35*s,y-55*s+bob,x+35*s,y+27*s+bob),fill="#efb68e",outline="#b87962",width=max(1,int(2*s)))
+    d.polygon([(x-39*s,y-45*s+bob),(x-32*s,y-77*s+bob),(x-10*s,y-59*s+bob),(x+2*s,y-82*s+bob),(x+14*s,y-55*s+bob),(x+34*s,y-69*s+bob),(x+29*s,y-34*s+bob)],fill="#69412d",outline=ink)
+    d.arc((x-26*s,y-33*s+bob,x-7*s,y-24*s+bob),185,350,fill=ink,width=max(1,int(2*s)))
+    d.arc((x+7*s,y-33*s+bob,x+26*s,y-24*s+bob),185,350,fill=ink,width=max(1,int(2*s)))
+    for ex in (-16,16):
+        d.ellipse((x+(ex-5)*s,y-25*s+bob,x+(ex+5)*s,y-10*s+bob),fill="#fff")
+        d.ellipse((x+(ex-2)*s,y-22*s+bob,x+(ex+3)*s,y-11*s+bob),fill="#27334b")
+        d.ellipse((x+(ex-1)*s,y-21*s+bob,x+(ex+1)*s,y-18*s+bob),fill="#fff")
+    d.ellipse((x-29*s,y-5*s+bob,x-19*s,y+2*s+bob),fill="#e9918c")
+    d.ellipse((x+19*s,y-5*s+bob,x+29*s,y+2*s+bob),fill="#e9918c")
+    d.arc((x-12*s,y-5*s+bob,x+12*s,y+12*s+bob),5,170,fill="#995047",width=max(1,int(3*s)))
+    rounded(d,(x+27*s,y+29*s+bob,x+49*s,y+53*s+bob),7*s,"#56d7ef",ink,max(1,int(2*s)))
+    d.line((x+31*s,y+34*s+bob,x+45*s,y+34*s+bob),fill="#e6ffff",width=max(1,int(2*s)))
 
 def draw_dog(d,x,y,s,t):
     bob=math.sin(t*6)*3*s
-    d.ellipse((x-50*s,y-5*s+bob,x+50*s,y+65*s+bob),fill="#c98243",outline="#8b4e2c",width=max(1,int(3*s)))
-    d.ellipse((x-40*s,y-65*s+bob,x+40*s,y+15*s+bob),fill="#d99655",outline="#8b4e2c",width=max(1,int(3*s)))
-    d.ellipse((x-49*s,y-53*s+bob,x-22*s,y+6*s+bob),fill="#8b4e2c")
-    d.ellipse((x+22*s,y-53*s+bob,x+49*s,y+6*s+bob),fill="#8b4e2c")
-    d.ellipse((x-21*s,y-33*s+bob,x-11*s,y-20*s+bob),fill="#201a17")
-    d.ellipse((x+11*s,y-33*s+bob,x+21*s,y-20*s+bob),fill="#201a17")
-    d.ellipse((x-9*s,y-12*s+bob,x+9*s,y+1*s+bob),fill="#241a17")
-    rounded(d,(x-32*s,y+3*s+bob,x+32*s,y+23*s+bob),8*s,"#17417b")
-    d.ellipse((x-8*s,y+5*s+bob,x+8*s,y+21*s+bob),fill="#ffd44d")
+    ink="#75452b"
+    # tail wag
+    d.arc((x+27*s,y+12*s+bob,x+78*s,y+66*s+bob),190+math.sin(t*8)*20,330+math.sin(t*8)*20,fill="#b8753e",width=max(5,int(11*s)))
+    # paws and body
+    d.ellipse((x-42*s,y+39*s+bob,x-15*s,y+72*s+bob),fill="#a96635",outline=ink,width=max(1,int(2*s)))
+    d.ellipse((x+15*s,y+39*s+bob,x+42*s,y+72*s+bob),fill="#a96635",outline=ink,width=max(1,int(2*s)))
+    d.ellipse((x-49*s,y-5*s+bob,x+49*s,y+65*s+bob),fill="#c98243",outline=ink,width=max(1,int(3*s)))
+    # chest patch and blue hero vest
+    d.ellipse((x-18*s,y+14*s+bob,x+18*s,y+59*s+bob),fill="#f5d7a7")
+    rounded(d,(x-35*s,y+9*s+bob,x+35*s,y+31*s+bob),9*s,"#24528a",ink,max(1,int(2*s)))
+    d.ellipse((x-9*s,y+12*s+bob,x+9*s,y+29*s+bob),fill="#ffd34d")
+    # ears behind head
+    d.ellipse((x-50*s,y-54*s+bob,x-20*s,y+11*s+bob),fill="#89512e",outline=ink,width=max(1,int(2*s)))
+    d.ellipse((x+20*s,y-54*s+bob,x+50*s,y+11*s+bob),fill="#89512e",outline=ink,width=max(1,int(2*s)))
+    d.ellipse((x-39*s,y-65*s+bob,x+39*s,y+18*s+bob),fill="#d99655",outline=ink,width=max(1,int(3*s)))
+    # muzzle
+    d.ellipse((x-22*s,y-15*s+bob,x+22*s,y+17*s+bob),fill="#f6d7ae")
+    d.ellipse((x-21*s,y-36*s+bob,x-10*s,y-21*s+bob),fill="#241a17")
+    d.ellipse((x+10*s,y-36*s+bob,x+21*s,y-21*s+bob),fill="#241a17")
+    d.ellipse((x-5*s,y-17*s+bob,x+5*s,y-8*s+bob),fill="#34211c")
+    d.arc((x-10*s,y-12*s+bob,x+10*s,y+7*s+bob),0,180,fill="#8c5140",width=max(1,int(2*s)))
+    d.ellipse((x-17*s,y-31*s+bob,x-13*s,y-27*s+bob),fill="#fff")
+    d.ellipse((x+13*s,y-31*s+bob,x+17*s,y-27*s+bob),fill="#fff")
 
 def draw_scene_frame(size, scene, index, frame, portrait):
     w,h=size
