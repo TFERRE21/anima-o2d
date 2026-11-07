@@ -276,6 +276,7 @@ def dashboard():
             "episodes_processing": len(active), "episodes_failed": len(failed),
             "awaiting_review": sum(1 for j in completed if j.get("review_status") != "approved"),
             "approved": len(approved),
+            "posts_published": sum(len(j.get("publications", [])) for j in jobs),
         },
         "recent_episodes": jobs[:8],
         "settings": _studio_settings(),
