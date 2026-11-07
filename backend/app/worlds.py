@@ -134,6 +134,12 @@ def build_episode_plan(episode_number: int, used_planets: set[str] | None = None
         audio_segments_long.append({"speaker": "Narrador", "text": narrator_text, "scene": first})
         for scene_index in (first, first + 1):
             audio_segments_long.extend(dialogue_by_scene.get(scene_index, []))
+    if len(long_script) > 12:
+        audio_segments_long.append({
+            "speaker": "Narrador",
+            "text": " ".join(long_script[12:]),
+            "scene": 11,
+        })
 
     # Shorts use the most emotional section: the unexpected clue, the failed
     # first attempt, the team's decision to listen, and the successful solution.
