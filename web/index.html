@@ -86,15 +86,15 @@
 <div class="card"><div class="cardhead"><h3>Preferências de produção</h3><span class="badge ready">CONFIGURÁVEL</span></div>
 <div class="settingrow"><div><b>Gerar os dois formatos</b><p>Produzir versão horizontal e Shorts para cada episódio.</p></div><input class="switch" id="autoBoth" type="checkbox" checked></div>
 <div class="settingrow"><div><b>Exigir revisão antes de publicar</b><p>Evita que um vídeo seja publicado sem conferência.</p></div><input class="switch" id="requireReview" type="checkbox" checked></div>
-<div class="settingrow"><div><b>Publicação automática no YouTube</b><p>Será habilitada quando a integração OAuth do canal estiver pronta.</p></div><input class="switch" id="autoPublish" type="checkbox" disabled></div>
+<div class="settingrow"><div><b>Produção automática de episódios</b><p>Cria e renderiza histórias educativas nos dias e horário escolhidos. Os episódios aguardam sua aprovação.</p></div><input class="switch" id="autoProduction" type="checkbox"></div><div class="settingrow"><div><b>Publicação automática no YouTube</b><p>Será habilitada quando a integração OAuth do canal estiver pronta.</p></div><input class="switch" id="autoPublish" type="checkbox" disabled></div>
 <div class="notice">A automação de publicação ainda não está conectada. As preferências ficam salvas, mas nenhum vídeo será enviado ao YouTube por enquanto.</div>
 <button class="btn" id="saveSettings" style="margin-top:16px">Salvar preferências</button><span id="settingsMessage" class="muted" style="margin-left:10px"></span>
 </div>
 <div class="card"><div class="cardhead"><h3>Rotina editorial sugerida</h3><span class="badge">PLANEJAMENTO</span></div>
 <p class="muted">Dias e horário sugeridos para organizar as futuras postagens. Ainda não cria agendamentos no YouTube.</p>
-<div class="field"><label>Frequência</label><div class="checks"><label class="check"><input type="checkbox" class="day" value="Tuesday" checked> Terça</label><label class="check"><input type="checkbox" class="day" value="Thursday" checked> Quinta</label><label class="check"><input type="checkbox" class="day" value="Saturday" checked> Sábado</label></div></div>
-<div class="field"><label for="publishTime">Horário preferencial</label><input id="publishTime" type="time" value="18:00"></div>
-<button class="btn secondary" id="saveSchedule">Salvar rotina</button><p class="muted" id="scheduleMessage"></p>
+<div class="field"><label>Dias de produção automática</label><div class="checks"><label class="check"><input type="checkbox" class="productionDay" value="Monday"> Seg</label><label class="check"><input type="checkbox" class="productionDay" value="Tuesday" checked> Ter</label><label class="check"><input type="checkbox" class="productionDay" value="Wednesday"> Qua</label><label class="check"><input type="checkbox" class="productionDay" value="Thursday" checked> Qui</label><label class="check"><input type="checkbox" class="productionDay" value="Friday"> Sex</label><label class="check"><input type="checkbox" class="productionDay" value="Saturday" checked> Sáb</label><label class="check"><input type="checkbox" class="productionDay" value="Sunday"> Dom</label></div></div>
+<div class="field"><label for="productionTime">Horário para criar episódios</label><input id="productionTime" type="time" value="10:00"></div>
+<button class="btn secondary" id="saveSchedule">Salvar calendário automático</button><p class="muted" id="scheduleMessage"></p>
 </div></div>
 </section>
 
@@ -162,15 +162,15 @@ async function reviewEpisode(id,decision){
  try{const r=await fetch('/api/jobs/'+encodeURIComponent(id)+'/review',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({decision})});const d=await r.json();if(!r.ok)throw new Error(d.detail||'Falha ao salvar revisão');await loadDashboard();}catch(e){alert(e.message);}
 }
 async function loadSettings(){
- try{const r=await fetch('/api/studio-settings');const s=await r.json();$('autoBoth').checked=(s.auto_generate_formats||[]).length===2;$('requireReview').checked=!!s.require_review_before_publish;$('autoPublish').checked=false;$('publishTime').value=s.publish_time||'18:00';document.querySelectorAll('.day').forEach(x=>x.checked=(s.publish_days||[]).includes(x.value));}catch(e){}
+ try{const r=await fetch('/api/studio-settings');const s=await r.json();$('autoBoth').checked=(s.auto_generate_formats||[]).length===2;$('requireReview').checked=!!s.require_review_before_publish;$('autoPublish').checked=false;$('autoProduction').checked=!!s.auto_production_enabled;$('productionTime').value=s.production_time||'10:00';document.querySelectorAll('.productionDay').forEach(x=>x.checked=(s.production_days||[]).includes(x.value));}catch(e){}
 }
 async function saveSettings(extra={}){
  const formats=$('autoBoth').checked?['16:9','9:16']:['16:9'];
- const payload={auto_generate_formats:formats,require_review_before_publish:$('requireReview').checked,auto_publish_enabled:false,...extra};
+ const payload={auto_generate_formats:formats,require_review_before_publish:$('requireReview').checked,auto_publish_enabled:false,auto_production_enabled:$('autoProduction').checked,...extra};
  try{const r=await fetch('/api/studio-settings',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});const d=await r.json();if(!r.ok)throw new Error(d.detail||'Erro ao salvar');$('settingsMessage').textContent='Preferências salvas.';$('scheduleMessage').textContent='Rotina editorial salva.';}catch(e){$('settingsMessage').textContent=e.message;$('scheduleMessage').textContent=e.message;}
 }
 $('saveSettings').addEventListener('click',()=>saveSettings());
-$('saveSchedule').addEventListener('click',()=>saveSettings({publish_days:[...document.querySelectorAll('.day:checked')].map(x=>x.value),publish_time:$('publishTime').value}));
+$('saveSchedule').addEventListener('click',()=>saveSettings({publish_days:[...document.querySelectorAll('.productionDay:checked')].map(x=>x.value),production_time:$('productionTime').value}));
 loadDashboard();loadSettings();setInterval(loadDashboard,8000);
 </script>
 </body></html>
