@@ -18,5 +18,7 @@ jobs:
         run: pip install -r backend/requirements.txt
       - name: Compile Python
         run: python -m compileall -q backend
+      - name: Test story engine
+        run: python -m unittest discover -s backend/tests -v
       - name: Build Docker image
         run: docker build -t anima2d:test .
