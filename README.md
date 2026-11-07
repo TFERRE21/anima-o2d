@@ -12,6 +12,21 @@ O painel possui:
 - Preferências de produção e rotina editorial.
 - Área de acompanhamento da integração com YouTube.
 
+## Motor de histórias e durações
+
+- Cada episódio recebe um identificador de planeta não repetido, com bioma, habitantes, problema e solução próprios.
+- O motor escolhe uma missão e valor educativo diferentes, preservando Luna, Tomi e Pipo.
+- O roteiro tem 12 cenas de storyboard, narração longa e uma versão resumida escrita separadamente para Shorts.
+- A criação do roteiro é uma etapa explícita anterior à renderização: `POST /api/stories/generate`; a prévia fica em `GET /api/jobs/{id}/story`; a animação começa em `POST /api/jobs/{id}/render`.
+- A agenda automática faz a mesma sequência internamente: grava a história completa e depois dispara a renderização.
+
+| Formato | Resolução | Duração exigida |
+|---|---:|---:|
+| Episódio 16:9 | 1920×1080 | Mais de 5 minutos (mínimo validado: 301 s) |
+| Shorts 9:16 | 1080×1920 | Entre 1:00 e 1:30 |
+
+O renderizador mede a duração do áudio e ajusta a velocidade da narração dentro de limites para respeitar a duração de cada formato. Se não conseguir cumprir a faixa, marca o job como falha em vez de entregar um vídeo com duração incorreta.
+
 ## Motor de animação atual
 
 - Personagens 2D desenhados proceduralmente com Pillow, mantendo figurinos, emblemas e proporções consistentes entre cenas.
@@ -27,9 +42,9 @@ O painel possui:
 
 ## Automação e publicação — estado real
 
-O painel salva preferências de formatos, revisão obrigatória e rotina editorial sugerida. A fila de episódios, renderização e atualização de status são automáticas após iniciar uma geração.
+O painel salva preferências de formatos, revisão obrigatória e rotina editorial sugerida. O motor sempre escreve e salva a história antes de iniciar qualquer renderização. Na criação manual, o roteiro e o storyboard são apresentados para revisão; a animação só começa após aprovação. No calendário automático, o roteiro é criado primeiro e depois segue para renderização em segundo plano.
 
-**A integração de upload e agendamento via YouTube Data API foi adicionada ao backend.** É necessário configurar `YOUTUBE_CLIENT_ID`, `YOUTUBE_CLIENT_SECRET` e `YOUTUBE_REDIRECT_URI`, autorizar o canal no painel e aprovar editorialmente cada episódio. O painel permite enviar cada formato e agendar a publicação pelo YouTube. A automação recorrente que cria roteiros sozinha, publica em calendário sem ação humana, miniaturas e métricas analíticas ainda não foi concluída.
+**A integração de upload e agendamento via YouTube Data API foi adicionada ao backend.** É necessário configurar `YOUTUBE_CLIENT_ID`, `YOUTUBE_CLIENT_SECRET` e `YOUTUBE_REDIRECT_URI`, autorizar o canal no painel e aprovar editorialmente cada episódio. O painel permite enviar cada formato e agendar a publicação pelo YouTube. A produção recorrente de roteiros e vídeos pode ser ativada no calendário do estúdio. A publicação automática sem revisão ainda não está habilitada; o upload e o agendamento no YouTube exigem autorização do canal e aprovação editorial.
 
 ## Série original
 
@@ -68,7 +83,10 @@ Vídeos, histórico e preferências ficam persistidos em `./data`.
 - `GET /api/youtube/callback` (retorno OAuth)
 - `POST /api/jobs/{id}/publish` (upload ou agendamento após aprovação)
 - `GET/PUT /api/studio-settings`
-- `POST /api/generate`
+- `POST /api/stories/generate` (cria a história antes do vídeo)
+- `GET /api/jobs/{id}/story` (prévia do roteiro)
+- `POST /api/jobs/{id}/render` (renderiza após aprovação)
+- `POST /api/generate` (compatibilidade; também cria roteiro primeiro)
 - `GET /api/jobs`
 - `GET /api/jobs/{id}`
 - `POST /api/jobs/{id}/review`
