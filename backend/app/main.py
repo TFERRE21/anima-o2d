@@ -97,8 +97,15 @@ def generate_story(payload: StoryRequest):
     used_planets = {j.get("planet") for j in planet_jobs if j.get("planet")}
     plan = build_episode_plan(len(planet_jobs), used_planets)
     if payload.topic and payload.topic.strip().lower() not in {"aventura surpresa", "surpresa", "livre"}:
-        plan["topic"] = payload.topic.strip()
-        plan["synopsis"] += " Tema especial: " + payload.topic.strip() + "."
+        topic = payload.topic.strip()
+        topic_text = f" Nesta missão, os amigos também praticam {topic}: cada decisão é uma oportunidade de demonstrar esse valor com atitudes concretas e respeitosas."
+        plan["topic"] = topic
+        plan["synopsis"] += " Tema especial: " + topic + "."
+        plan["long_script"] += topic_text
+        plan["story"] = plan["long_script"]
+        plan["short_script"] += f" O tema especial desta aventura é {topic}; procure uma maneira gentil de praticá-lo hoje."
+        plan["word_count_long"] = len(plan["long_script"].split())
+        plan["word_count_short"] = len(plan["short_script"].split())
     job_id = uuid.uuid4().hex[:12]
     job = {
         "id": job_id, "title": plan["title"], "status": "story_ready", "stage": "story_written",
