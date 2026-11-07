@@ -77,7 +77,7 @@ def config():
         ],
         "youtube_oauth_configured": bool(settings.youtube_client_id and settings.youtube_client_secret),
         "generation_enabled": _has("ffmpeg"),
-        "engine": "Anima 2D procedural vector-cartoon MVP",
+        "engine": "Anima 2D Planet Adventure Studio — procedural 2D animation",
     }
 
 @app.post("/api/generate", status_code=202)
@@ -219,7 +219,9 @@ def _create_scheduled_episode():
         return
     all_jobs = list_jobs()["jobs"]
     used_planets = {j.get("planet") for j in all_jobs if j.get("episode") == "planet-journey"}
-    world = next((w for w in WORLDS if w["planet"] not in used_planets), WORLDS[len(all_jobs) % len(WORLDS)])
+    world = next((dict(w) for w in WORLDS if w["planet"] not in used_planets), dict(WORLDS[len(all_jobs) % len(WORLDS)]))
+    if world["planet"] in used_planets:
+        world["planet"] = f'{world["planet"]} {len(used_planets) + 1}'
     title, story = episode_for_world(world)
     payload = GenerateRequest(title=title, story=story, formats=cfg.get("auto_generate_formats", ["16:9","9:16"]), episode="planet-journey", planet=world["planet"])
     job_id = uuid.uuid4().hex[:12]
