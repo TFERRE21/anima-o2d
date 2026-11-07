@@ -16,7 +16,7 @@ from fastapi.responses import FileResponse, RedirectResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from backend.app.worlds import WORLDS, episode_for_world
+from backend.app.worlds import WORLDS, build_episode_plan
 
 ROOT = Path(__file__).resolve().parents[2]
 WEB = ROOT / "web"
@@ -35,11 +35,18 @@ app = FastAPI(title=settings.app_name, version="0.2.0")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=False, allow_methods=["*"], allow_headers=["*"])
 
 class GenerateRequest(BaseModel):
-    title: str = Field(min_length=2, max_length=100)
-    story: str = Field(default="Luna e Tomi ajudam a escola a resolver um mistério com honestidade e amizade.", min_length=10, max_length=5000)
+    title: str = Field(min_length=2, max_length=140)
+    story: str = Field(default="Aventura educativa dos Pequenos Guardiões.", min_length=10, max_length=12000)
     formats: list[str] = Field(default_factory=lambda: ["16:9", "9:16"])
-    episode: str = "original"
+    episode: str = "planet-journey"
     planet: str = "Aurora-7"
+
+class StoryRequest(BaseModel):
+    formats: list[str] = Field(default_factory=lambda: ["16:9", "9:16"])
+    topic: str = Field(default="aventura surpresa", max_length=120)
+
+class RenderRequest(BaseModel):
+    formats: list[str] | None = None
 
 JOBS: dict[str, dict[str, Any]] = {}
 YOUTUBE_SCOPES = ["https://www.googleapis.com/auth/youtube.upload"]
