@@ -487,38 +487,42 @@ def render_episode(title: str, story: str, fmt: str, output: Path, workdir: Path
     if fmt not in {"16:9", "9:16"}:
         raise ValueError("Formato de renderização não reconhecido.")
 
-    # A 16:9 episode is a full-length narrated story (>5 min).
-    # The 9:16 Short receives its own condensed narration and scene timing (60–90 s).
+    # Horizontal episodes are kept between 5 and 10 minutes; Shorts are
+    # a focused highlight (clue -> twist -> team solution), not a recap.
     if portrait:
         narration_text = plan.get("short_script") or story
-        speech_rate = 136
-        min_duration, max_duration, target_duration = 60.0, 90.0, 74.0
+        audio_segments = plan.get("audio_segments_short") or [{"speaker": "Narrador", "text": narration_text}]
+        speech_rate = 145
+        min_duration, max_duration, target_duration = 60.0, 90.0, 75.0
     else:
         narration_text = plan.get("long_script") or story
-        speech_rate = 132
-        min_duration, max_duration, target_duration = 301.0, None, 315.0
+        audio_segments = plan.get("audio_segments_long") or [{"speaker": "Narrador", "text": narration_text}]
+        speech_rate = 140
+        min_duration, max_duration, target_duration = 301.0, 599.0, 420.0
 
-    voice_raw, voice_fit = _synthesize_narration(narration_text, workdir, fmt, speech_rate)
+    voice_raw, voice_fit = _synthesize_segments(audio_segments, workdir, fmt, speech_rate)
     initial_duration = _probe_duration(voice_raw)
 
     if portrait:
-        if initial_duration < 70:
-            fitted_duration = _fit_narration(voice_raw, voice_fit, 72.0)
-        elif initial_duration > 88:
-            fitted_duration = _fit_narration(voice_raw, voice_fit, 87.0)
+        if initial_duration < min_duration or initial_duration > max_duration:
+            fitted_duration = _fit_narration(voice_raw, voice_fit, target_duration)
         else:
             voice_fit.write_bytes(voice_raw.read_bytes())
             fitted_duration = _probe_duration(voice_fit)
-        if not (60 <= fitted_duration <= 90):
-            raise RuntimeError(f"A narração Shorts ficou fora da faixa de 1:00 a 1:30 ({fitted_duration:.1f}s).")
+        if not (min_duration <= fitted_duration <= max_duration):
+            raise RuntimeError(
+                f"O áudio do Shorts ficou fora da faixa de 1:00 a 1:30 ({fitted_duration:.1f}s)."
+            )
     else:
-        if initial_duration < 305:
-            fitted_duration = _fit_narration(voice_raw, voice_fit, 310.0)
+        if initial_duration < min_duration or initial_duration > max_duration:
+            fitted_duration = _fit_narration(voice_raw, voice_fit, target_duration)
         else:
             voice_fit.write_bytes(voice_raw.read_bytes())
             fitted_duration = _probe_duration(voice_fit)
-        if fitted_duration <= 300:
-            raise RuntimeError(f"A narração horizontal ficou abaixo de 5 minutos ({fitted_duration:.1f}s).")
+        if not (min_duration <= fitted_duration <= max_duration):
+            raise RuntimeError(
+                f"O episódio horizontal precisa ficar entre 5 e 10 minutos ({fitted_duration:.1f}s)."
+            )
 
     # Give the final scene a short visual tail after the last spoken line.
     duration_seconds = fitted_duration + 1.2
@@ -544,6 +548,11 @@ def render_episode(title: str, story: str, fmt: str, output: Path, workdir: Path
         ]
     if not render_scenes:
         raise RuntimeError("O roteiro não contém cenas para animar.")
+    if portrait:
+        highlight_indices = plan.get("short_scene_indices") or list(range(len(render_scenes)))
+        render_scenes = [render_scenes[index] for index in highlight_indices if 0 <= index < len(render_scenes)]
+        if not render_scenes:
+            raise RuntimeError("O roteiro não contém cenas para o destaque do Shorts.")
 
     total_frames = max(1, int(math.ceil(duration_seconds * FPS)))
     scene_count = len(render_scenes)
@@ -574,12 +583,13 @@ def render_episode(title: str, story: str, fmt: str, output: Path, workdir: Path
     actual_video_duration = _probe_duration(output)
     if portrait and not (60 <= actual_video_duration <= 90):
         raise RuntimeError(f"O vídeo Shorts ficou fora da faixa de 1:00 a 1:30 ({actual_video_duration:.1f}s).")
-    if not portrait and actual_video_duration <= 300:
-        raise RuntimeError(f"O episódio horizontal ficou abaixo de 5 minutos ({actual_video_duration:.1f}s).")
+    if not portrait and not (300 < actual_video_duration <= 600):
+        raise RuntimeError(f"O episódio horizontal precisa ficar entre 5 e 10 minutos ({actual_video_duration:.1f}s).")
     return {
         "duration_seconds": round(actual_video_duration, 2),
         "narration_seconds": round(fitted_duration, 2),
         "resolution": "1080x1920" if portrait else "1920x1080",
         "scene_count": scene_count,
-        "narration_word_count": len(narration_text.split()),
+        "narration_word_count": sum(len(str(item.get("text", "")).split()) for item in audio_segments),
+        "speakers": sorted({str(item.get("speaker", "Narrador")) for item in audio_segments}),
     }
