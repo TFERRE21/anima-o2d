@@ -66,15 +66,26 @@
 </section>
 
 <section class="page" id="page-create">
-<div class="sectionintro"><h2>Criar novo episódio</h2><p>Conte uma história e escolha os formatos. O estúdio cuida da renderização.</p></div>
+<div class="sectionintro"><h2>História primeiro. Animação depois.</h2><p>O motor cria uma aventura original em um planeta inédito. Você revisa o roteiro antes de mandar desenhar e narrar.</p></div>
 <div class="card"><form id="createForm"><div class="formgrid">
-<div class="field full"><label for="title">Título do episódio</label><input id="title" required maxlength="100" value="O Mistério das Mochilas"></div>
-<div class="field full"><label for="story">História / tema educativo</label><textarea id="story" required minlength="10">Na escola do bairro, algumas mochilas aparecem trocadas. Luna observa as etiquetas, Tomi decide conferir os nomes com a professora e Pipo ajuda a encontrar uma pista. Eles descobrem que foi uma troca por engano e ensinam que honestidade e responsabilidade ajudam todo mundo.</textarea></div>
-<div class="field full"><label>Formatos de saída</label><div class="checks"><label class="check"><input type="checkbox" name="format" value="16:9" checked> YouTube horizontal · 1920×1080</label><label class="check"><input type="checkbox" name="format" value="9:16" checked> Shorts vertical · 1080×1920</label></div></div>
-</div><div class="toolbar"><button class="btn" id="createBtn">✦ Gerar episódio</button><span class="muted" id="createMessage">O processamento continua no servidor enquanto você acompanha o painel.</span></div></form></div>
+<div class="field full"><label for="topic">Tema ou valor educativo (opcional)</label><input id="topic" maxlength="120" placeholder="Ex.: amizade, respeito, cuidado com a natureza. Deixe em branco para uma aventura surpresa."></div>
+<div class="field full"><label>Formatos que serão produzidos</label><div class="checks"><label class="check"><input type="checkbox" name="format" value="16:9" checked> Episódio 16:9 · mínimo 5:01 · 1920×1080</label><label class="check"><input type="checkbox" name="format" value="9:16" checked> Shorts 9:16 · 1:00 a 1:30 · 1080×1920</label></div></div>
+</div><div class="toolbar"><button class="btn" id="createBtn">✦ Criar história original</button><span class="muted" id="createMessage">Primeiro você recebe o roteiro completo; nenhum vídeo é renderizado nesta etapa.</span></div></form></div>
+<div class="card" id="storyPreview" style="margin-top:16px;display:none">
+<div class="cardhead"><h3 id="storyTitle">Roteiro do episódio</h3><span class="badge ready">HISTÓRIA CRIADA</span></div>
+<div class="metrics" style="grid-template-columns:repeat(3,minmax(0,1fr));margin:8px 0 16px">
+<div class="metric"><div class="mhead"><span>Planeta</span><span>🌍</span></div><strong id="storyPlanet" style="font-size:18px">—</strong><small id="storyBiome"></small></div>
+<div class="metric"><div class="mhead"><span>Valor educativo</span><span>★</span></div><strong id="storyValue" style="font-size:17px">—</strong><small>lição do episódio</small></div>
+<div class="metric"><div class="mhead"><span>Cenas</span><span>▤</span></div><strong id="storyScenes">—</strong><small>sequência original</small></div>
+</div>
+<p class="muted" id="storySynopsis"></p>
+<div class="card" style="background:#0a1527;margin-top:12px"><div class="cardhead"><h3>Roteiro narrado — episódio completo</h3><span class="badge">16:9 · +5 MIN</span></div><p class="muted" id="longWordCount"></p><div id="longStoryText" style="font-size:13px;line-height:1.7;max-height:280px;overflow:auto;white-space:pre-wrap;color:#dce8fa"></div></div>
+<div class="card" style="background:#0a1527;margin-top:12px"><div class="cardhead"><h3>Roteiro resumido — Shorts</h3><span class="badge">9:16 · 1:00–1:30</span></div><p class="muted" id="shortWordCount"></p><div id="shortStoryText" style="font-size:13px;line-height:1.7;max-height:140px;overflow:auto;white-space:pre-wrap;color:#dce8fa"></div></div>
+<div class="card" style="background:#0a1527;margin-top:12px"><div class="cardhead"><h3>Storyboard</h3><span class="muted">cena por cena</span></div><div id="storyboardList"></div></div>
+<div class="toolbar" style="margin-top:16px"><button class="btn good" id="approveStory">✓ Aprovar roteiro e gerar vídeos 2D</button><button class="btn ghost" id="discardStory">Descartar e criar outra história</button><span class="muted" id="renderMessage">Confira o planeta, a aventura e a lição antes de renderizar.</span></div>
+</div>
 <div class="card" id="activeJobCard" style="margin-top:16px;display:none"><div class="cardhead"><h3 id="activeJobTitle">Produção iniciada</h3><span class="badge pending" id="activeJobBadge">EM FILA</span></div><div class="progress"><span id="activeJobProgress" style="width:0%"></span></div><p class="muted" id="activeJobMessage"></p><div id="activeJobDownloads"></div></div>
 </section>
-
 <section class="page" id="page-episodes">
 <div class="sectionintro"><h2>Biblioteca de episódios</h2><p>Todos os episódios criados, seus formatos, renderização e revisão.</p></div>
 <div class="card"><div class="cardhead"><h3>Temporada 01</h3><button class="btn small" onclick="go('create')">＋ Novo episódio</button></div><div id="allEpisodes">Carregando…</div></div>
@@ -112,7 +123,7 @@
 <script>
 const $=id=>document.getElementById(id);
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-let jobs=[],poll=null,youtubeConnected=false;
+let jobs=[],poll=null,youtubeConnected=false,pendingStoryId=null,pendingFormats=[];
 const labels={dashboard:'Visão geral',episodes:'Episódios',create:'Criar episódio',automation:'Automação',publishing:'YouTube & postagens'};
 function go(page){document.querySelectorAll('.page').forEach(x=>x.classList.remove('active'));$('page-'+page).classList.add('active');document.querySelectorAll('.nav button').forEach(x=>x.classList.toggle('active',x.dataset.page===page));$('pageTitle').textContent=labels[page];if(page==='episodes'||page==='publishing')renderEpisodes();if(page==='automation')loadSettings();window.scrollTo({top:0,behavior:'smooth'});}
 document.querySelectorAll('.nav button').forEach(b=>b.addEventListener('click',()=>go(b.dataset.page)));
@@ -138,16 +149,46 @@ async function loadDashboard(){
  }catch(e){$('systemStatus').textContent='● API indisponível';$('systemStatus').style.color='#ffb7c0';}
 }
 async function createEpisode(e){
- e.preventDefault();const formats=[...document.querySelectorAll('input[name="format"]:checked')].map(x=>x.value);
+ e.preventDefault();
+ const formats=[...document.querySelectorAll('input[name="format"]:checked')].map(x=>x.value);
  if(!formats.length){$('createMessage').textContent='Selecione pelo menos um formato.';return;}
- const btn=$('createBtn');btn.disabled=true;btn.textContent='Preparando…';$('createMessage').textContent='Enviando para o motor de animação…';
- try{const r=await fetch('/api/generate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({title:$('title').value.trim(),story:$('story').value.trim(),formats})});const data=await r.json();if(!r.ok)throw new Error(data.detail||'Erro ao iniciar produção');$('createMessage').textContent='Episódio enviado para a fila. Acompanhe o progresso abaixo.';$('activeJobCard').style.display='block';watchJob(data.job_id);go('create');}
- catch(err){$('createMessage').textContent=err.message;btn.disabled=false;btn.textContent='✦ Gerar episódio';}
+ const btn=$('createBtn');btn.disabled=true;btn.textContent='Escrevendo a história…';
+ $('createMessage').textContent='Escolhendo planeta, desafio, personagens, lição e cenas. Ainda não há renderização.';
+ try{
+  const r=await fetch('/api/stories/generate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({formats,topic:$('topic').value.trim()||'aventura surpresa'})});
+  const data=await r.json();if(!r.ok)throw new Error(data.detail||'Falha ao escrever a história.');
+  pendingStoryId=data.job_id;pendingFormats=formats;const story=data.story;
+  $('storyTitle').textContent=story.title;
+  $('storyPlanet').textContent=story.planet;
+  $('storyBiome').textContent=story.biome;
+  $('storyValue').textContent=story.value;
+  $('storyScenes').textContent=(story.scenes||[]).length;
+  $('storySynopsis').textContent=story.synopsis;
+  $('longWordCount').textContent=(story.word_count_long||story.long_script.split(/\s+/).length)+' palavras · roteiro exclusivo para o episódio longo.';
+  $('shortWordCount').textContent=(story.word_count_short||story.short_script.split(/\s+/).length)+' palavras · roteiro exclusivo para o Shorts.';
+  $('longStoryText').textContent=story.long_script;
+  $('shortStoryText').textContent=story.short_script;
+  $('storyboardList').innerHTML=(story.scenes||[]).map((scene,i)=>'<div class="episode"><div class="thumb">'+String(i+1).padStart(2,'0')+'</div><div><div class="epname">'+esc(scene.title)+'</div><div class="epmeta">'+esc(scene.caption)+'</div><p class="muted">'+esc(scene.visual_action||'')+'</p></div></div>').join('');
+  $('storyPreview').style.display='block';$('renderMessage').textContent='Roteiro salvo. Revise antes de iniciar a animação.';
+  $('createMessage').textContent='História pronta! Nenhum vídeo foi criado ainda.';
+ }catch(err){$('createMessage').textContent=err.message;}
+ finally{btn.disabled=false;btn.textContent='✦ Criar outra história';}
 }
 $('createForm').addEventListener('submit',createEpisode);
+$('approveStory').addEventListener('click',async()=>{
+ if(!pendingStoryId)return;
+ const btn=$('approveStory');btn.disabled=true;btn.textContent='Preparando animação…';
+ try{
+  const r=await fetch('/api/jobs/'+encodeURIComponent(pendingStoryId)+'/render',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({formats:pendingFormats})});
+  const data=await r.json();if(!r.ok)throw new Error(data.detail||'Falha ao iniciar renderização.');
+  $('renderMessage').textContent='Roteiro aprovado. Renderizando os formatos selecionados.';
+  $('activeJobCard').style.display='block';watchJob(data.job_id);
+ }catch(err){$('renderMessage').textContent=err.message;btn.disabled=false;btn.textContent='✓ Tentar gerar vídeos novamente';}
+});
+$('discardStory').addEventListener('click',()=>{$('storyPreview').style.display='none';pendingStoryId=null;$('createMessage').textContent='Roteiro descartado. Crie uma nova história para outro planeta.';});
 function watchJob(id){
  if(poll)clearInterval(poll);
- const tick=async()=>{try{const r=await fetch('/api/jobs/'+encodeURIComponent(id));const j=await r.json();$('activeJobTitle').textContent=j.title;$('activeJobBadge').textContent=j.status.toUpperCase();$('activeJobProgress').style.width=(j.progress||0)+'%';$('activeJobMessage').textContent=j.message;$('activeJobDownloads').innerHTML=Object.keys(j.outputs||{}).map(f=>'<p><a style="color:#9fc5ff" href="/api/jobs/'+encodeURIComponent(id)+'/download/'+encodeURIComponent(f)+'" target="_blank">Baixar vídeo '+esc(f)+' ↓</a></p>').join('');await loadDashboard();if(j.status==='done'||j.status==='failed'){clearInterval(poll);poll=null;$('createBtn').disabled=false;$('createBtn').textContent='✦ Gerar outro episódio';}}catch(e){$('activeJobMessage').textContent='Aguardando resposta do servidor…';}};
+ const tick=async()=>{try{const r=await fetch('/api/jobs/'+encodeURIComponent(id));const j=await r.json();$('activeJobTitle').textContent=j.title;$('activeJobBadge').textContent=(j.stage||j.status).replaceAll('_',' ').toUpperCase();$('activeJobProgress').style.width=(j.progress||0)+'%';$('activeJobMessage').textContent=j.message+(j.rendered_durations? ' · Duração: '+Object.entries(j.rendered_durations).map(([f,v])=>f+' '+Math.round(v/60)+' min').join(' / '):'');$('activeJobDownloads').innerHTML=Object.keys(j.outputs||{}).map(f=>'<p><a style="color:#9fc5ff" href="/api/jobs/'+encodeURIComponent(id)+'/download/'+encodeURIComponent(f)+'" target="_blank">Baixar vídeo '+esc(f)+' ↓</a></p>').join('');await loadDashboard();if(j.status==='done'||j.status==='failed'){clearInterval(poll);poll=null;$('createBtn').disabled=false;$('createBtn').textContent='✦ Gerar outro episódio';}}catch(e){$('activeJobMessage').textContent='Aguardando resposta do servidor…';}};
  tick();poll=setInterval(tick,2500);
 }
 async function publishEpisode(id,fmt){
