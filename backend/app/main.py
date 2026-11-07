@@ -78,6 +78,14 @@ def generate(payload: GenerateRequest):
 
 @app.get("/api/jobs")
 def list_jobs():
+    # Recarrega jobs persistidos mesmo depois de reiniciar o container.
+    for folder in STORAGE.iterdir():
+        meta = folder / "job.json"
+        if folder.is_dir() and meta.exists() and folder.name not in JOBS:
+            try:
+                JOBS[folder.name] = json.loads(meta.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError):
+                continue
     with LOCK:
         return {"jobs": sorted(JOBS.values(), key=lambda x: x["created_at"], reverse=True)}
 
