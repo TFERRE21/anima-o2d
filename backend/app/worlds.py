@@ -142,7 +142,7 @@ def build_episode_plan(episode_number: int, used_planets: set[str] | None = None
         {"speaker": "Luna", "text": f"Esperem! A pista que encontrei perto de {mission['object']} mostra outro caminho: {mission['clue']}.", "scene": 7},
         {"speaker": "Tomi", "text": "Então vamos mudar o plano. Primeiro ouvimos os moradores, depois dividimos as tarefas e conferimos tudo com segurança.", "scene": 8},
         {"speaker": "Pipo", "text": "Au! Au! Eu também encontrei uma pista! Olhem aqui!", "scene": 8},
-        {"speaker": "Luna", "text": f"Agora entendi! Se trabalharmos juntos, podemos {mission['solution']}.", "scene": 9},
+        {"speaker": "Luna", "text": "Agora entendi! Vamos seguir o plano com os moradores, com cuidado e atenção a cada detalhe.", "scene": 9},
         {"speaker": "Tomi", "text": "Equipe e moradores, cada um na sua tarefa. Vamos fazer isso juntos!", "scene": 9},
         {"speaker": "Narrador", "text": f"Com diálogo e cooperação, a comunidade consegue resolver o desafio. A aventura ensina {value}.", "scene": 10},
         {"speaker": "Luna", "text": "Uma boa ideia pode mudar tudo! E você, que atitude pode melhorar o lugar onde vive?", "scene": 11},
