@@ -27,7 +27,7 @@ class Settings(BaseSettings):
     app_name: str = "Anima 2D"
     youtube_client_id: str = ""
     youtube_client_secret: str = ""
-    youtube_redirect_uri: str = "http://localhost:8000/api/youtube/callback"
+    youtube_redirect_uri: str = "https://animacao2d.vps11710.panel.icontainer.work/api/youtube/callback"
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
 settings = Settings()
