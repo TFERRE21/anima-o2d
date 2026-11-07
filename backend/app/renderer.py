@@ -239,7 +239,7 @@ def draw_scene_frame(size, scene, index, frame, portrait, planet_name="Aurora-7"
         draw_rocket(d,w*.16,h*.31,h/1500,t)
         header_y=h*.045; sub_y=h*.835
     # little emotional/action cue changes each scene, keeping model sheets stable
-    cue=["✦","?","!","♥","★","✓"][index]
+    cue=["✦","?","!","♥","★","✓"][index % 6]
     cue_font=font(max(20,int(h*.075)),True)
     d.text((w*.08,h*.31),cue,font=cue_font,fill=light,stroke_width=1,stroke_fill=sky)
     # cinematic title ribbon
