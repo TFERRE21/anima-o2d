@@ -36,3 +36,10 @@ Produzir uma história uma vez e gerar duas montagens finais independentes: 16:9
 ## Estado atual
 
 A aplicação no repositório contém apenas a estrutura inicial de API e interface. A geração de cenas, rigging/animação, sincronização labial, fila de renderização e integração OAuth ainda precisam ser implementadas e testadas. Este documento define o desenho funcional para essas próximas etapas.
+
+
+## Motor visual — etapa planetária
+
+O renderizador procedural agora recebe o planeta do episódio e compõe fundos espaciais, planetas com anéis, luas, paisagens, cristais, construções e elementos da missão com paletas diferentes por mundo. Luna, Tomi e Pipo reutilizam os mesmos desenhos-base em todas as cenas; um pequeno habitante alienígena e a nave Estrelinha reforçam a identidade espacial. Há movimentos contínuos de balanço, cauda, braços, foguete, estrelas e elementos ambientais.
+
+A narração local usa português brasileiro via espeak-ng com velocidade mais pausada e tratamento de loudness/filtros no FFmpeg. Isso melhora a inteligibilidade, mas ainda não equivale a vozes neurais profissionais ou sincronização labial. O motor permanece procedural: ainda não é rigging 2D avançado nem geração de cenas por modelo de vídeo.
