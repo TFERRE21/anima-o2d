@@ -493,12 +493,12 @@ def render_episode(title: str, story: str, fmt: str, output: Path, workdir: Path
         narration_text = plan.get("short_script") or story
         audio_segments = plan.get("audio_segments_short") or [{"speaker": "Narrador", "text": narration_text}]
         speech_rate = 145
-        min_duration, max_duration, target_duration = 60.0, 90.0, 75.0
+        min_duration, max_duration, target_duration = 60.0, 88.5, 75.0
     else:
         narration_text = plan.get("long_script") or story
         audio_segments = plan.get("audio_segments_long") or [{"speaker": "Narrador", "text": narration_text}]
         speech_rate = 140
-        min_duration, max_duration, target_duration = 301.0, 599.0, 420.0
+        min_duration, max_duration, target_duration = 301.0, 598.5, 420.0
 
     voice_raw, voice_fit = _synthesize_segments(audio_segments, workdir, fmt, speech_rate)
     initial_duration = _probe_duration(voice_raw)
