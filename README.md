@@ -27,7 +27,7 @@ O painel possui:
 
 O painel salva preferências de formatos, revisão obrigatória e rotina editorial sugerida. A fila de episódios, renderização e atualização de status são automáticas após iniciar uma geração.
 
-**A publicação automática no YouTube ainda não está implementada.** A tela de postagens informa o estado da conexão, mas o upload, OAuth, agendamento real, miniaturas e métricas do canal dependem da próxima etapa de integração com YouTube Data API e autorização segura do proprietário do canal. O botão de publicação automática permanece bloqueado até essa integração.
+**A integração de upload e agendamento via YouTube Data API foi adicionada ao backend.** É necessário configurar `YOUTUBE_CLIENT_ID`, `YOUTUBE_CLIENT_SECRET` e `YOUTUBE_REDIRECT_URI`, autorizar o canal no painel e aprovar editorialmente cada episódio. O painel permite enviar cada formato e agendar a publicação pelo YouTube. A automação recorrente que cria roteiros sozinha, publica em calendário sem ação humana, miniaturas e métricas analíticas ainda não foi concluída.
 
 ## Série original
 
@@ -61,6 +61,10 @@ Vídeos, histórico e preferências ficam persistidos em `./data`.
 - `GET /api/health`
 - `GET /api/config`
 - `GET /api/dashboard`
+- `GET /api/youtube/status`
+- `GET /api/youtube/connect` (inicia OAuth)
+- `GET /api/youtube/callback` (retorno OAuth)
+- `POST /api/jobs/{id}/publish` (upload ou agendamento após aprovação)
 - `GET/PUT /api/studio-settings`
 - `POST /api/generate`
 - `GET /api/jobs`
@@ -70,4 +74,4 @@ Vídeos, histórico e preferências ficam persistidos em `./data`.
 
 ## Segurança antes de publicar em VPS
 
-O MVP ainda não tem autenticação de usuário. Não o exponha publicamente sem colocar autenticação, HTTPS, proteção de endpoints e limites de uso. Nunca envie chaves OAuth para o Git. Configure credenciais em secrets do ambiente quando a integração YouTube for implementada.
+O MVP ainda não tem autenticação de usuário. Não o exponha publicamente sem colocar autenticação, HTTPS, proteção de endpoints e limites de uso. Nunca envie chaves OAuth ou o arquivo `youtube-token.json` para o Git. Configure credenciais em secrets do ambiente. Cadastre a URL de callback no Google Cloud Console. O OAuth deve ser testado em domínio HTTPS real antes de uso público.
