@@ -168,7 +168,15 @@ def build_episode_plan(episode_number: int, used_planets: set[str] | None = None
         "short_script": short_script, "short_highlight": "a pista inesperada, a mudança de plano e a solução em equipe",
         "short_scene_indices": [7, 8, 9, 10, 11],
         "scenes": [
-            {"title": item[0], "caption": item[1], "visual_action": item[2]} for item in scenes
+            {
+                "title": item[0], "caption": item[1], "visual_action": item[2],
+                "action": [
+                    "walk", "explore", "converse", "converse", "discover",
+                    "talk", "sniff", "surprise", "converse", "work",
+                    "celebrate", "talk", "write", "walk", "celebrate",
+                ][index],
+            }
+            for index, item in enumerate(scenes)
         ],
         "characters": ["Luna", "Tomi", "Pipo"], "episode": "planet-journey",
         "word_count_long": long_audio_words,
