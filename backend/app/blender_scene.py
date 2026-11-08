@@ -37,6 +37,8 @@ def material(name: str, color: tuple[float, float, float, float]):
     return mat
 
 
+print("ANIMA_BOOT: iniciando criação dos materiais 3D", flush=True)
+
 M = {
     "skin": material("Skin warm peach", (0.93, 0.57, 0.39, 1)),
     "skin_light": material("Skin highlight", (1.0, 0.74, 0.57, 1)),
@@ -69,6 +71,7 @@ M = {
     "metal": material("Soft silver", (0.47, 0.61, 0.69, 1)),
     "purple": material("Hologram purple", (0.42, 0.23, 0.82, 1)),
 }
+print("ANIMA_BOOT: materiais 3D carregados", flush=True)
 
 
 def set_parent(obj, parent, loc=(0, 0, 0), scale=(1, 1, 1), rot=(0, 0, 0)):
@@ -824,11 +827,16 @@ def render(config: dict):
         world_bg.inputs["Strength"].default_value = 0.24
 
     stage_models = []
+    stage_total = max(1, len(scenes))
     for i, shot in enumerate(scenes):
         source_index = int(source_indices[i])
+        report(6 + int((i / stage_total) * 6),
+               f"Montando cenário 3D {i + 1}/{stage_total}: {shot.get('title', 'cena')}")
         models = make_stage(source_index, plan, shot, portrait)
         models["source_index"] = source_index
         stage_models.append(models)
+        report(6 + int(((i + 1) / stage_total) * 6),
+               f"Cenário 3D {i + 1}/{stage_total} concluído.")
 
     report(12, "Montando iluminação e câmeras dos cenários.")
     add_stage_lighting([model["center"] for model in stage_models])
