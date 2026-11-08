@@ -44,7 +44,7 @@ O renderizador mede a duração da faixa de áudio final e ajusta a velocidade d
 
 - Engine: `ANIMA_RENDER_ENGINE=blender`.
 - Binário: `BLENDER_BIN=blender`.
-- Porta interna padrão: `5000` (ou defina `PORT` e faça o mapeamento correspondente).
+- Porta interna do app: `5000` (`PORT=5000`). O Compose publica essa porta em `${HOST_PORT:-5000}`; use `HOST_PORT=5001` para testar sem conflitar com o Standalone antigo.
 - Volume persistente: `/data/jobs` para roteiros, perfis de voz, vídeos e tokens.
 - O endpoint de saúde informa se Blender está disponível; sem o motor 3D, a API bloqueia a renderização com mensagem explícita em vez de entregar um vídeo 2D como substituto.
 
