@@ -30,17 +30,20 @@ O renderizador mede a duração da faixa de áudio final e ajusta a velocidade d
 ## Motor de animação atual
 
 - Personagens 2D desenhados proceduralmente com Pillow, mantendo figurinos, emblemas e proporções consistentes entre cenas.
-- Cenários espaciais diferentes por planeta, com paletas próprias, luas, planetas com anéis, paisagens, cristais, construções e habitantes alienígenas.
-- Movimento contínuo de personagens, cauda, foguete, estrelas e elementos ambientais.
-- Movimentos simples por quadro e cenários ilustrados.
-- Vozes em português brasileiro: no ICP, Edge TTS alterna `pt-BR-ThalitaMultilingualNeural` (narrador), `pt-BR-FranciscaNeural` (Luna) e `pt-BR-AntonioNeural` (Tomi); Pipo usa a voz de Antonio com pitch elevado. Requer conexão de saída à internet. Em ambientes com espeak-ng, o motor usa variações de pitch para diferenciar as falas.
+- Cenários cinematográficos diferentes por planeta e por cena: espaço, chegada, vilas, jardins, montanhas, desertos, pistas, reunião, ação, surpresa e celebração, usando bioma e objeto da missão.
+- Personagens maiores e mais expressivos, com poses de caminhada, descoberta, surpresa, apontar, conversa, trabalho e comemoração.
+- Movimento contínuo de braços, pernas, corpo, cauda, foguete, partículas, flores, água e efeitos de luz, com renderização intermediária a 8 fps e saída final a 24 fps.
+- Boca animada no personagem correspondente ao trecho de fala. Ainda não é sincronização labial por fonema.
+- Vídeo final efetivamente redimensionado em alta qualidade para 1920×1080 e 1080×1920.
+- Sem caixas de legenda, título ou texto explicativo sobreposto ao quadro: as falas são transmitidas pelo áudio.
+- Vozes em português brasileiro: no ICP, Edge TTS alterna `pt-BR-ThalitaMultilingualNeural` (narrador), `pt-BR-FranciscaNeural` (Luna) e `pt-BR-AntonioNeural` (Tomi); Pipo usa a mesma base de Antonio com pitch elevado. O mapa fixo fica salvo em `/data/jobs/voice-profiles.json`, junto aos dados persistentes, para manter a identidade vocal entre episódios. Requer conexão de saída à internet. Em ambientes com espeak-ng, o motor usa variações de pitch para diferenciar as falas.
 - FFmpeg: usa a instalação do sistema quando disponível; no runtime Python do ICP, usa o binário portátil fornecido por `imageio-ffmpeg`.
 - A duração é medida com ffprobe quando disponível, Mutagen e leitura de metadados pelo FFmpeg portátil como alternativas.
 - Renderização MP4 com FFmpeg.
 - Saídas 16:9 (1920×1080) e 9:16 (1080×1920).
 - Jobs em segundo plano e histórico persistido em volume Docker.
 
-> Este é um motor procedural em evolução, não uma ferramenta de animação profissional nem geração de vídeo por IA. As falas já têm vozes diferenciadas, mas a sincronização labial quadro a quadro, rigging avançado e trilha licenciada ainda não estão implementados.
+> Este é um motor 2D procedural em evolução, não uma ferramenta de animação profissional nem geração de vídeo por IA. As poses e o movimento da boca são guiados pela linha do tempo das falas, mas ainda não existe sincronização labial por fonema, rigging com ossos ou animação desenhada quadro a quadro por artista.
 
 ## Automação e publicação — estado real
 
