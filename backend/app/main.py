@@ -26,7 +26,7 @@ STORAGE = Path(os.getenv("ANIMA_STORAGE", "/data/jobs"))
 STORAGE.mkdir(parents=True, exist_ok=True)
 
 class Settings(BaseSettings):
-    app_name: str = "Anima 2D"
+    app_name: str = "Anima Studio 3D"
     youtube_client_id: str = ""
     youtube_client_secret: str = ""
     youtube_redirect_uri: str = "https://animacao2d.vps11710.panel.icontainer.work/api/youtube/callback"
@@ -307,7 +307,7 @@ def youtube_callback(code: str = "", state: str = "", error: str = ""):
     flow.redirect_uri = settings.youtube_redirect_uri
     flow.fetch_token(code=code)
     YOUTUBE_TOKEN_FILE.write_text(flow.credentials.to_json(), encoding="utf-8")
-    return HTMLResponse("<h2>Canal conectado com sucesso!</h2><p>Volte ao Anima 2D Studio. Esta janela pode ser fechada.</p>")
+    return HTMLResponse("<h2>Canal conectado com sucesso!</h2><p>Volte ao Anima Studio 3D. Esta janela pode ser fechada.</p>")
 
 @app.post("/api/jobs/{job_id}/publish")
 def publish_job(job_id: str, payload: PublishRequest):
