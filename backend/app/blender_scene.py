@@ -26,7 +26,14 @@ def material(name: str, color: tuple[float, float, float, float]):
     mat = bpy.data.materials.get(name)
     if mat is None:
         mat = bpy.data.materials.new(name)
-        mat.diffuse_color = color
+    mat.diffuse_color = color
+    mat.use_nodes = True
+    principled = mat.node_tree.nodes.get("Principled BSDF")
+    if principled:
+        principled.inputs["Base Color"].default_value = color
+        principled.inputs["Roughness"].default_value = 0.62
+        if "Metallic" in principled.inputs:
+            principled.inputs["Metallic"].default_value = 0.02
     return mat
 
 
@@ -617,6 +624,33 @@ def build_scene_schedule(scene_source_indices, voice_timeline, total_duration):
     return schedule
 
 
+def add_stage_lighting(stage_centers):
+    # One directional sun plus soft key/fill area lights per set gives the
+    # characters readable volume, rounded highlights and grounded shadows.
+    bpy.ops.object.light_add(type="SUN", location=(0, -10, 14))
+    sun = bpy.context.object
+    sun.name = "Adventure studio sun"
+    sun.data.energy = 1.6
+    sun.data.angle = math.radians(18)
+    sun.rotation_euler = (math.radians(28), math.radians(-22), math.radians(-24))
+    for index, center in enumerate(stage_centers):
+        bpy.ops.object.light_add(type="AREA", location=(center - 2.5, -8.0, 9.5))
+        key = bpy.context.object
+        key.name = "Soft key light " + str(index)
+        key.data.energy = 720
+        key.data.shape = "DISK"
+        key.data.size = 7.5
+        key.data.color = (1.0, 0.82, 0.68)
+        key.rotation_euler = (math.radians(20), 0, math.radians(-12))
+        bpy.ops.object.light_add(type="AREA", location=(center + 4.5, 1.0, 7.5))
+        fill = bpy.context.object
+        fill.name = "Soft blue fill " + str(index)
+        fill.data.energy = 360
+        fill.data.size = 8.5
+        fill.data.color = (0.56, 0.75, 1.0)
+        fill.rotation_euler = (math.radians(24), 0, math.radians(155))
+
+
 def render(config: dict):
     portrait = config["format"] == "9:16"
     width, height = config["resolution"]
@@ -632,7 +666,16 @@ def render(config: dict):
     bpy.ops.object.select_all(action="SELECT")
     bpy.ops.object.delete(use_global=False)
     scene = bpy.context.scene
-    scene.render.engine = "BLENDER_WORKBENCH"
+    engine_ids = {
+        item.identifier
+        for item in bpy.types.RenderSettings.bl_rna.properties["engine"].enum_items
+    }
+    if "BLENDER_EEVEE_NEXT" in engine_ids:
+        scene.render.engine = "BLENDER_EEVEE_NEXT"
+    elif "BLENDER_EEVEE" in engine_ids:
+        scene.render.engine = "BLENDER_EEVEE"
+    else:
+        scene.render.engine = "BLENDER_WORKBENCH"
     scene.render.resolution_x = int(width)
     scene.render.resolution_y = int(height)
     scene.render.resolution_percentage = 100
@@ -650,6 +693,14 @@ def render(config: dict):
     scene.display.shading.curvature_ridge_factor = 1.25
     scene.display.shading.curvature_valley_factor = 1.15
     scene.display.shading.show_specular_highlight = True
+    if hasattr(scene, "eevee"):
+        scene.eevee.taa_render_samples = 24
+        if hasattr(scene.eevee, "use_gtao"):
+            scene.eevee.use_gtao = True
+            scene.eevee.gtao_distance = 3.0
+            scene.eevee.gtao_factor = 1.25
+        if hasattr(scene.eevee, "use_soft_shadows"):
+            scene.eevee.use_soft_shadows = True
     scene.render.resolution_percentage = 100
     scene.view_settings.view_transform = "Standard"
     scene.render.image_settings.color_mode = "RGB"
@@ -657,8 +708,14 @@ def render(config: dict):
     scene.render.threads = max(1, min(4, os.cpu_count() or 2))
     scene.render.fps = 24
     scene.render.resolution_percentage = 100
-    # Workbench is an actual 3D renderer with studio shading, cavity, silhouettes and depth.
+    # Eevee renders the original 3D models with studio lighting, material response and depth;
+    # Workbench remains a compatibility fallback on Blender builds without Eevee.
     scene.world.color = (0.018, 0.04, 0.11)
+    scene.world.use_nodes = True
+    world_bg = scene.world.node_tree.nodes.get("Background")
+    if world_bg:
+        world_bg.inputs["Color"].default_value = (0.025, 0.045, 0.10, 1)
+        world_bg.inputs["Strength"].default_value = 0.24
 
     stage_models = []
     for i, shot in enumerate(scenes):
@@ -667,6 +724,7 @@ def render(config: dict):
         models["source_index"] = source_index
         stage_models.append(models)
 
+    add_stage_lighting([model["center"] for model in stage_models])
     camera = create_camera(portrait, 0)
     camera.data.ortho_scale = 6.8 if portrait else 14.2
     report(18, "Personagens 3D, cenário e câmera preparados.")
