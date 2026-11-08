@@ -95,6 +95,23 @@ def health():
     }
 
 
+@app.get("/api/health/3d")
+def health_3d():
+    """Readiness probe: only healthy when the Blender binary and scene script exist."""
+    blender_path = find_blender_binary()
+    blender_script = Path(__file__).with_name("blender_scene.py")
+    if not blender_path:
+        raise HTTPException(503, "Blender não localizado. Consulte /api/diagnostics.")
+    if not blender_script.is_file():
+        raise HTTPException(503, f"Arquivo ausente: {blender_script}")
+    return {
+        "status": "ready",
+        "engine": "blender",
+        "blender_path": blender_path,
+        "scene_script": str(blender_script.resolve()),
+    }
+
+
 @app.get("/api/diagnostics")
 def diagnostics():
     """Non-secret runtime diagnostics for debugging missing media binaries/assets."""
