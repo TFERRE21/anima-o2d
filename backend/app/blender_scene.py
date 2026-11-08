@@ -461,8 +461,9 @@ def make_stage(stage_index, plan, scene, portrait):
     # One or two local residents join conversations on the village scenes.
     natives = []
     if stage_index in (2, 8, 10):
-        natives.append(alien_character((cx + 5.1, -0.1, 0), 0))
-        natives.append(alien_character((cx - 5.1, 0.7, 0), 1))
+        resident_offset = 2.6 if portrait else 5.1
+        natives.append(alien_character((cx + resident_offset, -0.1, 0), 0))
+        natives.append(alien_character((cx - resident_offset, 0.7, 0), 1))
     # The same hero designs are rebuilt for each shot but retain fixed shape, colors and costumes.
     if portrait:
         positions = ((cx - 1.25, -1.0, 0), (cx + 1.25, -0.75, 0), (cx, -2.0, 0))
@@ -697,8 +698,19 @@ def render(config: dict):
         close = source_index in (4, 7, 10)
         base_scale = 6.8 if portrait else 14.0
         camera.data.ortho_scale = base_scale * (0.88 if close else 1.0)
-        target = Vector((center, 0.25, 2.25))
+        # A slight camera tilt and dolly-style scale change make the beat read
+        # like a children's adventure series, not a locked slideshow frame.
+        if action in {"discover", "sniff"}:
+            target_z = 1.75
+        elif action == "surprise":
+            target_z = 2.65
+        elif action in {"converse", "talk"}:
+            target_z = 2.15
+        else:
+            target_z = 2.30
+        target = Vector((center, 0.25, target_z))
         camera.rotation_euler = (target - camera.location).to_track_quat("-Z", "Y").to_euler()
+        camera.data.lens = 50 + (3 if action in {"discover", "surprise"} else 0)
 
         active = ""
         for line in timeline:
