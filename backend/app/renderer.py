@@ -10,6 +10,7 @@ import subprocess
 from pathlib import Path
 from typing import Callable
 from PIL import Image, ImageDraw, ImageFont
+from backend.app.runtime import find_blender_binary
 
 FPS = 12
 SCENE_SECONDS = 4
@@ -880,13 +881,12 @@ def _fit_narration(source: Path, output: Path, target_seconds: float) -> float:
 def _render_blender_frames(frames: Path, fmt: str, width: int, height: int,
                           total_frames: int, scene_list: list, scene_source_indices: list,
                           plan: dict, voice_timeline: list, progress_callback=None) -> None:
-    blender = os.getenv("BLENDER_BIN", "blender")
-    executable = shutil.which(blender)
+    executable = find_blender_binary()
     if not executable:
+        configured = os.getenv("BLENDER_BIN") or "(not set)"
         raise RuntimeError(
-            "Renderização 3D indisponível: Blender não foi encontrado neste container. "
-            "Publique usando o Dockerfile do projeto (runtime Docker com Blender); "
-            "o runtime Python Standalone não inclui o motor 3D."
+            f"Blender não foi localizado pelo renderizador. BLENDER_BIN={configured}; "
+            "consulte /api/diagnostics para verificar o executável e o PATH."
         )
     script = Path(__file__).with_name("blender_scene.py")
     if not script.exists():
