@@ -33,6 +33,7 @@ class RenderDurationTests(unittest.TestCase):
                 "Luna": "pt-BR-FranciscaNeural",
                 "Tomi": "pt-BR-AntonioNeural",
                 "Pipo": "pt-BR-AntonioNeural",
+                "Moradora": "pt-BR-ThalitaMultilingualNeural",
             },
         )
 
