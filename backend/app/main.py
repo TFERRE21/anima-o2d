@@ -4,6 +4,7 @@ import json
 import math
 import os
 import subprocess
+import sys
 import threading
 import uuid
 from datetime import datetime, timezone
@@ -17,6 +18,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from backend.app.worlds import WORLDS, build_episode_plan
+from backend.app.runtime import find_blender_binary
 
 ROOT = Path(__file__).resolve().parents[2]
 WEB = ROOT / "web"
@@ -73,17 +75,47 @@ def _studio_settings():
 
 @app.get("/api/health")
 def health():
+    blender_path = find_blender_binary()
+    blender_script = Path(__file__).with_name("blender_scene.py")
     return {
         "status": "ok",
         "app": settings.app_name,
-        "version": "0.2.2",
-        "runtime": "python",
+        "version": "0.2.3",
+        "runtime": "docker-blender" if blender_path else "python-no-blender",
+        "container_runtime": "docker" if Path("/.dockerenv").exists() else "unknown",
+        "python_version": sys.version.split()[0],
         "port": int(os.getenv("PORT", "5000")),
         "ffmpeg": _has("ffmpeg"),
         "tts": _has("tts"),
         "storage_writable": os.access(STORAGE, os.W_OK),
-        "blender": _has("blender"),
+        "blender": bool(blender_path),
+        "blender_path": blender_path,
+        "blender_scene_file": blender_script.is_file(),
         "render_engine": os.getenv("ANIMA_RENDER_ENGINE", "blender").lower(),
+    }
+
+
+@app.get("/api/diagnostics")
+def diagnostics():
+    """Non-secret runtime diagnostics for debugging missing media binaries/assets."""
+    blender_path = find_blender_binary()
+    blender_script = Path(__file__).with_name("blender_scene.py")
+    return {
+        "ok": bool(blender_path and blender_script.is_file()),
+        "container_runtime": "docker" if Path("/.dockerenv").exists() else "unknown",
+        "python_version": sys.version.split()[0],
+        "working_directory": str(Path.cwd()),
+        "app_file": str(Path(__file__).resolve()),
+        "blender_bin_setting": os.getenv("BLENDER_BIN") or "(not set; using discovery)",
+        "blender_path": blender_path,
+        "blender_executable": bool(blender_path and os.access(blender_path, os.X_OK)),
+        "blender_scene_path": str(blender_script.resolve()),
+        "blender_scene_exists": blender_script.is_file(),
+        "render_engine": os.getenv("ANIMA_RENDER_ENGINE", "blender").lower(),
+        "ffmpeg_available": _has("ffmpeg"),
+        "tts_available": _has("tts"),
+        "storage_path": str(STORAGE.resolve()),
+        "storage_writable": os.access(STORAGE, os.W_OK),
     }
 
 @app.get("/api/config")
@@ -171,11 +203,22 @@ def render_story(job_id: str, payload: RenderRequest):
         raise HTTPException(400, "Formatos inválidos.")
     if not _has("ffmpeg") or not _has("tts"):
         raise HTTPException(503, "Motor de mídia incompleto. É necessário FFmpeg e voz (espeak-ng ou edge-tts).")
-    if os.getenv("ANIMA_RENDER_ENGINE", "blender").lower() == "blender" and not _has("blender"):
-        raise HTTPException(
-            503,
-            "O motor 3D não está instalado neste runtime. Publique o projeto usando o Dockerfile (runtime Docker com Blender); não será gerado um vídeo 2D como substituto."
-        )
+    if os.getenv("ANIMA_RENDER_ENGINE", "blender").lower() == "blender":
+        blender_path = find_blender_binary()
+        blender_script = Path(__file__).with_name("blender_scene.py")
+        if not blender_path:
+            configured = os.getenv("BLENDER_BIN") or "(not set)"
+            raise HTTPException(
+                503,
+                f"Blender não foi localizado. BLENDER_BIN={configured}; "
+                "verifique /api/diagnostics e o PATH do processo."
+            )
+        if not blender_script.is_file():
+            raise HTTPException(
+                503,
+                f"Arquivo do renderizador 3D ausente: {blender_script}. "
+                "Verifique se backend/app/blender_scene.py foi incluído na imagem."
+            )
     _update(job_id, status="queued", stage="render_queued", progress=8,
             message="Roteiro aprovado. Preparando cenas e narração.", formats=formats,
             review_status="pending_review", outputs={}, error=None)
@@ -462,7 +505,7 @@ def download(job_id: str, fmt: str):
 def _has(binary: str) -> bool:
     from shutil import which
     if binary == "blender":
-        return bool(which(os.getenv("BLENDER_BIN", "blender")))
+        return bool(find_blender_binary())
     if binary == "ffmpeg":
         if which("ffmpeg"):
             return True
