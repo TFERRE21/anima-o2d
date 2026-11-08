@@ -868,6 +868,89 @@ def _fit_narration(source: Path, output: Path, target_seconds: float) -> float:
           "-filter:a", f"atempo={factor:.5f}", "-ar", "44100", str(output)])
     return _probe_duration(output)
 
+def _render_blender_frames(frames: Path, fmt: str, width: int, height: int,
+                          total_frames: int, scene_list: list, scene_source_indices: list,
+                          plan: dict, voice_timeline: list, progress_callback=None) -> None:
+    blender = os.getenv("BLENDER_BIN", "blender")
+    executable = shutil.which(blender)
+    if not executable:
+        raise RuntimeError(
+            "Renderização 3D indisponível: Blender não foi encontrado neste container. "
+            "Publique usando o Dockerfile do projeto (runtime Docker com Blender); "
+            "o runtime Python Standalone não inclui o motor 3D."
+        )
+    script = Path(__file__).with_name("blender_scene.py")
+    if not script.exists():
+        raise RuntimeError("O arquivo backend/app/blender_scene.py não foi encontrado.")
+    if frames.exists():
+        shutil.rmtree(frames, ignore_errors=True)
+    frames.mkdir(parents=True, exist_ok=True)
+    config_path = frames.parent / f"blender-config-{fmt.replace(':', 'x')}.json"
+    config = {
+        "format": fmt,
+        "resolution": [int(width), int(height)],
+        "fps": float(FPS),
+        "total_frames": int(total_frames),
+        "frames_dir": str(frames.resolve()),
+        "scenes": scene_list,
+        "scene_source_indices": [int(x) for x in scene_source_indices],
+        "story_plan": {
+            "planet": plan.get("planet", "Unknown planet"),
+            "biome": plan.get("biome", ""),
+            "mission_object": plan.get("mission_object", ""),
+            "landmark": plan.get("landmark", ""),
+            "inhabitants": plan.get("inhabitants", ""),
+            "palette": plan.get("palette", ""),
+        },
+        "voice_timeline": voice_timeline,
+    }
+    config_path.write_text(json.dumps(config, ensure_ascii=False), encoding="utf-8")
+    command = [executable, "--background", "--factory-startup",
+               "--python-exit-code", "1", "--python", str(script),
+               "--", "--config", str(config_path)]
+    xvfb = shutil.which("xvfb-run")
+    if xvfb:
+        command = [xvfb, "-a"] + command
+    env = os.environ.copy()
+    env.setdefault("BLENDER_USER_CONFIG", str(frames.parent / "blender-user-config"))
+    env.setdefault("OMP_NUM_THREADS", "4")
+    process = subprocess.Popen(
+        command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+        text=True, bufsize=1, env=env,
+    )
+    tail: list[str] = []
+    try:
+        if process.stdout:
+            for line in process.stdout:
+                line = line.rstrip()
+                tail.append(line)
+                if len(tail) > 30:
+                    tail.pop(0)
+                if line.startswith("ANIMA_PROGRESS:"):
+                    try:
+                        _, pct, message = line.split(":", 2)
+                        if progress_callback:
+                            mapped = 14 + int(float(pct) * 0.77)
+                            progress_callback(mapped, message)
+                    except (ValueError, TypeError):
+                        pass
+        code = process.wait()
+        if code:
+            raise RuntimeError("Blender 3D falhou: " + " | ".join(tail[-12:]))
+    except Exception:
+        if process.poll() is None:
+            process.kill()
+            process.wait()
+        raise
+    png_frames = list(frames.glob("frame-*.png"))
+    if len(png_frames) != total_frames:
+        raise RuntimeError(
+            f"Renderizador 3D gerou {len(png_frames)} de {total_frames} quadros."
+        )
+    if progress_callback:
+        progress_callback(92, "Cenas 3D renderizadas. Preparando o vídeo.")
+
+
 def render_episode(title: str, story: str, fmt: str, output: Path, workdir: Path,
                    planet_name: str = "Aurora-7", story_plan: dict | None = None,
                    progress_callback: Callable[[int, str], None] | None = None):
@@ -956,33 +1039,46 @@ def render_episode(title: str, story: str, fmt: str, output: Path, workdir: Path
 
     scene_count = len(render_scenes)
     total_frames = max(1, int(math.ceil(duration_seconds * FPS)))
-    last_reported = -1
-    for frame_number in range(total_frames):
-        scene_index = min(scene_count - 1, int(frame_number * scene_count / total_frames))
-        scene_start = int(scene_index * total_frames / scene_count)
-        local_frame = frame_number - scene_start
-        scene = render_scenes[scene_index]
-        frame_time = frame_number / FPS
-        active_speaker = next((item["speaker"] for item in voice_timeline if item["start"] <= frame_time < item["end"]), "")
-        visual_scene_index = scene_source_indices[scene_index]
-        image = draw_scene_frame(
-            (width, height), scene, visual_scene_index, local_frame, portrait, planet_name,
-            biome=plan.get("biome", ""),
-            mission_object=plan.get("mission_object", ""),
-            landmark=plan.get("landmark", ""),
-            active_speaker=active_speaker,
+    engine = os.getenv("ANIMA_RENDER_ENGINE", "blender").strip().lower()
+    if engine == "blender":
+        _render_blender_frames(
+            frames, fmt, width, height, total_frames,
+            render_scenes, scene_source_indices, plan, voice_timeline, progress_callback
         )
-        image.save(frames / f"frame-{frame_number:06d}.jpg", quality=88)
-        frame_progress = int((frame_number + 1) * 75 / total_frames)
-        if progress_callback and frame_progress >= last_reported + 2:
-            last_reported = frame_progress
-            progress_callback(14 + frame_progress, f"Desenhando cenas 2D: {int((frame_number + 1) * 100 / total_frames)}%")
+        frame_pattern = frames / "frame-%06d.png"
+    elif engine == "2d":
+        frames.mkdir(parents=True, exist_ok=True)
+        last_reported = -1
+        for frame_number in range(total_frames):
+            scene_index = min(scene_count - 1, int(frame_number * scene_count / total_frames))
+            scene_start = int(scene_index * total_frames / scene_count)
+            local_frame = frame_number - scene_start
+            scene = render_scenes[scene_index]
+            frame_time = frame_number / FPS
+            active_speaker = next((item["speaker"] for item in voice_timeline if item["start"] <= frame_time < item["end"]), "")
+            visual_scene_index = scene_source_indices[scene_index]
+            image = draw_scene_frame(
+                (width, height), scene, visual_scene_index, local_frame, portrait, planet_name,
+                biome=plan.get("biome", ""),
+                mission_object=plan.get("mission_object", ""),
+                landmark=plan.get("landmark", ""),
+                active_speaker=active_speaker,
+            )
+            image.save(frames / f"frame-{frame_number:06d}.jpg", quality=88)
+            frame_progress = int((frame_number + 1) * 75 / total_frames)
+            if progress_callback and frame_progress >= last_reported + 2:
+                last_reported = frame_progress
+                progress_callback(14 + frame_progress, f"Desenhando cenas 2D: {int((frame_number + 1) * 100 / total_frames)}%")
+        frame_pattern = frames / "frame-%06d.jpg"
+    else:
+        raise RuntimeError("ANIMA_RENDER_ENGINE inválido. Use 'blender' ou '2d'.")
 
     low_video = workdir / f"silent-{fmt.replace(':','x')}.mp4"
     if progress_callback:
-        progress_callback(91, "Montando sequência de imagens em vídeo.")
+        progress_callback(93, "Montando sequência de imagens em vídeo.")
     _run(["ffmpeg", "-y", "-loglevel", "error", "-framerate", str(FPS),
-          "-i", str(frames / "frame-%06d.jpg"), "-c:v", "libx264",
+          "-start_number", "1" if engine == "blender" else "0",
+          "-i", str(frame_pattern), "-c:v", "libx264",
           "-preset", "ultrafast", "-crf", "20", "-pix_fmt", "yuv420p",
           "-r", "24", "-g", "24", "-keyint_min", "24", "-sc_threshold", "0", str(low_video)])
 
@@ -1006,11 +1102,13 @@ def render_episode(title: str, story: str, fmt: str, output: Path, workdir: Path
         raise RuntimeError(f"O vídeo Shorts ficou fora da faixa de 1:00 a 1:30 ({actual_video_duration:.1f}s).")
     if not portrait and not (300 < actual_video_duration <= 600):
         raise RuntimeError(f"O episódio horizontal precisa ficar entre 5 e 10 minutos ({actual_video_duration:.1f}s).")
+    shutil.rmtree(frames, ignore_errors=True)
     return {
         "duration_seconds": round(actual_video_duration, 2),
         "narration_seconds": round(fitted_duration, 2),
         "resolution": "1080x1920" if portrait else "1920x1080",
         "scene_count": scene_count,
+        "render_engine": "Blender 3D" if engine == "blender" else "2D procedural",
         "narration_word_count": sum(len(str(item.get("text", "")).split()) for item in audio_segments),
         "speakers": sorted({str(item.get("speaker", "Narrador")) for item in audio_segments}),
         "voice_profiles_file": str(VOICE_PROFILE_FILE),
