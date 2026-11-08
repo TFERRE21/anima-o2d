@@ -164,103 +164,176 @@ def make_pivot(parent, name, loc):
 
 
 def human_character(name, kind, origin, size=1.0):
+    """Original rounded 3D child-hero design with expressive face and adventure suit."""
     root = empty(name + " root", origin)
     root.scale = (size, size, size)
     is_luna = kind == "Luna"
     suit = M["pink"] if is_luna else M["blue"]
     trim = M["pink_light"] if is_luna else M["blue_light"]
-    # Rounded torso, collar, utility belt and badge.
-    sphere(name + " torso", root, (0, 0, 1.28), (0.49, 0.34, 0.67), suit)
-    sphere(name + " chest trim", root, (0, -0.29, 1.51), (0.34, 0.045, 0.38), trim, 16, 10)
-    sphere(name + " chest panel", root, (0, -0.325, 1.48), (0.285, 0.035, 0.32), suit, 16, 10)
-    cube(name + " belt", root, (0, -0.015, 0.82), (0.88, 0.69, 0.13), M["gold"], 0.045)
-    sphere(name + " badge", root, (0, -0.374, 1.35), (0.23, 0.065, 0.23), M["gold"])
-    star_mesh(name + " guardian star", root, 0, -0.434, 1.29, 0.18, M["gold_light"])
-    # Neck and head pivot support eye, mouth and expressive look animation.
-    cylinder(name + " neck", root, (0, 0, 1.91), 0.17, 0.25, M["skin"])
-    head = make_pivot(root, name + " head pivot", (0, -0.025, 2.28))
-    sphere(name + " head", head, (0, 0, 0), (0.62, 0.49, 0.66), M["skin"])
-    sphere(name + " cheek left", head, (-0.34, -0.365, -0.13), (0.17, 0.10, 0.20), M["skin_light"])
-    sphere(name + " cheek right", head, (0.34, -0.365, -0.13), (0.17, 0.10, 0.20), M["skin_light"])
-    # Hair volume and character-specific silhouette.
-    sphere(name + " hair cap", head, (0, 0.055, 0.43), (0.66, 0.50, 0.34), M["hair"])
-    sphere(name + " hair side L", head, (-0.52, 0.015, -0.05), (0.16, 0.40, 0.48), M["hair"])
-    sphere(name + " hair side R", head, (0.52, 0.015, -0.05), (0.16, 0.40, 0.48), M["hair"])
+    skin = M["skin"] if is_luna else M["skin_light"]
+    hair = M["hair"] if is_luna else M["hair_light"]
+    accent = M["gold"] if is_luna else M["gold_light"]
+
+    # Rounded, slightly oversized child proportions with layered suit geometry.
+    sphere(name + " rounded torso", root, (0, 0, 1.28), (0.53, 0.37, 0.68), suit, 28, 18)
+    sphere(name + " chest armor", root, (0, -0.315, 1.48), (0.38, 0.105, 0.43), trim, 24, 16)
+    sphere(name + " chest inset", root, (0, -0.398, 1.47), (0.30, 0.045, 0.34), suit, 22, 14)
+    sphere(name + " collar", root, (0, -0.015, 1.87), (0.28, 0.30, 0.13), M["gold_light"], 20, 12)
+    cube(name + " utility belt", root, (0, -0.01, 0.82), (0.93, 0.72, 0.16), M["gold"], 0.07)
+    cube(name + " belt buckle", root, (0, -0.385, 0.84), (0.23, 0.07, 0.16), M["gold_light"], 0.045)
+    for side, xx in (("L", -0.36), ("R", 0.36)):
+        cube(name + " belt pouch " + side, root, (xx, -0.33, 0.83), (0.18, 0.10, 0.21), trim, 0.05)
+        sphere(name + " shoulder armor " + side, root, (xx * 1.12, 0, 1.70), (0.23, 0.27, 0.21), trim, 18, 12)
+        sphere(name + " knee pad " + side, root, (xx * 0.60, -0.17, 0.36), (0.18, 0.08, 0.12), accent, 16, 10)
+
+    # Backpack and side equipment create a readable explorer silhouette.
+    cube(name + " explorer backpack", root, (0, 0.37, 1.38), (0.72, 0.34, 0.86), M["metal"], 0.16)
+    cube(name + " backpack color panel", root, (0, 0.555, 1.42), (0.48, 0.055, 0.54), suit, 0.09)
+    for side, xx in (("L", -0.23), ("R", 0.23)):
+        cylinder(name + " backpack thruster " + side, root, (xx, 0.48, 1.02), 0.10, 0.30, trim, (math.pi / 2, 0, 0), 14)
+    sphere(name + " backpack signal", root, (0, 0.60, 1.83), (0.10, 0.08, 0.11), M["gold_light"])
+
+    # Neck and independently animated head.
+    cylinder(name + " neck", root, (0, 0, 1.94), 0.18, 0.24, skin, vertices=20)
+    head = make_pivot(root, name + " head pivot", (0, -0.055, 2.34))
+    sphere(name + " soft face", head, (0, 0, 0), (0.66, 0.52, 0.69), skin, 32, 24)
+    sphere(name + " chin", head, (0, -0.28, -0.37), (0.35, 0.20, 0.19), skin, 20, 14)
+    for side, xx in (("L", -0.60), ("R", 0.60)):
+        sphere(name + " ear " + side, head, (xx, -0.035, -0.05), (0.14, 0.13, 0.22), skin, 18, 12)
+        sphere(name + " cheek " + side, head, (xx * 0.58, -0.405, -0.19), (0.17, 0.075, 0.13), M["pink_light"], 18, 12)
+
+    # Layered hair, with distinct silhouettes for Luna and Tomi.
+    sphere(name + " hair cap", head, (0, 0.055, 0.47), (0.68, 0.53, 0.36), hair, 28, 18)
+    sphere(name + " hair side L", head, (-0.56, 0.00, 0.04), (0.16, 0.40, 0.47), M["hair"], 18, 12)
+    sphere(name + " hair side R", head, (0.56, 0.00, 0.04), (0.16, 0.40, 0.47), M["hair"], 18, 12)
     if is_luna:
-        sphere(name + " front fringe", head, (0, -0.36, 0.35), (0.50, 0.16, 0.19), M["hair_light"])
-        # Pink inventor headband and golden side clip.
-        bpy.ops.mesh.primitive_torus_add(major_segments=32, minor_segments=10, major_radius=0.43, minor_radius=0.065, location=(0, 0, 0))
+        for i, xx in enumerate((-0.34, -0.12, 0.12, 0.34)):
+            sphere(name + " soft fringe " + str(i), head, (xx, -0.355, 0.36 + (0.04 if i in (1, 2) else 0)), (0.19, 0.15, 0.19), M["hair_light"], 16, 12)
+        # Signature inventor band and a small glowing side star.
+        bpy.ops.mesh.primitive_torus_add(major_segments=40, minor_segments=12, major_radius=0.48, minor_radius=0.065, location=(0, 0, 0))
         band = bpy.context.object
-        band.name = name + " pink goggles band"
-        set_parent(band, head, (0, -0.425, 0.36), (1.0, 0.45, 0.72), (math.radians(90), 0, 0))
+        band.name = name + " pink inventor headband"
+        set_parent(band, head, (0, -0.435, 0.40), (1.12, 0.45, 0.78), (math.radians(90), 0, 0))
         band.data.materials.append(M["pink_light"])
-        sphere(name + " hair clip", head, (0.47, -0.43, 0.31), (0.12, 0.08, 0.12), M["gold"])
+        sphere(name + " golden headband star", head, (0.50, -0.45, 0.36), (0.13, 0.09, 0.13), M["gold"])
+        sphere(name + " tiny blue communicator", head, (-0.50, -0.20, 0.15), (0.10, 0.10, 0.13), M["blue_light"])
     else:
-        # Distinct chunky swept spikes: a clear Tomi silhouette.
-        for i, (xx, zz, angle) in enumerate([
-            (-0.40, 0.45, -0.25), (-0.20, 0.60, -0.10), (0.04, 0.66, 0.0),
-            (0.28, 0.57, 0.12), (0.47, 0.43, 0.28)
+        # Swept hair locks give Tomi his own silhouette, not a crown/helmet copy.
+        for i, (xx, zz, tilt) in enumerate([
+            (-0.43, 0.42, -0.30), (-0.24, 0.56, -0.18), (0.00, 0.62, 0.02),
+            (0.24, 0.55, 0.18), (0.43, 0.40, 0.30)
         ]):
-            cone(name + " hair spike " + str(i), head, (xx, -0.01, zz), 0.18, 0.48, M["hair_light"], (0, angle, 0))
-        cube(name + " wrist communicator", root, (0.45, -0.12, 1.58), (0.19, 0.15, 0.23), M["blue_light"], 0.045)
-    # Eyes, pupils, brows and animated mouth, all facing the camera (-Y).
-    for side, xx in (("L", -0.22), ("R", 0.22)):
-        sphere(name + " eye white " + side, head, (xx, -0.442, 0.05), (0.115, 0.065, 0.17), M["white"])
-        sphere(name + " pupil " + side, head, (xx, -0.501, 0.035), (0.054, 0.027, 0.105), M["black"])
-        sphere(name + " eye sparkle " + side, head, (xx - 0.018, -0.527, 0.075), (0.023, 0.015, 0.035), M["white"], 12, 8)
-        brow = sphere(name + " brow " + side, head, (xx, -0.438, 0.27), (0.14, 0.045, 0.035), M["hair_light"], 12, 8)
-        brow.rotation_euler[1] = -0.08 if side == "L" else 0.08
-    nose = sphere(name + " nose", head, (0, -0.505, -0.085), (0.055, 0.035, 0.04), M["skin_light"], 12, 8)
-    mouth = sphere(name + " talking mouth", head, (0, -0.498, -0.22), (0.085, 0.035, 0.032), M["mouth"], 16, 10)
-    # Articulated legs with boots.
+            lock = sphere(name + " swept hair lock " + str(i), head, (xx, -0.01, zz), (0.22, 0.23, 0.34), M["hair"], 18, 12)
+            lock.rotation_euler[1] = tilt
+        sphere(name + " blue ear communicator", head, (0.55, -0.15, 0.10), (0.12, 0.13, 0.16), M["blue_light"], 16, 10)
+
+    # Large, bright eyes with irises, pupils, brows and multiple catchlights.
+    iris = M["blue"] if is_luna else M["hair"]
+    for side, xx in (("L", -0.235), ("R", 0.235)):
+        sphere(name + " eye socket " + side, head, (xx, -0.444, 0.035), (0.175, 0.085, 0.235), M["skin_light"], 20, 14)
+        sphere(name + " eye white " + side, head, (xx, -0.505, 0.045), (0.145, 0.075, 0.195), M["white"], 24, 16)
+        sphere(name + " iris " + side, head, (xx, -0.566, 0.035), (0.082, 0.038, 0.125), iris, 20, 14)
+        sphere(name + " pupil " + side, head, (xx, -0.595, 0.03), (0.044, 0.025, 0.086), M["black"], 16, 12)
+        sphere(name + " eye sparkle large " + side, head, (xx - 0.026, -0.619, 0.083), (0.031, 0.018, 0.040), M["white"], 12, 8)
+        sphere(name + " eye sparkle small " + side, head, (xx + 0.030, -0.616, -0.005), (0.014, 0.012, 0.018), M["white"], 10, 8)
+        brow = sphere(name + " expressive brow " + side, head, (xx, -0.47, 0.30), (0.17, 0.055, 0.045), hair, 16, 10)
+        brow.rotation_euler[1] = -0.10 if side == "L" else 0.10
+
+    sphere(name + " button nose", head, (0, -0.565, -0.105), (0.075, 0.060, 0.065), skin, 16, 10)
+    mouth = sphere(name + " animated smile mouth", head, (0, -0.525, -0.285), (0.105, 0.052, 0.075), M["mouth"], 20, 12)
+    sphere(name + " lower lip", head, (0, -0.505, -0.355), (0.085, 0.035, 0.026), M["pink_light"], 16, 10)
+    tongue = sphere(name + " talking tongue", head, (0, -0.572, -0.335), (0.045, 0.022, 0.018), M["pink_light"], 12, 8)
+
+    # Articulated legs: suit trousers, rounded boots, soles and boot highlights.
     legs = []
-    for side, xx in (("L", -0.22), ("R", 0.22)):
+    for side, xx in (("L", -0.23), ("R", 0.23)):
         pivot = make_pivot(root, name + " leg pivot " + side, (xx, 0, 0.79))
-        sphere(name + " leg " + side, pivot, (0, 0, -0.32), (0.16, 0.18, 0.40), M["blue"] if not is_luna else M["pink"])
-        sphere(name + " boot " + side, pivot, (0, -0.07, -0.64), (0.21, 0.29, 0.16), M["blue"] if not is_luna else M["hair"])
+        sphere(name + " upper leg " + side, pivot, (0, 0, -0.30), (0.18, 0.20, 0.39), suit, 18, 12)
+        sphere(name + " boot cuff " + side, pivot, (0, -0.02, -0.55), (0.19, 0.22, 0.12), trim, 16, 10)
+        sphere(name + " rounded boot " + side, pivot, (0, -0.10, -0.68), (0.23, 0.30, 0.17), M["hair"] if is_luna else M["blue"], 20, 12)
+        cube(name + " boot sole " + side, pivot, (0, -0.10, -0.80), (0.43, 0.52, 0.055), M["gold"], 0.025)
         legs.append(pivot)
-    # Articulated arms with gloves.
+
+    # Articulated arms with shoulder caps, wrist cuffs and rounded explorer gloves.
     arms = []
-    for side, xx in (("L", -0.47), ("R", 0.47)):
-        pivot = make_pivot(root, name + " arm pivot " + side, (xx, 0, 1.69))
-        sphere(name + " upper arm " + side, pivot, (0, 0, -0.29), (0.15, 0.17, 0.37), M["skin"])
-        sphere(name + " glove " + side, pivot, (0, -0.02, -0.65), (0.16, 0.16, 0.16), M["gold"])
+    for side, xx in (("L", -0.49), ("R", 0.49)):
+        pivot = make_pivot(root, name + " arm pivot " + side, (xx, 0, 1.68))
+        sphere(name + " upper arm " + side, pivot, (0, 0, -0.25), (0.16, 0.18, 0.34), skin, 18, 12)
+        sphere(name + " forearm " + side, pivot, (0, -0.015, -0.49), (0.135, 0.15, 0.25), skin, 18, 12)
+        cylinder(name + " wrist cuff " + side, pivot, (0, -0.02, -0.57), 0.15, 0.15, trim, vertices=16)
+        sphere(name + " rounded glove " + side, pivot, (0, -0.04, -0.68), (0.19, 0.19, 0.17), M["gold"], 18, 12)
+        for finger in range(3):
+            sphere(name + " glove finger " + side + " " + str(finger), pivot,
+                   ((finger - 1) * 0.09, -0.10, -0.78),
+                   (0.055, 0.075, 0.075), M["gold_light"], 10, 8)
         arms.append(pivot)
-    return {"root": root, "head": head, "mouth": mouth, "arms": arms, "legs": legs, "kind": kind, "base_x": origin[0], "base_z": origin[2]}
+
+    badge = sphere(name + " guardian badge", root, (0, -0.415, 1.34), (0.23, 0.075, 0.23), M["gold"], 24, 16)
+    star_mesh(name + " guardian star", root, 0, -0.485, 1.29, 0.18, M["gold_light"])
+    return {
+        "root": root, "head": head, "mouth": mouth, "tongue": tongue,
+        "arms": arms, "legs": legs, "kind": kind, "base_x": origin[0],
+        "base_z": origin[2],
+    }
 
 
-def dog_character(origin, size=0.82):
-    root = empty("Pipo root", origin)
+def dog_character(origin, size=0.92):
+    """Friendly quadruped puppy with soft proportions and a custom explorer vest."""
+    root = empty("Pipo quadruped root", origin)
     root.scale = (size, size, size)
-    sphere("Pipo body", root, (0, 0, 0.86), (0.48, 0.39, 0.51), M["dog"])
-    sphere("Pipo chest", root, (0, -0.30, 0.78), (0.30, 0.10, 0.36), M["dog_light"])
-    sphere("Pipo blue vest", root, (0, -0.10, 0.92), (0.45, 0.34, 0.27), M["blue"])
-    sphere("Pipo vest badge", root, (0, -0.425, 0.96), (0.12, 0.035, 0.12), M["gold"])
-    head = make_pivot(root, "Pipo head pivot", (0, -0.02, 1.48))
-    sphere("Pipo head", head, (0, 0, 0), (0.51, 0.43, 0.52), M["dog"])
-    sphere("Pipo muzzle", head, (0, -0.39, -0.17), (0.30, 0.16, 0.21), M["dog_light"])
-    sphere("Pipo nose", head, (0, -0.54, -0.08), (0.095, 0.07, 0.07), M["black"])
-    ears = []
-    for side, xx in (("L", -0.43), ("R", 0.43)):
-        ear = sphere("Pipo floppy ear " + side, head, (xx, 0.02, -0.05), (0.20, 0.25, 0.43), M["dog_dark"])
-        ear.rotation_euler[1] = -0.25 if side == "L" else 0.25
-        sphere("Pipo eye white " + side, head, (xx * 0.46, -0.39, 0.14), (0.09, 0.06, 0.13), M["white"])
-        sphere("Pipo pupil " + side, head, (xx * 0.46, -0.445, 0.13), (0.042, 0.027, 0.082), M["black"])
-        ears.append(ear)
-    mouth = sphere("Pipo talking mouth", head, (0, -0.49, -0.30), (0.095, 0.035, 0.032), M["mouth"])
+    sphere("Pipo soft puppy body", root, (0, 0.06, 0.94), (0.48, 0.77, 0.43), M["dog"], 28, 18)
+    sphere("Pipo cream chest bib", root, (0, -0.45, 0.90), (0.35, 0.22, 0.34), M["dog_light"], 22, 14)
+    sphere("Pipo explorer vest", root, (0, -0.02, 1.02), (0.51, 0.69, 0.31), M["blue"], 24, 16)
+    sphere("Pipo vest side panel L", root, (-0.40, -0.08, 1.02), (0.12, 0.46, 0.27), M["blue_light"], 16, 10)
+    sphere("Pipo vest side panel R", root, (0.40, -0.08, 1.02), (0.12, 0.46, 0.27), M["blue_light"], 16, 10)
+    cube("Pipo gold rescue collar", root, (0, -0.51, 1.30), (0.68, 0.16, 0.17), M["gold"], 0.07)
+    sphere("Pipo round vest badge", root, (0, -0.535, 1.08), (0.19, 0.065, 0.19), M["gold"], 20, 12)
+    star_mesh("Pipo little guardian star", root, 0, -0.594, 1.03, 0.13, M["gold_light"])
+    cube("Pipo puppy pack", root, (0, 0.55, 1.03), (0.52, 0.38, 0.56), M["metal"], 0.13)
+    sphere("Pipo pack signal", root, (0, 0.77, 1.16), (0.10, 0.06, 0.10), M["gold_light"])
+
+    # Puppy head points toward the camera, with floppy ears and a broad muzzle.
+    head = make_pivot(root, "Pipo head pivot", (0, -0.62, 1.44))
+    sphere("Pipo rounded puppy head", head, (0, 0, 0), (0.55, 0.48, 0.52), M["dog"], 30, 20)
+    sphere("Pipo forehead marking", head, (0, -0.35, 0.26), (0.23, 0.12, 0.18), M["dog_light"], 18, 12)
+    for side, xx in (("L", -0.48), ("R", 0.48)):
+        ear = sphere("Pipo floppy ear " + side, head, (xx, 0.02, -0.04), (0.22, 0.25, 0.43), M["dog_dark"], 20, 14)
+        ear.rotation_euler[1] = -0.28 if side == "L" else 0.28
+        sphere("Pipo inner ear " + side, head, (xx, -0.19, -0.05), (0.12, 0.075, 0.27), M["dog_light"], 16, 10)
+        sphere("Pipo eye white " + side, head, (xx * 0.48, -0.405, 0.12), (0.125, 0.075, 0.17), M["white"], 20, 14)
+        sphere("Pipo iris " + side, head, (xx * 0.48, -0.466, 0.11), (0.065, 0.035, 0.105), M["hair"], 16, 10)
+        sphere("Pipo pupil " + side, head, (xx * 0.48, -0.493, 0.105), (0.035, 0.02, 0.072), M["black"], 14, 10)
+        sphere("Pipo eye sparkle " + side, head, (xx * 0.48 - 0.02, -0.513, 0.145), (0.025, 0.015, 0.03), M["white"], 10, 8)
+        sphere("Pipo brow " + side, head, (xx * 0.48, -0.405, 0.31), (0.13, 0.045, 0.035), M["dog_dark"], 12, 8)
+    sphere("Pipo left muzzle", head, (-0.14, -0.43, -0.18), (0.23, 0.19, 0.18), M["dog_light"], 18, 12)
+    sphere("Pipo right muzzle", head, (0.14, -0.43, -0.18), (0.23, 0.19, 0.18), M["dog_light"], 18, 12)
+    sphere("Pipo puppy nose", head, (0, -0.602, -0.11), (0.12, 0.08, 0.085), M["black"], 18, 12)
+    mouth = sphere("Pipo animated puppy mouth", head, (0, -0.535, -0.33), (0.11, 0.045, 0.06), M["mouth"], 18, 12)
+    sphere("Pipo pink tongue", head, (0, -0.58, -0.39), (0.075, 0.035, 0.045), M["pink_light"], 14, 10)
+
+    # Four separate articulated legs: front legs use the arm controls,
+    # rear legs use the leg controls, so a trot can alternate diagonally.
     legs = []
     for side, xx in (("L", -0.27), ("R", 0.27)):
-        pivot = make_pivot(root, "Pipo leg pivot " + side, (xx, 0, 0.64))
-        sphere("Pipo paw " + side, pivot, (0, -0.04, -0.28), (0.17, 0.20, 0.29), M["dog"])
+        pivot = make_pivot(root, "Pipo hind leg pivot " + side, (xx, 0.46, 0.72))
+        sphere("Pipo hind leg " + side, pivot, (0, 0.04, -0.26), (0.16, 0.19, 0.34), M["dog"], 16, 10)
+        sphere("Pipo hind paw " + side, pivot, (0, -0.06, -0.54), (0.20, 0.24, 0.15), M["dog"], 16, 10)
+        sphere("Pipo hind paw pad " + side, pivot, (0, -0.26, -0.55), (0.11, 0.035, 0.07), M["dog_light"], 12, 8)
         legs.append(pivot)
-    tail = make_pivot(root, "Pipo wagging tail", (0.38, 0.15, 1.03))
-    sphere("Pipo tail", tail, (0.22, 0, 0.05), (0.28, 0.14, 0.14), M["dog"])
     arms = []
-    for side, xx in (("L", -0.35), ("R", 0.35)):
-        pivot = make_pivot(root, "Pipo foreleg pivot " + side, (xx, 0, 1.02))
-        sphere("Pipo foreleg " + side, pivot, (0, -0.02, -0.20), (0.13, 0.15, 0.27), M["dog"])
+    for side, xx in (("L", -0.27), ("R", 0.27)):
+        pivot = make_pivot(root, "Pipo front leg pivot " + side, (xx, -0.45, 0.78))
+        sphere("Pipo front leg " + side, pivot, (0, -0.03, -0.28), (0.15, 0.18, 0.36), M["dog"], 16, 10)
+        sphere("Pipo front paw " + side, pivot, (0, -0.13, -0.56), (0.20, 0.24, 0.15), M["dog"], 16, 10)
+        sphere("Pipo front paw pad " + side, pivot, (0, -0.32, -0.57), (0.11, 0.035, 0.07), M["dog_light"], 12, 8)
         arms.append(pivot)
-    return {"root": root, "head": head, "mouth": mouth, "arms": arms, "legs": legs, "tail": tail, "kind": "Pipo", "base_x": origin[0], "base_z": origin[2]}
+    tail = make_pivot(root, "Pipo wagging tail", (0, 0.68, 1.06))
+    sphere("Pipo fluffy tail", tail, (0, 0.27, 0.08), (0.16, 0.38, 0.17), M["dog"], 16, 10)
+    return {
+        "root": root, "head": head, "mouth": mouth, "arms": arms,
+        "legs": legs, "tail": tail, "kind": "Pipo",
+        "base_x": origin[0], "base_z": origin[2],
+    }
 
 
 def alien_character(origin, variant=0):
