@@ -16,6 +16,11 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY backend ./backend
 COPY web ./web
 
+# Fail the image build if either the real Blender engine or its Python scene file is missing.
+RUN test -s /app/backend/app/blender_scene.py \
+    && /usr/bin/blender --background --factory-startup --python-exit-code 1 \
+       --python /app/backend/app/blender_scene.py -- --version-check
+
 ENV PYTHONPATH=/app \
     ANIMA_STORAGE=/data/jobs \
     ANIMA_RENDER_ENGINE=blender \
