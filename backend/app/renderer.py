@@ -582,6 +582,40 @@ def _run(cmd):
         raise RuntimeError(p.stderr[-1800:])
     return p
 
+
+def _run_ffmpeg_with_progress(cmd, progress_callback, total_seconds: float):
+    command=list(cmd)
+    if command and command[0]=="ffmpeg":
+        command[0]=_ffmpeg_executable()
+    process=subprocess.Popen(command,stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True,bufsize=1)
+    last_percent=-1
+    try:
+        if process.stdout:
+            for line in process.stdout:
+                if "=" not in line:
+                    continue
+                key,value=line.strip().split("=",1)
+                if key=="out_time_ms":
+                    try:
+                        current_seconds=int(value)/1_000_000
+                    except ValueError:
+                        continue
+                    percent=max(0,min(100,int(current_seconds/max(.1,total_seconds)*100)))
+                    if progress_callback:
+                        mapped=95+int(percent*.04)
+                        if mapped>last_percent:
+                            last_percent=mapped
+                            progress_callback(mapped,"Codificando MP4 1080p: "+str(percent)+"%")
+        stderr=process.stderr.read() if process.stderr else ""
+        code=process.wait()
+        if code:
+            raise RuntimeError(stderr[-1800:])
+    except Exception:
+        if process.poll() is None:
+            process.kill()
+            process.wait()
+        raise
+
 def _probe_duration(path: Path) -> float:
     """Measure duration even when the runtime has FFmpeg but no separate ffprobe."""
     if not path.exists() or path.stat().st_size == 0:
@@ -932,12 +966,12 @@ def render_episode(title: str, story: str, fmt: str, output: Path, workdir: Path
     output.parent.mkdir(parents=True, exist_ok=True)
     output_duration = duration_seconds
     target_size = "1080:1920" if portrait else "1920:1080"
-    _run(["ffmpeg", "-y", "-loglevel", "error", "-i", str(low_video), "-i", str(voice_fit),
+    _run_ffmpeg_with_progress(["ffmpeg", "-y", "-loglevel", "error", "-i", str(low_video), "-i", str(voice_fit),
           "-filter_complex", f"[0:v]scale={target_size}:flags=lanczos,setsar=1[v];[1:a]apad=pad_dur=2,loudnorm=I=-16:TP=-1.5:LRA=11,highpass=f=90,lowpass=f=9000[a]",
           "-map", "[v]", "-map", "[a]", "-t", f"{output_duration:.3f}",
-          "-c:v", "libx264", "-preset", "fast", "-crf", "18", "-pix_fmt", "yuv420p",
+          "-c:v", "libx264", "-preset", "ultrafast", "-crf", "20", "-pix_fmt", "yuv420p",
           "-r", "24", "-c:a", "aac", "-b:a", "160k", "-movflags", "+faststart",
-          str(output)])
+          "-progress", "pipe:1", "-nostats", str(output)], progress_callback, output_duration)
     if not output.exists() or output.stat().st_size < 10000:
         raise RuntimeError("O arquivo de vídeo não foi gerado corretamente.")
     actual_video_duration = _probe_duration(output)
