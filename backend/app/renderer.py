@@ -370,6 +370,25 @@ def _render_blender_frames(frames: Path, fmt: str, width: int, height: int,
     env = os.environ.copy()
     env.setdefault("BLENDER_USER_CONFIG", str(frames.parent / "blender-user-config"))
     env.setdefault("OMP_NUM_THREADS", "4")
+    if runtime["backend"] == "python-module":
+        # bpy can be importable in the API process but absent in a child process
+        # when the panel starts Python with a customized sys.path. Forward the
+        # exact import paths used by this process to the Blender worker.
+        inherited_paths = [entry for entry in sys.path if entry]
+        existing_paths = [entry for entry in env.get("PYTHONPATH", "").split(os.pathsep) if entry]
+        env["PYTHONPATH"] = os.pathsep.join(dict.fromkeys(inherited_paths + existing_paths))
+        probe = subprocess.run(
+            [sys.executable, "-c", "import bpy; print(bpy.app.version_string)"],
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, env=env,
+        )
+        if probe.returncode:
+            raise RuntimeError(
+                "O processo da API encontrou bpy, mas o worker Python não conseguiu importar "
+                "o módulo Blender. Executável=" + sys.executable +
+                "; sys.path=" + repr(inherited_paths[-8:]) +
+                "; erro=" + (probe.stderr or probe.stdout)[-1200:]
+            )
+        print("ANIMA_BLENDER_WORKER_READY: " + probe.stdout.strip(), flush=True)
     process = subprocess.Popen(
         command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
         text=True, bufsize=1, env=env,
