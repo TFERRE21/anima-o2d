@@ -6,6 +6,7 @@ from pathlib import Path
 from backend.app.worlds import build_episode_plan
 from PIL import ImageChops
 
+import backend.app.renderer as renderer
 from backend.app.renderer import render_episode, draw_scene_frame, VOICE_PROFILE
 
 
@@ -41,15 +42,21 @@ class RenderDurationTests(unittest.TestCase):
             root = Path(tmp)
             long_video = root / "episode-16x9.mp4"
             short_video = root / "episode-9x16.mp4"
-
-            long_result = render_episode(
-                plan["title"], plan["long_script"], "16:9", long_video, root,
-                planet_name=plan["planet"], story_plan=plan
-            )
-            short_result = render_episode(
-                plan["title"], plan["long_script"], "9:16", short_video, root,
-                planet_name=plan["planet"], story_plan=plan
-            )
+            # Keep the integration test lightweight while still exercising actual
+            # audio synthesis, frame writing, FFmpeg encoding, duration and resolution.
+            original_fps = renderer.FPS
+            renderer.FPS = 1
+            try:
+                long_result = render_episode(
+                    plan["title"], plan["long_script"], "16:9", long_video, root,
+                    planet_name=plan["planet"], story_plan=plan
+                )
+                short_result = render_episode(
+                    plan["title"], plan["long_script"], "9:16", short_video, root,
+                    planet_name=plan["planet"], story_plan=plan
+                )
+            finally:
+                renderer.FPS = original_fps
 
             self.assertTrue(long_video.exists())
             self.assertTrue(short_video.exists())
