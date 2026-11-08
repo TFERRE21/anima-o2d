@@ -44,7 +44,7 @@ class StoryEngineTests(unittest.TestCase):
         self.assertGreaterEqual(len(plan["dialogues"]), 18)
         long_speakers = {line["speaker"] for line in plan["audio_segments_long"]}
         short_speakers = {line["speaker"] for line in plan["audio_segments_short"]}
-        self.assertTrue({"Luna", "Tomi", "Pipo", "Narrador"}.issubset(long_speakers))
+        self.assertTrue({"Luna", "Tomi", "Pipo", "Moradora", "Narrador"}.issubset(long_speakers))
         self.assertTrue({"Luna", "Tomi", "Pipo", "Narrador"}.issubset(short_speakers))
         self.assertEqual(plan["duration_targets"]["16:9"]["min_seconds"], 301)
         self.assertEqual(plan["duration_targets"]["16:9"]["max_seconds"], 599)
