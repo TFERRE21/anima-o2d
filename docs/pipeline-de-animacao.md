@@ -9,7 +9,7 @@
 1. **Planejamento da história:** o motor escolhe um planeta ainda não usado, um bioma, habitantes, um desafio e uma lição educativa.
 2. **Roteiro completo:** escreve a narração e os diálogos de Luna, Tomi e Pipo em português brasileiro.
 3. **Roteiro Shorts:** seleciona o momento mais impactante (pista, virada e solução) e monta uma sequência curta própria, com falas e cenas específicas.
-4. **Storyboard:** prepara 12 cenas com título, legenda curta e ação visual.
+4. **Storyboard:** prepara 15 cenas com título, legenda curta e ação visual.
 5. **Prévia e revisão:** o painel mostra planeta, sinopse, valor, narração, falas individuais dos personagens, trecho escolhido para o Short e storyboard.
 6. **Aprovação do usuário:** somente após clicar em “Aprovar roteiro e gerar vídeos 2D” a fila de renderização começa.
 7. **Animação 3D sincronizada:** cada parágrafo narrado tem índice de storyboard; o intervalo real de áudio determina quando a cena começa e termina. Blender cria cenários, câmera, iluminação, modelos volumétricos e moradores por planeta. Luna, Tomi e Pipo caminham, exploram, apontam, gesticulam, conversam, investigam, registram descobertas, trabalham e comemoram. A câmera acompanha o falante e os ouvintes reagem. O quadro não recebe legendas ou títulos sobrepostos.
