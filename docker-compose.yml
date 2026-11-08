@@ -4,7 +4,7 @@ services:
       context: .
       dockerfile: Dockerfile
     ports:
-      - "${PORT:-5000}:5000"
+      - "${HOST_PORT:-5000}:5000"
     environment:
       ANIMA_STORAGE: /data/jobs
       ANIMA_RENDER_ENGINE: blender
