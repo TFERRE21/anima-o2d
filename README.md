@@ -47,6 +47,7 @@ O renderizador mede a duração da faixa de áudio final e ajusta a velocidade d
 - `GET /api/diagnostics` informa `blender_backend` (`binary` ou `python-module`), `bpy_module_available`, se `backend/app/blender_scene.py` existe, versão do Python, FFmpeg, voz e volume.
 - A renderização chama `blender_scene.py` usando o executável ou o próprio `sys.executable` com `bpy`; não depende de `BLENDER_BIN` estar definido.
 - O projeto não contém renderizador 2D, funções de desenho Pillow ou substituição 2D. Se o motor 3D não estiver instalado, a API retorna erro explícito e não cria um vídeo alternativo.
+- No entrypoint `python app.py` do ICP, um bootstrap em segundo plano tenta instalar bibliotecas Debian ausentes (incluindo `libxfixes3`) quando o container permite `apt-get` como root; após a instalação, limpa o cache do teste de importação do `bpy`.
 
 **Runtime necessário:** CPython 3.13 com `bpy==5.2.3`, bibliotecas OpenGL/Mesa, Xvfb, FFmpeg e Edge TTS. O Dockerfile instala e valida essas dependências; o `requirements.txt` também inclui o módulo `bpy` para builds Python 3.13 do painel.
 
