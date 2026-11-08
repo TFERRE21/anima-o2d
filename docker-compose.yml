@@ -4,12 +4,12 @@ services:
       context: .
       dockerfile: Dockerfile
     ports:
-      - "${PORT:-8000}:8000"
+      - "${PORT:-5000}:5000"
     environment:
       ANIMA_STORAGE: /data/jobs
       ANIMA_RENDER_ENGINE: blender
       BLENDER_BIN: blender
-      PORT: 8000
+      PORT: 5000
     volumes:
       - anima2d_data:/data/jobs
     shm_size: "1gb"
