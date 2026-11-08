@@ -219,7 +219,7 @@ def human_character(name, kind, origin, size=1.0):
         sphere(name + " upper arm " + side, pivot, (0, 0, -0.29), (0.15, 0.17, 0.37), M["skin"])
         sphere(name + " glove " + side, pivot, (0, -0.02, -0.65), (0.16, 0.16, 0.16), M["gold"])
         arms.append(pivot)
-    return {"root": root, "head": head, "mouth": mouth, "arms": arms, "legs": legs, "kind": kind}
+    return {"root": root, "head": head, "mouth": mouth, "arms": arms, "legs": legs, "kind": kind, "base_x": origin[0], "base_z": origin[2]}
 
 
 def dog_character(origin, size=0.82):
@@ -253,7 +253,7 @@ def dog_character(origin, size=0.82):
         pivot = make_pivot(root, "Pipo foreleg pivot " + side, (xx, 0, 1.02))
         sphere("Pipo foreleg " + side, pivot, (0, -0.02, -0.20), (0.13, 0.15, 0.27), M["dog"])
         arms.append(pivot)
-    return {"root": root, "head": head, "mouth": mouth, "arms": arms, "legs": legs, "tail": tail, "kind": "Pipo"}
+    return {"root": root, "head": head, "mouth": mouth, "arms": arms, "legs": legs, "tail": tail, "kind": "Pipo", "base_x": origin[0], "base_z": origin[2]}
 
 
 def alien_character(origin, variant=0):
@@ -267,7 +267,7 @@ def alien_character(origin, variant=0):
         sphere("Local friend pupil " + side, head, (xx, -0.405, 0.06), (0.04, 0.03, 0.09), M["black"])
         cone("Local friend antenna " + side, head, (xx * 1.6, 0, 0.52), 0.08, 0.30, skin)
     mouth = sphere("Local friend mouth", head, (0, -0.41, -0.17), (0.07, 0.03, 0.03), M["mouth"])
-    return {"root": root, "head": head, "mouth": mouth, "arms": [], "legs": [], "kind": "Alien"}
+    return {"root": root, "head": head, "mouth": mouth, "arms": [], "legs": [], "kind": "Alien", "base_x": origin[0], "base_z": origin[2]}
 
 
 def add_tree(cx, y, z, variant=0):
@@ -382,7 +382,7 @@ def make_stage(stage_index, plan, scene, portrait):
     # The same hero designs are rebuilt for each shot but retain fixed shape, colors and costumes.
     if portrait:
         positions = ((cx - 1.25, -1.0, 0), (cx + 1.25, -0.75, 0), (cx, -2.0, 0))
-        size_h, size_d = 1.18, 0.90
+        size_h, size_d = 1.48, 1.05
     else:
         positions = ((cx - 3.1, -0.8, 0), (cx + 2.5, -0.55, 0), (cx + 0.2, -2.0, 0))
         size_h, size_d = 1.0, 0.78
@@ -397,7 +397,8 @@ def animate_actor(actor, global_time, local_time, action, speaking=False, side=0
     phase = local_time * 2.0 * math.pi * 1.25 + side * 1.7
     walk = action in {"walk", "explore", "work", "sniff"}
     if walk:
-        root.location.x += math.sin(local_time * math.pi * 2) * 0.32 + local_time * (0.56 if side == 0 else -0.42)
+        root.location.x = actor["base_x"] + math.sin(local_time * math.pi * 2 + side) * 0.30 + (local_time - 0.5) * (0.58 if side == 0 else -0.42)
+        root.location.z = actor["base_z"] + abs(math.sin(phase)) * 0.055
         swing = math.sin(phase) * 0.58
         actor["legs"][0].rotation_euler[1] = swing
         actor["legs"][1].rotation_euler[1] = -swing
@@ -408,12 +409,16 @@ def animate_actor(actor, global_time, local_time, action, speaking=False, side=0
             actor["arms"][0].rotation_euler[1] = -swing * 0.65
             actor["arms"][1].rotation_euler[1] = swing * 0.65
     else:
-        actor["root"].location.x += math.sin(local_time * 2.3 + side) * 0.08
+        actor["root"].location.x = actor["base_x"] + math.sin(local_time * 2.3 + side) * 0.08
+        actor["root"].location.z = actor["base_z"] + abs(math.sin(global_time * 2.4 + side)) * 0.018
         actor["legs"][0].rotation_euler[1] = math.sin(global_time * 2.4 + side) * 0.035
         actor["legs"][1].rotation_euler[1] = -math.sin(global_time * 2.4 + side) * 0.035
     # Gesture language changes with each beat: investigate, explain, react, cooperate.
     if actor["kind"] == "Luna":
-        if action in {"talk", "converse"}:
+        if walk:
+            actor["arms"][0].rotation_euler[1] = math.sin(phase) * 0.42
+            actor["arms"][1].rotation_euler[1] = -math.sin(phase) * 0.42
+        elif action in {"talk", "converse"}:
             actor["arms"][1].rotation_euler[1] = -0.45 + math.sin(global_time * 4.0) * 0.25
             actor["arms"][0].rotation_euler[1] = 0.18
         elif action == "discover":
@@ -428,7 +433,10 @@ def animate_actor(actor, global_time, local_time, action, speaking=False, side=0
             actor["arms"][0].rotation_euler[1] = math.sin(global_time * 3) * 0.15
             actor["arms"][1].rotation_euler[1] = math.sin(global_time * 3 + 1) * 0.15
     elif actor["kind"] == "Tomi":
-        if action in {"talk", "converse"}:
+        if walk:
+            actor["arms"][0].rotation_euler[1] = -math.sin(phase) * 0.42
+            actor["arms"][1].rotation_euler[1] = math.sin(phase) * 0.42
+        elif action in {"talk", "converse"}:
             actor["arms"][0].rotation_euler[1] = 0.5 + math.sin(global_time * 4.2) * 0.28
             actor["arms"][1].rotation_euler[1] = -0.25
         elif action in {"discover", "work"}:
@@ -528,7 +536,7 @@ def render(config: dict):
         stage_models.append(models)
 
     camera = create_camera(portrait, 0)
-    camera.data.ortho_scale = 7.6 if portrait else 14.2
+    camera.data.ortho_scale = 6.8 if portrait else 14.2
     report(18, "Personagens 3D, cenário e câmera preparados.")
 
     # Scene cuts follow the actual storyboard; actors move and interact inside each shot.
@@ -551,7 +559,7 @@ def render(config: dict):
         camera.location.x = center
         camera.location.z = 5.3 + math.sin(local_progress * math.pi) * 0.12
         close = source_index in (4, 7, 10)
-        base_scale = 7.5 if portrait else 14.0
+        base_scale = 6.8 if portrait else 14.0
         camera.data.ortho_scale = base_scale * (0.88 if close else 1.0)
         target = Vector((center, 0.25, 2.25))
         camera.rotation_euler = (target - camera.location).to_track_quat("-Z", "Y").to_euler()
