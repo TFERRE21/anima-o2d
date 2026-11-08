@@ -1,27 +1,20 @@
-"""Runtime binary discovery shared by API health checks and media workers."""
+"""Resolve the real Blender 3D engine in binary or embedded-Python form."""
 from __future__ import annotations
 
+import importlib.util
 import os
 import shutil
 from pathlib import Path
 
 
 def find_blender_binary() -> str | None:
-    """Resolve Blender even when the host PATH omits the standard system directory.
-
-    BLENDER_BIN may be either an absolute/relative executable path or a command
-    name. The standard Debian paths are checked as a fallback, while PATH lookup
-    remains supported for containers and local development.
-    """
     configured = os.getenv("BLENDER_BIN", "").strip()
-    candidates = []
-    if configured:
-        candidates.append(configured)
-    candidates.extend(["blender", "/usr/bin/blender", "/usr/local/bin/blender", "/snap/bin/blender"])
-
+    candidates = ([configured] if configured else []) + [
+        "blender", "/usr/bin/blender", "/usr/local/bin/blender", "/snap/bin/blender"
+    ]
     seen: set[str] = set()
     for candidate in candidates:
-        if candidate in seen:
+        if not candidate or candidate in seen:
             continue
         seen.add(candidate)
         located = shutil.which(candidate)
@@ -34,3 +27,25 @@ def find_blender_binary() -> str | None:
             if path.is_file() and os.access(path, os.X_OK):
                 return str(path.resolve())
     return None
+
+
+def has_bpy_module() -> bool:
+    """Check whether the official Blender Python module is installed for this Python."""
+    try:
+        return importlib.util.find_spec("bpy") is not None
+    except (ImportError, ValueError, ModuleNotFoundError):
+        return False
+
+
+def find_blender_runtime() -> dict | None:
+    """Return the preferred actual Blender runtime, not a 2D drawing substitute."""
+    binary = find_blender_binary()
+    if binary:
+        return {"backend": "binary", "executable": binary, "module": "bpy"}
+    if has_bpy_module():
+        return {"backend": "python-module", "executable": None, "module": "bpy"}
+    return None
+
+
+def blender_available() -> bool:
+    return find_blender_runtime() is not None
