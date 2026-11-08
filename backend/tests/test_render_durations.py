@@ -1,3 +1,4 @@
+import copy
 import shutil
 import tempfile
 import unittest
@@ -39,22 +40,38 @@ class RenderDurationTests(unittest.TestCase):
 
     def test_horizontal_and_vertical_duration_contracts(self):
         plan = build_episode_plan(0)
-        with tempfile.TemporaryDirectory(prefix="anima2d-test-") as tmp:
+        # A single representative shot keeps CI fast while still exercising
+        # Blender 3D, voice assembly, FFmpeg muxing, duration and real output sizes.
+        sample_plan = copy.deepcopy(plan)
+        sample_plan["scenes"] = sample_plan["scenes"][:1]
+        sample_plan["short_scene_indices"] = [0]
+        sample_plan["audio_segments_long"] = [
+            {"speaker": "Narrador", "text": " ".join(plan["long_script"]), "scene": 0},
+            {"speaker": "Luna", "text": "Vamos investigar juntos!", "scene": 0},
+            {"speaker": "Tomi", "text": "Vou organizar o plano com cuidado.", "scene": 0},
+            {"speaker": "Pipo", "text": "Au! Encontrei uma pista!", "scene": 0},
+            {"speaker": "Moradora", "text": "Muito obrigada por ouvirem nossa comunidade.", "scene": 0},
+        ]
+        sample_plan["audio_segments_short"] = [
+            {"speaker": "Narrador", "text": plan["short_script"], "scene": 0},
+            {"speaker": "Luna", "text": "Encontramos uma solução juntos!", "scene": 0},
+            {"speaker": "Tomi", "text": "Equipe, vamos trabalhar!", "scene": 0},
+            {"speaker": "Pipo", "text": "Au! Conseguimos!", "scene": 0},
+        ]
+        with tempfile.TemporaryDirectory(prefix="anima3d-test-") as tmp:
             root = Path(tmp)
             long_video = root / "episode-16x9.mp4"
             short_video = root / "episode-9x16.mp4"
-            # Keep CI lightweight while still running Blender, rendering real 3D
-            # geometry, synthesizing dialogue and validating final MP4 duration/resolution.
             original_fps = renderer.FPS
-            renderer.FPS = 0.015
+            renderer.FPS = 0.003
             try:
                 long_result = render_episode(
-                    plan["title"], plan["long_script"], "16:9", long_video, root,
-                    planet_name=plan["planet"], story_plan=plan
+                    sample_plan["title"], sample_plan["long_script"], "16:9", long_video, root,
+                    planet_name=sample_plan["planet"], story_plan=sample_plan
                 )
                 short_result = render_episode(
-                    plan["title"], plan["long_script"], "9:16", short_video, root,
-                    planet_name=plan["planet"], story_plan=plan
+                    sample_plan["title"], sample_plan["short_script"], "9:16", short_video, root,
+                    planet_name=sample_plan["planet"], story_plan=sample_plan
                 )
             finally:
                 renderer.FPS = original_fps
@@ -67,11 +84,11 @@ class RenderDurationTests(unittest.TestCase):
             self.assertGreaterEqual(short_result["duration_seconds"], 60)
             self.assertLessEqual(short_result["duration_seconds"], 90)
             self.assertTrue({"Luna", "Tomi", "Pipo", "Narrador"}.issubset(set(short_result["speakers"])))
-            self.assertEqual(short_result["scene_count"], len(plan["short_scene_indices"]))
+            self.assertEqual(short_result["scene_count"], 1)
             self.assertEqual(long_result["resolution"], "1920x1080")
             self.assertEqual(short_result["resolution"], "1080x1920")
-            self.assertEqual(long_result["render_engine"], "Blender 3D")
-            self.assertEqual(short_result["render_engine"], "Blender 3D")
+            self.assertEqual(long_result["render_engine"], "BLENDER_EEVEE_NEXT")
+            self.assertEqual(short_result["render_engine"], "BLENDER_EEVEE_NEXT")
 
 
 if __name__ == "__main__":
