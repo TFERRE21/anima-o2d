@@ -448,6 +448,19 @@ def make_stage(stage_index, plan, scene, portrait):
             ring.name = "Surprise energy ring"
             ring.data.materials.append(M["purple"] if j % 2 else M["blue_light"])
         sphere("Surprise energy core", None, (cx, 1.8, 2.0), (0.48, 0.48, 0.48), M["gold"])
+    elif stage_index == 12:
+        # A holographic mission journal makes the narrated reflection visible.
+        cube("Mission journal tablet", None, (cx, -0.7, 1.25), (2.4, 0.18, 1.55), M["purple"], 0.12)
+        for j in range(3):
+            sphere("Mission journal memory icon", None, (cx - 0.62 + j * 0.62, -0.83, 1.45), (0.17, 0.06, 0.17), (M["gold"], M["pink_light"], M["blue_light"])[j])
+        for j in range(4):
+            cube("Mission journal writing line", None, (cx, -0.84, 1.08 - j * 0.16), (1.25 - j * 0.10, 0.025, 0.025), M["white"], 0.01)
+    elif stage_index == 14:
+        # The final call-to-action has a warm, stage-like welcoming set.
+        cylinder("Finale stage", None, (cx, 1.5, 0.05), 4.5, 0.18, M["gold"], vertices=48)
+        for j in range(7):
+            xx = cx - 3.0 + j
+            sphere("Finale floating star", None, (xx, 2.5, 3.6 + (j % 2) * 0.45), (0.12, 0.12, 0.12), M["gold_light"], 12, 8)
     elif stage_index == 9:
         # Worksite props make the teamwork scene visibly different from discovery.
         add_mission_object(cx, 1.2, mission, stage_index)
@@ -754,8 +767,22 @@ def render(config: dict):
             if isinstance(shot_spec, dict)
             else action_by_scene.get(source_index, "walk")
         )
-        # Camera follows the active set with a mild lateral drift and story beat zoom.
+        active = ""
+        for line in timeline:
+            if float(line.get("start", 0)) <= global_time < float(line.get("end", 0)):
+                line_scene = int(line.get("scene", -1))
+                if line_scene in (-1, source_index):
+                    active = str(line.get("speaker", "Narrador"))
+                    break
+
+        # Camera follows the active set and gently favors the character speaking.
         center = shot["center"] + math.sin(local_progress * math.pi) * (0.32 if not portrait else 0.12)
+        if action in {"talk", "converse"}:
+            speaker_actor = shot.get(active)
+            if not speaker_actor and active == "Moradora" and shot["Natives"]:
+                speaker_actor = shot["Natives"][0]
+            if speaker_actor:
+                center = center * 0.72 + speaker_actor["root"].location.x * 0.28
         camera.location.x = center
         camera.location.z = 5.3 + math.sin(local_progress * math.pi) * 0.12
         close = source_index in (4, 7, 10)
@@ -775,13 +802,6 @@ def render(config: dict):
         camera.rotation_euler = (target - camera.location).to_track_quat("-Z", "Y").to_euler()
         camera.data.lens = 50 + (3 if action in {"discover", "surprise"} else 0)
 
-        active = ""
-        for line in timeline:
-            if float(line.get("start", 0)) <= global_time < float(line.get("end", 0)):
-                line_scene = int(line.get("scene", -1))
-                if line_scene in (-1, source_index):
-                    active = str(line.get("speaker", "Narrador"))
-                    break
         for side, name in enumerate(("Luna", "Tomi", "Pipo")):
             actor = shot[name]
             animate_actor(actor, global_time, local_progress, action, active == name, side)
@@ -810,7 +830,7 @@ def render(config: dict):
             report(pct, f"Renderizando cena 3D {scene_slot + 1}/{len(scenes)} · quadro {frame + 1}/{total_frames}")
 
     report(96, "Render 3D concluído.")
-    return {"frames": total_frames, "scene_count": len(scenes), "engine": "Blender Workbench 3D"}
+    return {"frames": total_frames, "scene_count": len(scenes), "engine": scene.render.engine}
 
 
 def main():
