@@ -47,6 +47,15 @@ def inspect_bpy_module() -> dict:
         }
 
 
+def reset_bpy_import_state() -> None:
+    """Remove failed partial imports after native libraries have been installed."""
+    import sys
+    for name in list(sys.modules):
+        if name == "bpy" or name.startswith("bpy."):
+            sys.modules.pop(name, None)
+    inspect_bpy_module.cache_clear()
+
+
 def has_bpy_module() -> bool:
     return bool(inspect_bpy_module()["available"])
 
