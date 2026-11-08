@@ -603,9 +603,10 @@ def create_camera(portrait, cx):
     camera = bpy.data.objects.new("Cinematic follow camera", data)
     bpy.context.collection.objects.link(camera)
     bpy.context.scene.camera = camera
-    camera.data.type = "ORTHO"
+    # Perspective camera creates real foreground/background scale and depth.
+    camera.data.type = "PERSP"
+    camera.data.sensor_fit = "VERTICAL" if portrait else "HORIZONTAL"
     camera.data.lens = 50
-    data.ortho_scale = 6.8 if portrait else 14.2
     camera.location = (cx, -19.5, 5.5)
     target = Vector((cx, 0.4, 2.25))
     camera.rotation_euler = (target - camera.location).to_track_quat("-Z", "Y").to_euler()
@@ -747,7 +748,6 @@ def render(config: dict):
 
     add_stage_lighting([model["center"] for model in stage_models])
     camera = create_camera(portrait, 0)
-    camera.data.ortho_scale = 6.8 if portrait else 14.2
     report(18, "Personagens 3D, cenário e câmera preparados.")
 
     # Scene cuts follow the actual storyboard; actors move and interact inside each shot.
@@ -794,8 +794,7 @@ def render(config: dict):
         camera.location.x = center
         camera.location.z = 5.3 + math.sin(local_progress * math.pi) * 0.12
         close = source_index in (4, 7, 10)
-        base_scale = 6.8 if portrait else 14.0
-        camera.data.ortho_scale = base_scale * (0.88 if close else 1.0)
+        camera.data.lens = 62 if close else (48 if portrait else 50)
         # A slight camera tilt and dolly-style scale change make the beat read
         # like a children's adventure series, not a locked slideshow frame.
         if action in {"discover", "sniff"}:
