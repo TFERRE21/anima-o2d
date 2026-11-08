@@ -52,6 +52,7 @@ class StoryEngineTests(unittest.TestCase):
         self.assertEqual(plan["duration_targets"]["9:16"]["max_seconds"], 90)
         self.assertTrue(plan["short_scene_indices"])
         self.assertEqual([item["scene"] for item in plan["audio_segments_long"] if item["speaker"] == "Narrador"], list(range(15)))
+        self.assertEqual([scene["action"] for scene in plan["scenes"]], ["walk", "explore", "converse", "converse", "discover", "talk", "sniff", "surprise", "converse", "work", "celebrate", "talk", "write", "walk", "celebrate"])
         self.assertEqual(plan["short_scene_indices"], [7, 8, 9, 10, 11])
 
 
