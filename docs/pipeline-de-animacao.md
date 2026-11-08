@@ -2,7 +2,7 @@
 
 ## Regra central
 
-**Nenhum vídeo começa a ser renderizado antes de o motor criar e salvar uma história original.** O roteiro deve definir planeta, habitantes, problema, pistas, diálogos/ações, solução e valor educativo. O mesmo trio principal aparece em todas as aventuras, mas cada história acontece em um planeta com identificador não repetido.
+**Nenhum vídeo começa a ser renderizado antes de o motor criar e salvar uma história original.** O roteiro deve definir planeta, habitantes, problema, pistas, diálogos/ações, solução e valor educativo. Cada trecho da narração precisa apontar para uma cena e uma ação visual próprias, com marca temporal derivada do áudio sintetizado. O mesmo trio principal aparece em todas as aventuras, mas cada história acontece em um planeta com identificador não repetido.
 
 ## Etapas do episódio manual
 
@@ -12,7 +12,7 @@
 4. **Storyboard:** prepara 12 cenas com título, legenda curta e ação visual.
 5. **Prévia e revisão:** o painel mostra planeta, sinopse, valor, narração, falas individuais dos personagens, trecho escolhido para o Short e storyboard.
 6. **Aprovação do usuário:** somente após clicar em “Aprovar roteiro e gerar vídeos 2D” a fila de renderização começa.
-7. **Animação 3D:** Blender cria cenários, câmera, iluminação, modelos volumétricos e moradores por planeta. Luna, Tomi e Pipo caminham, exploram, apontam, gesticulam, conversam, trabalham e comemoram. O quadro não recebe legendas ou títulos sobrepostos.
+7. **Animação 3D sincronizada:** cada parágrafo narrado tem índice de storyboard; o intervalo real de áudio determina quando a cena começa e termina. Blender cria cenários, câmera, iluminação, modelos volumétricos e moradores por planeta. Luna, Tomi e Pipo caminham, exploram, apontam, gesticulam, conversam, investigam, registram descobertas, trabalham e comemoram. A câmera acompanha o falante e os ouvintes reagem. O quadro não recebe legendas ou títulos sobrepostos.
 8. **Áudio e diálogo:** narrador, Luna, Tomi, Pipo e moradores têm vozes fixas em português brasileiro; o mapa fica em `/data/jobs/voice-profiles.json`. A linha do tempo aciona a boca do personagem que está falando.
 9. **Render duplo:** versões horizontais e verticais com composições e tempos próprios.
 10. **Controle de qualidade:** conferir duração, arquivo MP4, áudio, legibilidade, continuidade visual e adequação para crianças.
@@ -48,6 +48,6 @@ A publicação automática não é ligada por padrão. O upload/agendamento no Y
 
 ## Estado do motor
 
-A produção agora usa modelos 3D procedurais no Blender Workbench, com articulações simples, ciclos de caminhada, exploração, gestos, conversa, objetos de missão, cenários por bioma e câmera que acompanha os planos. A boca é animada pela linha do tempo das falas; não há ainda sincronização fonema a fonema nem rig facial de estúdio.
+A produção agora usa modelos 3D procedurais no Blender Eevee, com materiais, iluminação, sombras, articulações simples, ciclos de caminhada, exploração, gestos, conversa, objetos de missão, cenários por bioma e câmera que acompanha o falante. O tempo do storyboard é calculado pelos intervalos reais de narração e diálogo. A boca é animada pela linha do tempo das falas; não há ainda sincronização fonema a fonema nem rig facial de estúdio.
 
 **Runtime obrigatório:** Docker com Blender, Xvfb e Mesa. Python Standalone não contém o binário Blender e a API bloqueia a renderização nesse modo para não entregar um vídeo 2D como substituto.
