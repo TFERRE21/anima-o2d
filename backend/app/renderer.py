@@ -901,7 +901,17 @@ def _render_blender_frames(frames: Path, fmt: str, width: int, height: int,
         "fps": float(FPS),
         "total_frames": int(total_frames),
         "frames_dir": str(frames.resolve()),
-        "scenes": scene_list,
+        "scenes": [
+            {
+                "title": str(scene_list[index][0]),
+                "caption": str(scene_list[index][1]),
+                "visual_action": str(scene_list[index][2]),
+                "action": str(
+                    (plan.get("scenes") or [{}])[source_index].get("action", "")
+                ),
+            }
+            for index, source_index in enumerate(scene_source_indices)
+        ],
         "scene_source_indices": [int(x) for x in scene_source_indices],
         "story_plan": {
             "planet": plan.get("planet", "Unknown planet"),
