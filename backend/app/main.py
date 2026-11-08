@@ -330,8 +330,31 @@ def _refresh_scheduler():
         scheduler.add_job(_create_scheduled_episode,trigger,id="weekly_episode_production",replace_existing=True,max_instances=1,coalesce=True)
     scheduler.start()
 
+def _recover_interrupted_jobs():
+    """Jobs marked active before a process restart cannot still have a live worker."""
+    for folder in STORAGE.iterdir():
+        meta = folder / "job.json"
+        if not folder.is_dir() or not meta.exists():
+            continue
+        try:
+            job = json.loads(meta.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        if job.get("status") in {"queued", "processing"}:
+            job.update({
+                "status": "failed",
+                "stage": "interrupted",
+                "error": "O processo foi reiniciado antes de concluir a renderização.",
+                "message": "Renderização interrompida por reinicialização. O roteiro foi preservado; abra o episódio e tente gerar novamente.",
+                "updated_at": datetime.now(timezone.utc).isoformat(),
+            })
+            meta.write_text(json.dumps(job, ensure_ascii=False, indent=2), encoding="utf-8")
+        JOBS[folder.name] = job
+
+
 @app.on_event("startup")
 def start_studio_scheduler():
+    _recover_interrupted_jobs()
     _refresh_scheduler()
 
 @app.on_event("shutdown")
@@ -476,16 +499,23 @@ def _update(job_id: str, **changes):
 def _run_job(job_id: str, payload: GenerateRequest):
     try:
         from backend.app.renderer import render_episode
+        total_formats = max(1, len(payload.formats))
         for index, fmt in enumerate(payload.formats):
             stage = "rendering_long" if fmt == "16:9" else "rendering_short"
             _update(job_id, status="processing", stage=stage,
-                    progress=int(index * 100 / len(payload.formats)),
-                    message=f"Renderizando versão {fmt} com roteiro próprio…")
+                    progress=int(index * 100 / total_formats),
+                    message=f"Preparando versão {fmt} com roteiro e falas próprias…")
             output = STORAGE / job_id / f"episode-{fmt.replace(':','x')}.mp4"
             current = _get_job(job_id)
+
+            def report(local_progress: int, message: str):
+                overall = min(99, int((index * 100 + max(0, min(100, local_progress))) / total_formats))
+                _update(job_id, status="processing", stage=stage, progress=overall, message=message)
+
             metadata = render_episode(
                 payload.title, payload.story, fmt, output, STORAGE / job_id,
-                planet_name=payload.planet, story_plan=current.get("story_plan")
+                planet_name=payload.planet, story_plan=current.get("story_plan"),
+                progress_callback=report,
             )
             current = _get_job(job_id)
             outputs = dict(current.get("outputs", {}))
@@ -493,10 +523,10 @@ def _run_job(job_id: str, payload: GenerateRequest):
             durations = dict(current.get("rendered_durations", {}))
             durations[fmt] = metadata.get("duration_seconds")
             _update(job_id, outputs=outputs, rendered_durations=durations,
-                    progress=int((index + 1) * 100 / len(payload.formats)),
+                    progress=int((index + 1) * 100 / total_formats),
                     message=f"Versão {fmt} pronta ({metadata.get('duration_seconds', 0):.0f} segundos).")
         _update(job_id, status="done", stage="ready_for_review", progress=100,
-                message="Episódio completo: roteiro, animação e narrações renderizados.")
+                message="Episódio completo: roteiro, vozes, animação e narrações renderizados.")
     except Exception as exc:
         _update(job_id, status="failed", stage="render_error", error=str(exc),
                 message=f"Falha na renderização: {exc}")
