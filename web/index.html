@@ -148,11 +148,22 @@ function statusBadge(j){
 function episodeRow(j,compact=false){
  const outputs=Object.keys(j.outputs||{});
  const download=outputs.map(f=>'<a href="/api/jobs/'+encodeURIComponent(j.id)+'/download/'+encodeURIComponent(f)+'" target="_blank" style="color:#9fc5ff;font-size:11px;margin-right:8px">Baixar '+esc(f)+'</a>').join('');
- const draft=j.status==='story_ready'?'<button class="btn secondary small" data-action="open-story" data-id="'+esc(j.id)+'">Ver roteiro</button>':'';
+ const draft=(j.status==='story_ready'||(j.status==='failed'&&j.story_plan))?'<button class="btn secondary small" data-action="open-story" data-id="'+esc(j.id)+'">Ver roteiro</button>':'';
  const review=j.status==='done'&&j.review_status!=='approved'?'<button class="btn good small" data-action="review" data-id="'+esc(j.id)+'">Aprovar</button>':'';
  const publish=j.review_status==='approved'&&youtubeConnected?outputs.map(f=>'<button class="btn secondary small" data-action="publish" data-id="'+esc(j.id)+'" data-format="'+esc(f)+'">Publicar '+esc(f)+'</button>').join(' '):'';
  const published=(j.publications||[]).map(p=>'<a href="'+esc(p.url)+'" target="_blank" style="color:#8fe0bf;font-size:11px">YouTube '+esc(p.format)+' ↗</a>').join(' ');
  return '<div class="episode"><div class="thumb">🎬</div><div><div class="epname">'+esc(j.title)+'</div><div class="epmeta">'+new Date(j.created_at).toLocaleString('pt-BR')+' · '+esc((j.formats||[]).join(' + '))+(j.planet?' · 🌍 '+esc(j.planet):'')+(j.rendered_durations?' · '+Object.entries(j.rendered_durations).map(([f,v])=>f+' '+Math.floor(v/60)+':'+String(Math.floor(v%60)).padStart(2,'0')).join(' / '):'')+'</div><div style="margin-top:7px">'+statusBadge(j)+' <span style="margin-left:7px">'+download+' '+published+'</span></div></div><div class="epactions">'+draft+' '+review+' '+publish+'</div></div>';
+}
+
+function renderEpisodes(){
+ const all=$('allEpisodes');
+ if(all) all.innerHTML=jobs.length?jobs.map(j=>episodeRow(j)).join(''):'<div class="empty">Nenhum episódio criado ainda.</div>';
+ const queue=$('postingQueue');
+ if(queue){
+  const approved=jobs.filter(j=>j.status==='done'&&j.review_status==='approved');
+  queue.className=approved.length?'':'empty';
+  queue.innerHTML=approved.length?approved.map(j=>episodeRow(j)).join(''):'Os episódios aprovados aparecerão aqui para envio.';
+ }
 }
 async function loadDashboard(){
  try{
@@ -173,7 +184,7 @@ async function loadDashboard(){
   $('ytStatus').textContent=youtubeConnected?'Canal autorizado. Upload e agendamento disponíveis.':(d.youtube.configured?'Credenciais presentes; falta autorizar o canal.':'Não conectado');
   $('connectYoutube').style.display=d.youtube.configured?'inline-flex':'none';
   renderEpisodes();
- }catch(e){$('systemStatus').textContent='● API indisponível';$('systemStatus').style.color='#ffb7c0';}
+ }catch(e){console.error('Falha ao atualizar o painel:',e);$('systemStatus').textContent='● Falha no painel: '+(e?.message||'verifique a API');$('systemStatus').style.color='#ffb7c0';}
 }
 async function openStory(id){
  try{
@@ -235,7 +246,7 @@ $('approveStory').addEventListener('click',async()=>{
 $('discardStory').addEventListener('click',()=>{$('storyPreview').style.display='none';pendingStoryId=null;$('createMessage').textContent='Roteiro descartado. Crie uma nova história para outro planeta.';});
 function watchJob(id){
  if(poll)clearInterval(poll);
- const tick=async()=>{try{const r=await fetch('/api/jobs/'+encodeURIComponent(id));const j=await r.json();$('activeJobTitle').textContent=j.title;$('activeJobBadge').textContent=(j.stage||j.status).replaceAll('_',' ').toUpperCase();$('activeJobProgress').style.width=(j.progress||0)+'%';$('activeJobMessage').textContent=j.message+(j.rendered_durations? ' · Duração: '+Object.entries(j.rendered_durations).map(([f,v])=>f+' '+Math.round(v/60)+' min').join(' / '):'');$('activeJobDownloads').innerHTML=Object.keys(j.outputs||{}).map(f=>'<p><a style="color:#9fc5ff" href="/api/jobs/'+encodeURIComponent(id)+'/download/'+encodeURIComponent(f)+'" target="_blank">Baixar vídeo '+esc(f)+' ↓</a></p>').join('');await loadDashboard();if(j.status==='done'||j.status==='failed'){clearInterval(poll);poll=null;$('createBtn').disabled=false;$('createBtn').textContent='✦ Gerar outro episódio';}}catch(e){$('activeJobMessage').textContent='Aguardando resposta do servidor…';}};
+ const tick=async()=>{try{const r=await fetch('/api/jobs/'+encodeURIComponent(id));const j=await r.json();$('activeJobTitle').textContent=j.title;$('activeJobBadge').textContent=(j.stage||j.status).replaceAll('_',' ').toUpperCase();$('activeJobProgress').style.width=(j.progress||0)+'%';$('activeJobMessage').textContent=j.message+(j.rendered_durations? ' · Duração: '+Object.entries(j.rendered_durations).map(([f,v])=>f+' '+Math.round(v/60)+' min').join(' / '):'');$('activeJobDownloads').innerHTML=Object.keys(j.outputs||{}).map(f=>'<p><a style="color:#9fc5ff" href="/api/jobs/'+encodeURIComponent(id)+'/download/'+encodeURIComponent(f)+'" target="_blank">Baixar vídeo '+esc(f)+' ↓</a></p>').join('');await loadDashboard();if(j.status==='done'||j.status==='failed'){clearInterval(poll);poll=null;$('createBtn').disabled=false;$('createBtn').textContent='✦ Criar outra história';if(j.status==='failed'){$('approveStory').disabled=false;$('approveStory').textContent='↻ Tentar renderizar novamente';}await loadDashboard();}}catch(e){$('activeJobMessage').textContent='Aguardando resposta do servidor…';}};
  tick();poll=setInterval(tick,2500);
 }
 async function publishEpisode(id,fmt){
