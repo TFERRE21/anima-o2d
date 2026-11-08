@@ -7,10 +7,10 @@ import os
 import re
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 from typing import Callable
-from PIL import Image, ImageDraw, ImageFont
-from backend.app.runtime import find_blender_binary
+from backend.app.runtime import find_blender_runtime
 
 FPS = 12
 SCENE_SECONDS = 4
@@ -22,572 +22,6 @@ SCENES = [
     ("JUNTOS É MELHOR", "Com ajuda, todos devolvem os pertences e criam etiquetas coloridas.", "team"),
     ("A LIÇÃO DO DIA", "Honestidade é falar a verdade. Responsabilidade é corrigir nossos erros.", "lesson"),
 ]
-
-def font(size: int, bold: bool = False):
-    candidates = [
-        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf" if bold else "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-        "/usr/share/fonts/truetype/liberation2/LiberationSans-Bold.ttf" if bold else "/usr/share/fonts/truetype/liberation2/LiberationSans-Regular.ttf",
-    ]
-    for name in candidates:
-        if Path(name).exists():
-            return ImageFont.truetype(name, size)
-    return ImageFont.load_default()
-
-def rounded(draw, box, radius, fill, outline=None, width=1):
-    draw.rounded_rectangle(box, radius=radius, fill=fill, outline=outline, width=width)
-
-def _jointed_limb(d, points, fill, width):
-    d.line(points, fill=fill, width=max(3, int(width)), joint="curve")
-    radius=max(3, int(width*.52))
-    for px,py in (points[1:-1]):
-        d.ellipse((px-radius,py-radius,px+radius,py+radius),fill=fill)
-
-
-def draw_girl(d, x, y, s, t, pose="idle", speaking=False):
-    bounce = math.sin(t*5.8)*4*s
-    if pose == "celebrate":
-        bounce += abs(math.sin(t*4.4))*13*s
-    stride = math.sin(t*7.2)*12*s if pose in {"walk","run","work"} else math.sin(t*2.3)*2*s
-    ink="#34223e"
-    skin="#f4c09d"
-    # Soft character shadow and boots
-    d.ellipse((x-56*s,y+145*s,x+56*s,y+164*s),fill="#142a3d")
-    d.ellipse((x-43*s+stride,y+133*s+bounce,x-5*s+stride,y+158*s+bounce),fill="#352448",outline=ink,width=max(2,int(3*s)))
-    d.ellipse((x+5*s-stride,y+133*s+bounce,x+43*s-stride,y+158*s+bounce),fill="#352448",outline=ink,width=max(2,int(3*s)))
-    _jointed_limb(d,[(x-17*s,y+99*s+bounce),(x-20*s+stride*.55,y+124*s+bounce),(x-24*s+stride,y+143*s+bounce)],"#633e83",max(6,11*s))
-    _jointed_limb(d,[(x+17*s,y+99*s+bounce),(x+20*s-stride*.55,y+124*s+bounce),(x+24*s-stride,y+143*s+bounce)],"#633e83",max(6,11*s))
-    # Arms react to each scene
-    left_hand=(x-67*s,y+72*s+math.sin(t*6)*9*s)
-    right_hand=(x+67*s,y+72*s+math.cos(t*6)*9*s)
-    if pose in {"wave","celebrate"}:
-        right_hand=(x+57*s,y-24*s+math.sin(t*8)*8*s)
-    elif pose=="point":
-        right_hand=(x+102*s,y+2*s)
-    elif pose=="think":
-        right_hand=(x+39*s,y-35*s)
-    elif pose=="surprised":
-        left_hand=(x-69*s,y-12*s); right_hand=(x+69*s,y-12*s)
-    elif pose=="work":
-        left_hand=(x-78*s,y+64*s); right_hand=(x+82*s,y+50*s)
-    _jointed_limb(d,[(x-31*s,y+31*s+bounce),(x-52*s,y+52*s+bounce),left_hand],skin,max(8,13*s))
-    _jointed_limb(d,[(x+31*s,y+31*s+bounce),(x+53*s,y+52*s+bounce),right_hand],skin,max(8,13*s))
-    for hx,hy in (left_hand,right_hand):
-        d.ellipse((hx-9*s,hy-9*s,hx+9*s,hy+9*s),fill="#ffd45c",outline=ink,width=max(1,int(2*s)))
-    # Suit, collar, shoulder panels and reflective highlights
-    rounded(d,(x-42*s,y+7*s+bounce,x+42*s,y+112*s+bounce),23*s,"#e9369b",ink,max(2,int(3*s)))
-    rounded(d,(x-34*s,y+17*s+bounce,x-22*s,y+79*s+bounce),6*s,"#ff77c1")
-    rounded(d,(x+23*s,y+17*s+bounce,x+34*s,y+79*s+bounce),6*s,"#bf267d")
-    d.polygon([(x-18*s,y+9*s+bounce),(x,y+29*s+bounce),(x+18*s,y+9*s+bounce)],fill="#ffe4f3")
-    rounded(d,(x-39*s,y+91*s+bounce,x+39*s,y+104*s+bounce),5*s,"#743a8c",ink,max(1,int(2*s)))
-    # Gold star badge
-    d.ellipse((x-17*s,y+42*s+bounce,x+17*s,y+76*s+bounce),fill="#f5b92f",outline="#8c5b21",width=max(1,int(2*s)))
-    d.polygon([(x,y+45*s+bounce),(x+5*s,y+55*s+bounce),(x+15*s,y+56*s+bounce),(x+7*s,y+63*s+bounce),(x+9*s,y+73*s+bounce),(x,y+67*s+bounce),(x-9*s,y+73*s+bounce),(x-7*s,y+63*s+bounce),(x-15*s,y+56*s+bounce),(x-5*s,y+55*s+bounce)],fill="#fff9d5")
-    # Head, hair and face
-    head_y=y-30*s+bounce
-    d.ellipse((x-50*s,head_y-48*s,x+50*s,head_y+58*s),fill="#573628",outline=ink,width=max(2,int(3*s)))
-    d.ellipse((x-39*s,head_y-38*s,x+39*s,head_y+49*s),fill=skin,outline="#ae765f",width=max(1,int(2*s)))
-    d.ellipse((x-46*s,head_y-20*s,x-27*s,head_y+40*s),fill="#603a2b")
-    d.ellipse((x+27*s,head_y-20*s,x+46*s,head_y+40*s),fill="#603a2b")
-    d.pieslice((x-44*s,head_y-56*s,x+45*s,head_y+3*s),180,355,fill="#71412e",outline=ink,width=max(1,int(2*s)))
-    d.polygon([(x-35*s,head_y-32*s),(x-10*s,head_y-52*s),(x+9*s,head_y-25*s),(x-16*s,head_y-9*s)],fill="#71412e")
-    # Brows, bright eyes, cheeks and nose
-    d.line((x-26*s,head_y-13*s,x-9*s,head_y-16*s),fill="#432b35",width=max(1,int(2*s)))
-    d.line((x+9*s,head_y-16*s,x+26*s,head_y-13*s),fill="#432b35",width=max(1,int(2*s)))
-    for ex in (-17,17):
-        d.ellipse((x+(ex-7)*s,head_y-9*s,x+(ex+7)*s,head_y+10*s),fill="#fff")
-        d.ellipse((x+(ex-3)*s,head_y-6*s,x+(ex+4)*s,head_y+9*s),fill="#33283b")
-        d.ellipse((x+(ex-2)*s,head_y-5*s,x+(ex+1)*s,head_y-1*s),fill="#fff")
-    d.ellipse((x-31*s,head_y+14*s,x-18*s,head_y+23*s),fill="#ed8999")
-    d.ellipse((x+18*s,head_y+14*s,x+31*s,head_y+23*s),fill="#ed8999")
-    if speaking and math.sin(t*18)>-.15:
-        d.ellipse((x-8*s,head_y+22*s,x+8*s,head_y+38*s),fill="#7b3549",outline="#8f4a57",width=max(1,int(1*s)))
-    else:
-        d.arc((x-13*s,head_y+18*s,x+13*s,head_y+39*s),8,170,fill="#a64d58",width=max(1,int(3*s)))
-    # Signature pink inventor goggles and star clip
-    d.arc((x-39*s,head_y-51*s,x+39*s,head_y-16*s),185,355,fill="#ff75c4",width=max(4,int(7*s)))
-    d.line((x-37*s,head_y-34*s,x+37*s,head_y-34*s),fill="#ff75c4",width=max(2,int(4*s)))
-    d.ellipse((x+30*s,head_y-43*s,x+44*s,head_y-29*s),fill="#ffd45c",outline=ink,width=max(1,int(2*s)))
-
-
-def draw_boy(d, x, y, s, t, pose="idle", speaking=False):
-    bounce=math.sin(t*5.8+1)*4*s
-    if pose=="celebrate": bounce+=abs(math.sin(t*4.2))*12*s
-    stride=math.sin(t*7.2+1)*12*s if pose in {"walk","run","work"} else math.sin(t*2.1)*2*s
-    ink="#20304d"; skin="#efb68e"
-    d.ellipse((x-55*s,y+145*s,x+55*s,y+164*s),fill="#142a3d")
-    d.ellipse((x-43*s+stride,y+133*s+bounce,x-5*s+stride,y+158*s+bounce),fill="#172949",outline=ink,width=max(2,int(3*s)))
-    d.ellipse((x+5*s-stride,y+133*s+bounce,x+43*s-stride,y+158*s+bounce),fill="#172949",outline=ink,width=max(2,int(3*s)))
-    _jointed_limb(d,[(x-17*s,y+100*s+bounce),(x-20*s+stride*.55,y+124*s+bounce),(x-24*s+stride,y+143*s+bounce)],"#29477b",max(6,11*s))
-    _jointed_limb(d,[(x+17*s,y+100*s+bounce),(x+20*s-stride*.55,y+124*s+bounce),(x+24*s-stride,y+143*s+bounce)],"#29477b",max(6,11*s))
-    left_hand=(x-66*s,y+71*s+math.cos(t*6)*9*s)
-    right_hand=(x+66*s,y+70*s+math.sin(t*6)*9*s)
-    if pose in {"wave","celebrate"}: right_hand=(x+60*s,y-24*s+math.sin(t*8)*8*s)
-    elif pose=="point": right_hand=(x+104*s,y+1*s)
-    elif pose=="think": right_hand=(x+40*s,y-35*s)
-    elif pose=="surprised": left_hand=(x-70*s,y-12*s); right_hand=(x+70*s,y-12*s)
-    elif pose=="work": left_hand=(x-80*s,y+62*s); right_hand=(x+80*s,y+48*s)
-    _jointed_limb(d,[(x-31*s,y+30*s+bounce),(x-52*s,y+52*s+bounce),left_hand],skin,max(8,13*s))
-    _jointed_limb(d,[(x+31*s,y+30*s+bounce),(x+52*s,y+52*s+bounce),right_hand],skin,max(8,13*s))
-    for hx,hy in (left_hand,right_hand):
-        d.ellipse((hx-9*s,hy-9*s,hx+9*s,hy+9*s),fill="#ffd45c",outline=ink,width=max(1,int(2*s)))
-    rounded(d,(x-42*s,y+7*s+bounce,x+42*s,y+112*s+bounce),23*s,"#2467b4",ink,max(2,int(3*s)))
-    rounded(d,(x-34*s,y+17*s+bounce,x-22*s,y+79*s+bounce),6*s,"#68b7ed")
-    rounded(d,(x+23*s,y+17*s+bounce,x+34*s,y+79*s+bounce),6*s,"#174e96")
-    d.polygon([(x-18*s,y+9*s+bounce),(x,y+29*s+bounce),(x+18*s,y+9*s+bounce)],fill="#e7f7ff")
-    rounded(d,(x-39*s,y+91*s+bounce,x+39*s,y+104*s+bounce),5*s,"#f0b52f",ink,max(1,int(2*s)))
-    d.ellipse((x-17*s,y+42*s+bounce,x+17*s,y+76*s+bounce),fill="#f5bc35",outline="#8c6222",width=max(1,int(2*s)))
-    d.polygon([(x,y+45*s+bounce),(x+5*s,y+55*s+bounce),(x+15*s,y+56*s+bounce),(x+7*s,y+63*s+bounce),(x+9*s,y+73*s+bounce),(x,y+67*s+bounce),(x-9*s,y+73*s+bounce),(x-7*s,y+63*s+bounce),(x-15*s,y+56*s+bounce),(x-5*s,y+55*s+bounce)],fill="#fff9d5")
-    head_y=y-30*s+bounce
-    d.ellipse((x-49*s,head_y-48*s,x+49*s,head_y+58*s),fill="#563522",outline=ink,width=max(2,int(3*s)))
-    d.ellipse((x-39*s,head_y-38*s,x+39*s,head_y+49*s),fill=skin,outline="#ae765f",width=max(1,int(2*s)))
-    d.polygon([(x-43*s,head_y-28*s),(x-36*s,head_y-62*s),(x-12*s,head_y-45*s),(x+3*s,head_y-69*s),(x+18*s,head_y-45*s),(x+42*s,head_y-58*s),(x+37*s,head_y-18*s)],fill="#69412d",outline=ink)
-    d.line((x-27*s,head_y-14*s,x-9*s,head_y-17*s),fill="#432b35",width=max(1,int(2*s)))
-    d.line((x+9*s,head_y-17*s,x+27*s,head_y-14*s),fill="#432b35",width=max(1,int(2*s)))
-    for ex in (-17,17):
-        d.ellipse((x+(ex-7)*s,head_y-9*s,x+(ex+7)*s,head_y+10*s),fill="#fff")
-        d.ellipse((x+(ex-3)*s,head_y-6*s,x+(ex+4)*s,head_y+9*s),fill="#27334b")
-        d.ellipse((x+(ex-2)*s,head_y-5*s,x+(ex+1)*s,head_y-1*s),fill="#fff")
-    d.ellipse((x-31*s,head_y+14*s,x-18*s,head_y+23*s),fill="#e9918c")
-    d.ellipse((x+18*s,head_y+14*s,x+31*s,head_y+23*s),fill="#e9918c")
-    if speaking and math.sin(t*18)>-.15:
-        d.ellipse((x-8*s,head_y+22*s,x+8*s,head_y+38*s),fill="#7b3549",outline="#8f4a57",width=max(1,int(1*s)))
-    else:
-        d.arc((x-13*s,head_y+18*s,x+13*s,head_y+39*s),8,170,fill="#995047",width=max(1,int(3*s)))
-    # Fixed wrist communicator is part of Tomi's model sheet
-    rounded(d,(x+27*s,y+26*s+bounce,x+51*s,y+52*s+bounce),7*s,"#56d7ef",ink,max(1,int(2*s)))
-    d.line((x+31*s,y+33*s+bounce,x+46*s,y+33*s+bounce),fill="#e6ffff",width=max(1,int(2*s)))
-
-
-def draw_dog(d,x,y,s,t,pose="idle",speaking=False):
-    bob=math.sin(t*6)*4*s
-    if pose=="celebrate": bob+=abs(math.sin(t*4))*7*s
-    ink="#75452b"
-    tail_swing=math.sin(t*10)*28
-    d.arc((x+25*s,y+7*s+bob,x+82*s,y+68*s+bob),190+tail_swing,330+tail_swing,fill="#9f5f32",width=max(6,int(12*s)))
-    d.ellipse((x-55*s,y+40*s+bob,x-13*s,y+77*s+bob),fill="#a96635",outline=ink,width=max(1,int(2*s)))
-    d.ellipse((x+13*s,y+40*s+bob,x+55*s,y+77*s+bob),fill="#a96635",outline=ink,width=max(1,int(2*s)))
-    d.ellipse((x-53*s,y-5*s+bob,x+53*s,y+68*s+bob),fill="#c98243",outline=ink,width=max(1,int(3*s)))
-    d.ellipse((x-23*s,y+14*s+bob,x+23*s,y+66*s+bob),fill="#f5d7a7")
-    rounded(d,(x-38*s,y+9*s+bob,x+38*s,y+34*s+bob),10*s,"#24528a",ink,max(1,int(2*s)))
-    d.ellipse((x-10*s,y+13*s+bob,x+10*s,y+31*s+bob),fill="#f5bd39")
-    d.ellipse((x-55*s,y-58*s+bob,x-18*s,y+15*s+bob),fill="#89512e",outline=ink,width=max(1,int(2*s)))
-    d.ellipse((x+18*s,y-58*s+bob,x+55*s,y+15*s+bob),fill="#89512e",outline=ink,width=max(1,int(2*s)))
-    d.ellipse((x-42*s,y-68*s+bob,x+42*s,y+22*s+bob),fill="#d99655",outline=ink,width=max(1,int(3*s)))
-    d.ellipse((x-24*s,y-14*s+bob,x+24*s,y+22*s+bob),fill="#f6d7ae")
-    for ex in (-15,15):
-        d.ellipse((x+(ex-6)*s,y-38*s+bob,x+(ex+6)*s,y-20*s+bob),fill="#fff")
-        d.ellipse((x+(ex-3)*s,y-35*s+bob,x+(ex+3)*s,y-21*s+bob),fill="#241a17")
-    d.ellipse((x-6*s,y-17*s+bob,x+6*s,y-6*s+bob),fill="#34211c")
-    if speaking and math.sin(t*18)>-.15:
-        d.ellipse((x-8*s,y+1*s+bob,x+8*s,y+17*s+bob),fill="#5a2430")
-    else:
-        d.arc((x-11*s,y-1*s+bob,x+11*s,y+17*s+bob),0,180,fill="#8c5140",width=max(1,int(2*s)))
-
-
-WORLD_VISUALS = {
- "Aurora-7": ("#132b62","#63e4ce","#b5f7db","#244d62"),
- "Vermelhão": ("#572e55","#ff9b68","#ffd18a","#a74f4a"),
- "Oceânia Azul": ("#073b63","#39c9df","#9cf4ed","#087d91"),
- "Flora-Lume": ("#244b48","#a6df76","#f3e79b","#397a55"),
- "Nuvem Doce": ("#5966a7","#e4c9ff","#fff0c8","#a9a5dc"),
- "Gelus-9": ("#183e69","#8ee8ff","#d8f7ff","#6caccb"),
- "Vulcânia Verde": ("#46314d","#ff9b55","#b9e58c","#6d7750"),
- "Anel de Safira": ("#263b70","#9fb9ff","#f7d78b","#536b9e"),
- "Pétala-3": ("#5c3970","#ffb8d8","#f8e7a5","#a96e9d"),
- "Eco-Lua": ("#303b62","#c1c9e8","#f5e9b5","#727b9c"),
-}
-
-def draw_alien(d, x, y, s, t, accent):
-    bob=math.sin(t*4+1.2)*4*s
-    ink="#263452"
-    # friendly tiny local creature with antennae
-    d.line((x-12*s,y-35*s+bob,x-23*s,y-59*s+bob),fill=ink,width=max(2,int(4*s)))
-    d.line((x+12*s,y-35*s+bob,x+23*s,y-59*s+bob),fill=ink,width=max(2,int(4*s)))
-    d.ellipse((x-28*s,y-67*s+bob,x-17*s,y-56*s+bob),fill=accent,outline=ink,width=max(1,int(2*s)))
-    d.ellipse((x+17*s,y-67*s+bob,x+28*s,y-56*s+bob),fill=accent,outline=ink,width=max(1,int(2*s)))
-    d.ellipse((x-36*s,y-48*s+bob,x+36*s,y+22*s+bob),fill=accent,outline=ink,width=max(2,int(3*s)))
-    d.ellipse((x-20*s,y-25*s+bob,x-8*s,y-9*s+bob),fill="#fff")
-    d.ellipse((x+8*s,y-25*s+bob,x+20*s,y-9*s+bob),fill="#fff")
-    d.ellipse((x-16*s,y-22*s+bob,x-10*s,y-12*s+bob),fill="#24304b")
-    d.ellipse((x+10*s,y-22*s+bob,x+16*s,y-12*s+bob),fill="#24304b")
-    d.arc((x-12*s,y-7*s+bob,x+12*s,y+9*s+bob),0,180,fill=ink,width=max(2,int(2*s)))
-    d.line((x-18*s,y+17*s+bob,x-25*s,y+34*s+bob),fill=ink,width=max(3,int(5*s)))
-    d.line((x+18*s,y+17*s+bob,x+25*s,y+34*s+bob),fill=ink,width=max(3,int(5*s)))
-
-def draw_rocket(d, x, y, s, t):
-    wobble=math.sin(t*2)*3*s
-    d.polygon([(x,y-48*s+wobble),(x+24*s,y+22*s+wobble),(x,y+12*s+wobble),(x-24*s,y+22*s+wobble)],fill="#fff3d4",outline="#243452")
-    d.ellipse((x-9*s,y-14*s+wobble,x+9*s,y+4*s+wobble),fill="#57cbe7",outline="#243452",width=max(1,int(2*s)))
-    d.polygon([(x-17*s,y+16*s+wobble),(x-32*s,y+34*s+wobble),(x-12*s,y+28*s+wobble)],fill="#f16b72")
-    d.polygon([(x+17*s,y+16*s+wobble),(x+32*s,y+34*s+wobble),(x+12*s,y+28*s+wobble)],fill="#f16b72")
-    flame=18+int((math.sin(t*13)+1)*7)
-    d.polygon([(x-8*s,y+20*s+wobble),(x,y+(20+flame)*s+wobble),(x+8*s,y+20*s+wobble)],fill="#ffbd4a")
-
-def _mix_hex(a: str, b: str, amount: float) -> str:
-    amount=max(0.0,min(1.0,amount))
-    av=[int(a[i:i+2],16) for i in (1,3,5)]
-    bv=[int(b[i:i+2],16) for i in (1,3,5)]
-    values=[int(av[i]*(1-amount)+bv[i]*amount) for i in range(3)]
-    return "#{:02x}{:02x}{:02x}".format(*values)
-
-
-def _draw_flower(d,x,y,r,petal,center):
-    for angle in range(0,360,60):
-        rad=math.radians(angle)
-        px=x+math.cos(rad)*r*.66; py=y+math.sin(rad)*r*.66
-        d.ellipse((px-r*.38,py-r*.38,px+r*.38,py+r*.38),fill=petal)
-    d.ellipse((x-r*.28,y-r*.28,x+r*.28,y+r*.28),fill=center)
-
-
-def _draw_mission_prop(d,w,h,mission_object,accent,light,t,index):
-    obj=(mission_object or "").lower()
-    cx=w*(.73 if index%2 else .27)
-    cy=h*.62
-    scale=h*.001
-    glow=_mix_hex(accent,light,.48)
-    if any(k in obj for k in ("farol","observat","luz","sinal")):
-        d.ellipse((cx-h*.09,cy-h*.09,cx+h*.09,cy+h*.09),fill=glow,outline="#fff7d6",width=max(2,int(h*.006)))
-        d.rounded_rectangle((cx-h*.035,cy+h*.04,cx+h*.035,cy+h*.28),radius=int(h*.02),fill="#f4e8c2",outline="#263b57",width=max(2,int(h*.006)))
-        for ray in range(8):
-            a=math.radians(ray*45+t*15)
-            d.line((cx+math.cos(a)*h*.12,cy+math.sin(a)*h*.12,cx+math.cos(a)*h*.20,cy+math.sin(a)*h*.20),fill=light,width=max(2,int(h*.008)))
-    elif any(k in obj for k in ("semente","jardim","flor","planta")):
-        for j in range(5):
-            fx=cx+(j-2)*h*.065
-            stem_y=cy+h*.21
-            d.line((fx,stem_y,fx+math.sin(t+j)*h*.012,cy-h*.03),fill="#68b777",width=max(3,int(h*.009)))
-            _draw_flower(d,fx+math.sin(t+j)*h*.012,cy-h*.06,h*.045,light,"#ffd45a")
-    elif any(k in obj for k in ("ponte","canal","água","agua")):
-        d.polygon([(cx-h*.28,cy+h*.08),(cx-h*.20,cy-h*.08),(cx+h*.20,cy-h*.08),(cx+h*.28,cy+h*.08)],fill="#b88a58",outline="#503e44")
-        for j in range(5):
-            bx=cx-h*.19+j*h*.095
-            d.line((bx,cy-h*.07,bx,cy+h*.07),fill="#f1d29a",width=max(2,int(h*.009)))
-        d.arc((cx-h*.31,cy+h*.05,cx+h*.31,cy+h*.27),0,180,fill=light,width=max(3,int(h*.014)))
-    elif any(k in obj for k in ("biblioteca","livro")):
-        for j,col in enumerate(("#e85d87","#4c96c9","#e4b94c","#7ac18b")):
-            bx=cx-h*.20+j*h*.10
-            d.rounded_rectangle((bx,cy-h*.13,bx+h*.085,cy+h*.13),radius=int(h*.012),fill=col,outline="#26334d",width=max(2,int(h*.005)))
-            d.line((bx+h*.014,cy-h*.09,bx+h*.014,cy+h*.09),fill="#fff1c7",width=max(1,int(h*.003)))
-    elif any(k in obj for k in ("recicl","caixa","placa","mensagem","recado")):
-        for j,col in enumerate(("#55b8a6","#e8bd58","#ee806c")):
-            bx=cx+(j-1)*h*.12
-            d.rounded_rectangle((bx-h*.045,cy-h*.12,bx+h*.045,cy+h*.14),radius=int(h*.014),fill=col,outline="#243c55",width=max(2,int(h*.005)))
-            d.ellipse((bx-h*.015,cy-h*.04,bx+h*.015,cy-h*.01),fill="#fff3d2")
-    elif any(k in obj for k in ("coral","concha","musical")):
-        d.arc((cx-h*.22,cy-h*.20,cx+h*.22,cy+h*.20),180,360,fill="#ffe9c8",width=max(5,int(h*.018)))
-        for j in range(5):
-            bx=cx+(j-2)*h*.055
-            d.line((bx,cy,bx+math.sin(t+j)*h*.03,cy-h*(.12+.025*(j%2))),fill=light,width=max(2,int(h*.006)))
-    elif any(k in obj for k in ("robô","robo","ajudante")):
-        d.rounded_rectangle((cx-h*.16,cy-h*.18,cx+h*.16,cy+h*.18),radius=int(h*.05),fill="#9ed7e6",outline="#283c59",width=max(3,int(h*.009)))
-        d.ellipse((cx-h*.10,cy-h*.10,cx-h*.035,cy-h*.035),fill="#24405f")
-        d.ellipse((cx+h*.035,cy-h*.10,cx+h*.10,cy-h*.035),fill="#24405f")
-        d.arc((cx-h*.07,cy-h*.015,cx+h*.07,cy+h*.11),0,180,fill="#34516a",width=max(3,int(h*.008)))
-    else:
-        d.ellipse((cx-h*.11,cy-h*.11,cx+h*.11,cy+h*.11),fill=glow,outline="#fff7d6",width=max(2,int(h*.006)))
-        d.arc((cx-h*.24,cy-h*.17,cx+h*.24,cy+h*.22),190,350,fill=light,width=max(3,int(h*.012)))
-
-
-def draw_scene_frame(size, scene, index, frame, portrait, planet_name="Aurora-7",
-                     biome="", mission_object="", landmark="", active_speaker=""):
-    """Cinematic scene art: varied composition, no subtitles, expressive character animation."""
-    w,h=size
-    t=frame/FPS
-    base_planet=next((name for name in WORLD_VISUALS if planet_name==name or planet_name.startswith(name+" ")), "Aurora-7")
-    palette=WORLD_VISUALS.get(base_planet,WORLD_VISUALS["Aurora-7"])
-    sky,accent,light,terrain=palette
-    scene_sky=[
-        "#101d49","#182c59","#1b4560","#27395a",
-        "#1b3d4d","#233e55","#18294e","#362d58",
-        "#24465a","#1d4b4b","#314164","#111b40"
-    ][index%12]
-    sky=_mix_hex(sky,scene_sky,.32)
-    im=Image.new("RGB",(w,h),sky)
-    d=ImageDraw.Draw(im)
-    # Smooth atmospheric gradient and cinematic horizon glow
-    for yy in range(0,h,3):
-        mix=yy/h
-        col=_mix_hex(sky,terrain,.20+mix*.46)
-        d.line((0,yy,w,yy),fill=col)
-    glow_x=w*(.70 if index%2 else .28)+math.sin(t*.28)*w*.025
-    glow_y=h*(.29 if index in (0,1,11) else .49)
-    radius=int(h*.24)
-    # Concentric soft halos avoid an expensive full-frame Gaussian blur per frame.
-    for halo in range(5,0,-1):
-        halo_radius=int(radius*(.42+halo*.18))
-        halo_color=_mix_hex(sky,light,.025+halo*.018)
-        d.ellipse((glow_x-halo_radius,glow_y-halo_radius,
-                   glow_x+halo_radius,glow_y+halo_radius),fill=halo_color)
-    # Layered distant planet, moons and moving starfield
-    for k in range(68):
-        sx=(k*137+int(t*(5+k%4)*(.4 if k%3 else 1.0)))%w
-        sy=(k*71)%int(h*.72)
-        r=max(1,int(h*(.0015 if k%5 else .0035)))
-        d.ellipse((sx-r,sy-r,sx+r,sy+r),fill="#fffdf4" if k%4 else light)
-    if index in (0,1,11):
-        px,py=w*(.76 if index!=11 else .20),h*(.25 if index!=0 else .20)
-        pr=h*(.18 if portrait else .25)
-        d.ellipse((px-pr,py-pr,px+pr,py+pr),fill=accent,outline=light,width=max(2,int(h*.007)))
-        d.arc((px-pr*1.48,py-pr*.36,px+pr*1.48,py+pr*.80),190,350,fill="#d7fff2",width=max(3,int(h*.012)))
-        d.ellipse((px-pr*.30,py-pr*.40,px-pr*.10,py-pr*.20),fill=_mix_hex(accent,"#ffffff",.45))
-    # Biome-aware scenery: ocean, jungle, ice, desert, clouds or alien hills
-    bio=(biome or "").lower()
-    ground=h*.72
-    if any(k in bio for k in ("oceano","mar","água","agua")):
-        d.polygon([(0,h*.53),(w,h*.50),(w,h),(0,h)],fill="#087d91")
-        for layer in range(4):
-            yy=h*(.58+layer*.105)+math.sin(t*1.8+layer)*h*.008
-            d.arc((-w*.2,yy-h*.07,w*1.2,yy+h*.08),0,180,fill=_mix_hex(accent,light,.35+layer*.10),width=max(2,int(h*.009)))
-        ground=h*.70
-    elif any(k in bio for k in ("floresta","jardim","flor","árvore","arvore")):
-        d.polygon([(0,h*.70),(w*.18,h*.54),(w*.35,h*.67),(w*.55,h*.50),(w*.80,h*.67),(w,h*.55),(w,h),(0,h)],fill=terrain)
-        for j in range(11):
-            tx=w*(j/10)+math.sin(t*.45+j)*w*.009
-            ty=h*(.57+(j%3)*.035)
-            d.line((tx,ty+h*.16,tx,ty-h*.06),fill="#614d52",width=max(3,int(h*.018)))
-            d.ellipse((tx-h*.065,ty-h*.14,tx+h*.065,ty+h*.015),fill=_mix_hex(accent,light,.18+(j%3)*.12))
-            _draw_flower(d,tx+math.sin(t+j)*h*.02,ty-h*.07,h*.025,light,"#ffd45a")
-        ground=h*.73
-    elif any(k in bio for k in ("gelo","ice","neve","montanha","polar")):
-        d.polygon([(0,h*.73),(w*.18,h*.32),(w*.36,h*.69),(w*.57,h*.28),(w*.79,h*.68),(w*.93,h*.41),(w,h*.72),(w,h),(0,h)],fill="#567f9f")
-        for mx in (w*.18,w*.57,w*.93):
-            d.polygon([(mx-h*.10,h*.47),(mx,h*.32),(mx+h*.11,h*.49),(mx,h*.45)],fill="#ecfbff")
-        ground=h*.73
-    elif any(k in bio for k in ("deserto","cânion","canion","areia")):
-        d.polygon([(0,h*.63),(w*.15,h*.51),(w*.35,h*.62),(w*.52,h*.47),(w*.76,h*.61),(w,h*.50),(w,h),(0,h)],fill="#9a5e59")
-        for layer in range(3):
-            yy=h*(.70+layer*.08)+math.sin(t*.9+layer)*h*.014
-            d.arc((-w*.2,yy-h*.10,w*1.2,yy+h*.12),180,355,fill=_mix_hex(terrain,light,.22+layer*.18),width=max(3,int(h*.012)))
-        ground=h*.74
-    elif any(k in bio for k in ("nuvem","ilha flutuante","arco-íris","arco-iris")):
-        for j in range(4):
-            cx=w*(.12+j*.26)+math.sin(t*.35+j)*w*.012
-            cy=h*(.47+(j%2)*.12)
-            d.ellipse((cx-w*.12,cy-h*.045,cx+w*.12,cy+h*.045),fill="#e9f4ff")
-            d.polygon([(cx-w*.08,cy+h*.03),(cx+w*.08,cy+h*.03),(cx+w*.045,cy+h*.17),(cx-w*.045,cy+h*.17)],fill=terrain)
-        ground=h*.72
-    else:
-        d.polygon([(0,h*.70),(w*.14,h*.57),(w*.28,h*.68),(w*.46,h*.49),(w*.64,h*.69),(w*.82,h*.55),(w,h*.68),(w,h),(0,h)],fill=terrain)
-        ground=h*.72
-    # Foreground is redesigned for each story beat; no fixed repeated crystal layout
-    if index==0:
-        # Departure from orbit: glowing engine trails and a large moving rocket
-        for j in range(5):
-            yy=h*(.60+j*.045)
-            d.line((w*.12,yy,w*.53,yy+math.sin(t*3+j)*h*.018),fill=_mix_hex(accent,light,.55),width=max(2,int(h*.007)))
-    elif index==1:
-        # Grand reveal: a sweeping luminous landing path
-        d.polygon([(w*.40,h*.66),(w*.60,h*.66),(w*.83,h),(w*.17,h)],fill=_mix_hex(accent,light,.52))
-    elif index in (2,8,10):
-        # Community village with rounded houses, warm windows, balconies and walkways
-        for j in range(5):
-            bx=w*(.06+j*.20)
-            bh=h*(.13+(j%3)*.035)
-            d.rounded_rectangle((bx,ground-bh,bx+w*.14,ground),radius=int(h*.025),fill=_mix_hex(terrain,accent,.30),outline=light,width=max(1,int(h*.004)))
-            d.polygon([(bx-w*.015,ground-bh),(bx+w*.07,ground-bh-h*.075),(bx+w*.155,ground-bh)],fill=_mix_hex(accent,light,.45))
-            for wx in (bx+w*.035,bx+w*.09):
-                d.rounded_rectangle((wx,ground-bh*.68,wx+w*.022,ground-bh*.42),radius=3,fill="#fff0b5")
-        d.polygon([(0,ground+h*.04),(w*.38,ground-h*.02),(w*.62,ground-h*.02),(w,ground+h*.04),(w,h),(0,h)],fill=_mix_hex(terrain,"#f4d69b",.14))
-    elif index in (3,4,6,7,9):
-        _draw_mission_prop(d,w,h,mission_object,accent,light,t,index)
-    elif index==5:
-        # Floating holographic mission map
-        rounded(d,(w*.22,h*.53,w*.78,h*.72),int(h*.035),"#173a59",light,max(2,int(h*.007)))
-        d.polygon([(w*.32,h*.65),(w*.45,h*.56),(w*.58,h*.66),(w*.70,h*.57)],fill="#36b9bd")
-        for j in range(4):
-            d.ellipse((w*(.34+j*.095),h*(.58+(j%2)*.06),w*(.36+j*.095),h*(.60+(j%2)*.06)),fill="#fff2a4")
-        d.line((w*.37,h*.63,w*.66,h*.60),fill="#fff4bd",width=max(2,int(h*.006)))
-    elif index==11:
-        # Farewell and launch back into orbit
-        for j in range(7):
-            xx=w*(.12+j*.12)
-            d.ellipse((xx,ground-h*.14-math.sin(t*2+j)*h*.02,xx+h*.028,ground-h*.11),fill=light)
-    # Every planet has a recognizable landmark that anchors the episode visually.
-    landmark_key=(landmark or "").lower()
-    if landmark and index in (1,2,8,10):
-        lx=w*.82 if portrait else w*.82
-        ly=h*.53
-        if any(k in landmark_key for k in ("bosque","jardim","campo","floresta")):
-            for j in range(3):
-                tx=lx+(j-1)*h*.10
-                d.line((tx,ly+h*.22,tx,ly-h*.02),fill="#765642",width=max(4,int(h*.018)))
-                d.ellipse((tx-h*.075,ly-h*.20,tx+h*.075,ly+h*.02),fill=_mix_hex(accent,light,.28+j*.10),outline=light,width=max(1,int(h*.004)))
-                _draw_flower(d,tx,ly-h*.10,h*.025,"#fff0b5","#f8c54c")
-        elif "ponte" in landmark_key:
-            d.arc((lx-h*.22,ly-h*.08,lx+h*.22,ly+h*.26),180,360,fill=light,width=max(4,int(h*.018)))
-            d.line((lx-h*.22,ly+h*.09,lx+h*.22,ly+h*.09),fill="#e7d4a5",width=max(4,int(h*.025)))
-            for j in range(5):
-                xx=lx-h*.17+j*h*.085
-                d.line((xx,ly-h*.01,xx,ly+h*.10),fill="#f6e2bc",width=max(2,int(h*.008)))
-        elif any(k in landmark_key for k in ("gruta","caverna","montanha")):
-            d.arc((lx-h*.20,ly-h*.26,lx+h*.20,ly+h*.23),180,360,fill=light,width=max(5,int(h*.025)))
-            d.ellipse((lx-h*.12,ly-h*.04,lx+h*.12,ly+h*.22),fill="#172948")
-            d.polygon([(lx-h*.2,ly+h*.10),(lx-h*.12,ly-h*.16),(lx,ly-h*.25),(lx+h*.14,ly-h*.12),(lx+h*.2,ly+h*.10)],fill=_mix_hex(terrain,accent,.35))
-        elif any(k in landmark_key for k in ("estação","estacao","lua","anel")):
-            d.ellipse((lx-h*.20,ly-h*.16,lx+h*.20,ly+h*.16),outline=light,width=max(4,int(h*.018)))
-            d.ellipse((lx-h*.09,ly-h*.10,lx+h*.09,ly+h*.10),fill=accent,outline="#f5e9c4",width=max(2,int(h*.008)))
-            d.arc((lx-h*.29,ly-h*.09,lx+h*.29,ly+h*.20),195,350,fill="#f7d78b",width=max(3,int(h*.009)))
-        elif any(k in landmark_key for k in ("farol","observatório","observatorio")):
-            d.rounded_rectangle((lx-h*.07,ly-h*.08,lx+h*.07,ly+h*.28),radius=int(h*.018),fill="#f3e5c2",outline="#34445a",width=max(2,int(h*.007)))
-            d.polygon([(lx-h*.10,ly-h*.08),(lx,ly-h*.22),(lx+h*.10,ly-h*.08)],fill="#e47d65",outline="#34445a")
-            d.ellipse((lx-h*.08,ly-h*.22,lx+h*.08,ly-h*.06),fill=light)
-        else:
-            d.rounded_rectangle((lx-h*.16,ly-h*.14,lx+h*.16,ly+h*.24),radius=int(h*.025),fill=_mix_hex(terrain,accent,.45),outline=light,width=max(2,int(h*.008)))
-            d.polygon([(lx-h*.19,ly-h*.14),(lx,ly-h*.34),(lx+h*.19,ly-h*.14)],fill=_mix_hex(accent,light,.52))
-            for j in range(3):
-                d.rounded_rectangle((lx-h*.10+j*h*.07,ly, lx-h*.06+j*h*.07,ly+h*.08),radius=3,fill="#fff0b5")
-
-    # The same mission object is staged differently for each story beat.
-    if index==3:
-        # The problem is revealed with a spotlight and warning pulses, not a static icon.
-        prop_x=w*(.73 if index%2 else .27)
-        prop_y=h*.60
-        d.polygon([(prop_x-h*.24,h*.18),(prop_x+h*.24,h*.18),(prop_x+h*.15,prop_y),(prop_x-h*.15,prop_y)],fill=_mix_hex(sky,light,.78))
-        for ray in range(8):
-            a=math.radians(ray*45+t*12)
-            d.line((prop_x+math.cos(a)*h*.18,prop_y+math.sin(a)*h*.18,
-                    prop_x+math.cos(a)*h*.26,prop_y+math.sin(a)*h*.26),
-                   fill="#ffe6a1",width=max(2,int(h*.007)))
-    elif index==4:
-        # Discovery: a large magnifying lens and a clear trail to the clue.
-        mx,my=w*.22,h*.54
-        d.ellipse((mx-h*.09,my-h*.09,mx+h*.09,my+h*.09),outline="#effaff",width=max(4,int(h*.014)))
-        d.line((mx+h*.055,my+h*.055,mx+h*.15,my+h*.16),fill="#f3d49c",width=max(6,int(h*.022)))
-        for j in range(4):
-            px=w*(.43+j*.075)
-            py=h*(.72-j*.035)
-            d.ellipse((px-h*.018,py-h*.012,px+h*.018,py+h*.012),fill="#fff0be")
-    elif index==6:
-        # Pipo's discovery is supported by moving paw prints across the foreground.
-        for j in range(5):
-            px=w*(.17+j*.075)+math.sin(t*2+j)*w*.008
-            py=h*(.76-j*.045)
-            d.ellipse((px-h*.018,py-h*.015,px+h*.018,py+h*.015),fill="#f6d7ae")
-            d.ellipse((px-h*.035,py-h*.045,px-h*.020,py-h*.025),fill="#f6d7ae")
-            d.ellipse((px-h*.010,py-h*.052,px+h*.010,py-h*.029),fill="#f6d7ae")
-            d.ellipse((px+h*.020,py-h*.043,px+h*.035,py-h*.023),fill="#f6d7ae")
-    elif index==7:
-        # Twist/reversal: bright energy rings and radial rays create a dramatic reveal.
-        cx,cy=w*.50,h*.49
-        pulse=math.sin(t*4)*h*.018
-        for ring in range(4):
-            radius=h*(.12+ring*.055)+pulse
-            d.ellipse((cx-radius,cy-radius,cx+radius,cy+radius),outline=_mix_hex(light,"#ffffff",.4),width=max(2,int(h*.006)))
-        for ray in range(16):
-            a=math.radians(ray*22.5+t*9)
-            d.line((cx+math.cos(a)*h*.16,cy+math.sin(a)*h*.16,
-                    cx+math.cos(a)*h*.28,cy+math.sin(a)*h*.28),
-                   fill="#fff1ba",width=max(2,int(h*.005)))
-    elif index==8:
-        # Community conversation: an open circle of seats keeps the scene social.
-        cx,cy=w*.50,h*.73
-        for seat in range(5):
-            a=math.radians(205+seat*32)
-            sx=cx+math.cos(a)*w*.18
-            sy=cy+math.sin(a)*h*.07
-            d.rounded_rectangle((sx-h*.035,sy-h*.018,sx+h*.035,sy+h*.02),radius=int(h*.01),fill="#d7b57d",outline="#54445b",width=max(1,int(h*.004)))
-    elif index==9:
-        # Teamwork: work lights and safe construction rails appear around the mission.
-        for j in range(4):
-            xx=w*(.20+j*.20)
-            d.line((xx,h*.57,xx,h*.79),fill="#f0d7a5",width=max(2,int(h*.006)))
-            d.line((xx-h*.045,h*.61,xx+h*.045,h*.61),fill="#f0d7a5",width=max(2,int(h*.008)))
-        d.line((w*.12,h*.78,w*.88,h*.78),fill="#f5d18b",width=max(3,int(h*.012)))
-    elif index==10:
-        # Celebration: ribbons and petals fill the sky after the problem is solved.
-        for j in range(9):
-            px=(w*(.07+j*.105)+math.sin(t*1.2+j)*w*.025)%w
-            py=h*(.19+(j%4)*.07)+math.cos(t*1.7+j)*h*.012
-            _draw_flower(d,px,py,h*.022,("#ff9dc8","#ffe9a8","#a8f0cb")[j%3],"#fff4d2")
-        d.arc((w*.08,h*.18,w*.92,h*.72),190,350,fill="#ffe4a6",width=max(3,int(h*.008)))
-
-    # Small details, drifting particles and foreground plants add depth
-    for j in range(15):
-        xx=(j*w/15+math.sin(t*.8+j)*w*.012)%w
-        yy=h*(.48+(j%5)*.065)+math.cos(t*1.4+j)*h*.008
-        rr=max(2,int(h*.004))
-        d.ellipse((xx-rr,yy-rr,xx+rr,yy+rr),fill=light)
-    for j in range(7):
-        tx=w*(.04+j*.15)
-        d.ellipse((tx,ground+h*.04,tx+h*.016,ground+h*.06),fill=_mix_hex(accent,light,.6))
-    # Hero blocking changes with the scene; they no longer hold one identical lineup.
-    poses=[
-        ("wave","look","idle"),
-        ("walk","walk","idle"),
-        ("wave","wave","idle"),
-        ("surprised","surprised","surprised"),
-        ("point","think","sniff"),
-        ("think","point","idle"),
-        ("look","point","sniff"),
-        ("surprised","surprised","surprised"),
-        ("talk","talk","idle"),
-        ("work","work","work"),
-        ("celebrate","celebrate","celebrate"),
-        ("wave","wave","idle"),
-    ]
-    girl_pose,boy_pose,dog_pose=poses[index%len(poses)]
-    luna_speaks=active_speaker=="Luna"
-    tomi_speaks=active_speaker=="Tomi"
-    pipo_speaks=active_speaker=="Pipo"
-    camera_sway=math.sin(t*.75)*w*.006
-    if portrait:
-        y_offsets=[.65,.66,.69,.66,.70,.70,.66,.65,.69,.66,.66,.63]
-        base_y=h*y_offsets[index%12]+math.sin(t*2.1)*h*.008
-        scale=h/(730 if index in (4,6,7,10) else 790)
-        gx_factor,bx_factor=.28,.72
-        dog_x,dog_y,dog_scale=w*.50,h*.84,h/(850 if index==6 else 1000)
-        if index==5:
-            gx_factor,bx_factor=.39,.61
-        elif index in (2,8,10):
-            gx_factor,bx_factor=.25,.75
-        elif index==6:
-            gx_factor,bx_factor=.22,.78
-            dog_x,dog_y=w*.50,h*.82
-        elif index==9:
-            gx_factor,bx_factor=.24,.76
-        gx=w*gx_factor+camera_sway
-        bx=w*bx_factor-camera_sway
-        draw_girl(d,gx,base_y,scale,t,girl_pose,luna_speaks)
-        draw_boy(d,bx,base_y,scale,t,boy_pose,tomi_speaks)
-        draw_dog(d,dog_x,dog_y,dog_scale,t,dog_pose,pipo_speaks)
-        if index in (2,8,10):
-            draw_alien(d,w*.10,h*.76,h/1850,t,light)
-            draw_alien(d,w*.90,h*.76,h/1850,t,accent)
-        if index in (0,11):
-            draw_rocket(d,w*.50,h*.25,h/1100,t)
-    else:
-        y_offsets=[.65,.65,.69,.65,.70,.70,.66,.65,.69,.66,.66,.63]
-        base_y=h*y_offsets[index%12]+math.sin(t*2.1)*h*.008
-        scale=h/(455 if index in (4,6,7,10) else 500)
-        gx_factor,bx_factor=.30,.65
-        dog_x,dog_y,dog_scale=w*.83,h*.80,h/720
-        if index==5:
-            gx_factor,bx_factor=.39,.61
-        elif index in (2,8,10):
-            gx_factor,bx_factor=.24,.69
-            dog_x=w*.83
-        elif index==6:
-            gx_factor,bx_factor=.22,.75
-            dog_x,dog_y,dog_scale=w*.84,h*.79,h/610
-        elif index==9:
-            gx_factor,bx_factor=.24,.68
-        gx=w*gx_factor+camera_sway
-        bx=w*bx_factor-camera_sway
-        draw_girl(d,gx,base_y,scale,t,girl_pose,luna_speaks)
-        draw_boy(d,bx,base_y,scale,t,boy_pose,tomi_speaks)
-        draw_dog(d,dog_x,dog_y,dog_scale,t,dog_pose,pipo_speaks)
-        if index in (2,8,10):
-            draw_alien(d,w*.91,h*.73,h/1250,t,light)
-        if index in (0,11):
-            draw_rocket(d,w*.13,h*.34,h/1100,t)
-    # Subtle camera particles and foreground sparkle; deliberately no titles or subtitles.
-    for j in range(9):
-        xx=(w*(.10+j*.10)+math.sin(t*1.6+j)*w*.012)%w
-        yy=h*(.15+(j%4)*.07)+math.cos(t*1.3+j)*h*.01
-        rr=max(1,int(h*.003))
-        d.ellipse((xx-rr,yy-rr,xx+rr,yy+rr),fill="#fff8d8" if j%3 else light)
-    return im.convert("RGB")
-
 
 def _ffmpeg_executable() -> str:
     system_ffmpeg = shutil.which("ffmpeg")
@@ -886,16 +320,15 @@ def _fit_narration(source: Path, output: Path, target_seconds: float) -> float:
 def _render_blender_frames(frames: Path, fmt: str, width: int, height: int,
                           total_frames: int, scene_list: list, scene_source_indices: list,
                           plan: dict, voice_timeline: list, progress_callback=None) -> None:
-    executable = find_blender_binary()
-    if not executable:
-        configured = os.getenv("BLENDER_BIN") or "(not set)"
+    runtime = find_blender_runtime()
+    if not runtime:
         raise RuntimeError(
-            f"Blender não foi localizado pelo renderizador. BLENDER_BIN={configured}; "
-            "consulte /api/diagnostics para verificar o executável e o PATH."
+            "Motor Blender 3D ausente. Instale bpy==5.2.3 para Python 3.13 "
+            "ou disponibilize o executável Blender; o estúdio não possui renderizador 2D."
         )
     script = Path(__file__).with_name("blender_scene.py")
-    if not script.exists():
-        raise RuntimeError("O arquivo backend/app/blender_scene.py não foi encontrado.")
+    if not script.is_file():
+        raise RuntimeError(f"Arquivo 3D obrigatório não encontrado: {script}")
     if frames.exists():
         shutil.rmtree(frames, ignore_errors=True)
     frames.mkdir(parents=True, exist_ok=True)
@@ -929,9 +362,18 @@ def _render_blender_frames(frames: Path, fmt: str, width: int, height: int,
         "voice_timeline": voice_timeline,
     }
     config_path.write_text(json.dumps(config, ensure_ascii=False), encoding="utf-8")
-    command = [executable, "--background", "--factory-startup",
-               "--python-exit-code", "1", "--python", str(script),
-               "--", "--config", str(config_path)]
+    if runtime["backend"] == "binary":
+        command = [
+            runtime["executable"], "--background", "--factory-startup",
+            "--python-exit-code", "1", "--python", str(script),
+            "--", "--config", str(config_path),
+        ]
+    else:
+        # Run the official Blender Python module inside the exact CPython
+        # version used by the app (Python 3.13 in the current container).
+        command = [
+            sys.executable, str(script), "--module", "--config", str(config_path)
+        ]
     xvfb = shutil.which("xvfb-run")
     if xvfb:
         command = [xvfb, "-a"] + command
@@ -1066,45 +508,18 @@ def render_episode(title: str, story: str, fmt: str, output: Path, workdir: Path
 
     scene_count = len(render_scenes)
     total_frames = max(1, int(math.ceil(duration_seconds * FPS)))
-    engine = os.getenv("ANIMA_RENDER_ENGINE", "blender").strip().lower()
-    if engine == "blender":
-        _render_blender_frames(
-            frames, fmt, width, height, total_frames,
-            render_scenes, scene_source_indices, plan, voice_timeline, progress_callback
-        )
-        frame_pattern = frames / "frame-%06d.png"
-    elif engine == "2d":
-        frames.mkdir(parents=True, exist_ok=True)
-        last_reported = -1
-        for frame_number in range(total_frames):
-            scene_index = min(scene_count - 1, int(frame_number * scene_count / total_frames))
-            scene_start = int(scene_index * total_frames / scene_count)
-            local_frame = frame_number - scene_start
-            scene = render_scenes[scene_index]
-            frame_time = frame_number / FPS
-            active_speaker = next((item["speaker"] for item in voice_timeline if item["start"] <= frame_time < item["end"]), "")
-            visual_scene_index = scene_source_indices[scene_index]
-            image = draw_scene_frame(
-                (width, height), scene, visual_scene_index, local_frame, portrait, planet_name,
-                biome=plan.get("biome", ""),
-                mission_object=plan.get("mission_object", ""),
-                landmark=plan.get("landmark", ""),
-                active_speaker=active_speaker,
-            )
-            image.save(frames / f"frame-{frame_number:06d}.jpg", quality=88)
-            frame_progress = int((frame_number + 1) * 75 / total_frames)
-            if progress_callback and frame_progress >= last_reported + 2:
-                last_reported = frame_progress
-                progress_callback(14 + frame_progress, f"Desenhando cenas 2D: {int((frame_number + 1) * 100 / total_frames)}%")
-        frame_pattern = frames / "frame-%06d.jpg"
-    else:
-        raise RuntimeError("ANIMA_RENDER_ENGINE inválido. Use 'blender' ou '2d'.")
+    total_frames = max(1, int(math.ceil(duration_seconds * FPS)))
+    _render_blender_frames(
+        frames, fmt, width, height, total_frames,
+        render_scenes, scene_source_indices, plan, voice_timeline, progress_callback
+    )
+    frame_pattern = frames / "frame-%06d.png"
 
     low_video = workdir / f"silent-{fmt.replace(':','x')}.mp4"
     if progress_callback:
         progress_callback(93, "Montando sequência de imagens em vídeo.")
     _run(["ffmpeg", "-y", "-loglevel", "error", "-framerate", str(FPS),
-          "-start_number", "1" if engine == "blender" else "0",
+          "-start_number", "1",
           "-i", str(frame_pattern), "-c:v", "libx264",
           "-preset", "ultrafast", "-crf", "20", "-pix_fmt", "yuv420p",
           "-r", "24", "-g", "24", "-keyint_min", "24", "-sc_threshold", "0", str(low_video)])
@@ -1135,7 +550,7 @@ def render_episode(title: str, story: str, fmt: str, output: Path, workdir: Path
         "narration_seconds": round(fitted_duration, 2),
         "resolution": "1080x1920" if portrait else "1920x1080",
         "scene_count": scene_count,
-        "render_engine": "Blender 3D" if engine == "blender" else "2D procedural",
+        "render_engine": "Blender 3D",
         "narration_word_count": sum(len(str(item.get("text", "")).split()) for item in audio_segments),
         "speakers": sorted({str(item.get("speaker", "Narrador")) for item in audio_segments}),
         "voice_profiles_file": str(VOICE_PROFILE_FILE),
