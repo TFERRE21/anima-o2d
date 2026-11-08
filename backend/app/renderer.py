@@ -512,7 +512,7 @@ def draw_scene_frame(size, scene, index, frame, portrait, planet_name="Aurora-7"
     # Hero blocking changes with the scene; they no longer hold one identical lineup.
     poses=[
         ("wave","look","idle"),
-        ("look","look","idle"),
+        ("walk","walk","idle"),
         ("wave","wave","idle"),
         ("surprised","surprised","surprised"),
         ("point","think","sniff"),
@@ -530,26 +530,51 @@ def draw_scene_frame(size, scene, index, frame, portrait, planet_name="Aurora-7"
     pipo_speaks=active_speaker=="Pipo"
     camera_sway=math.sin(t*.75)*w*.006
     if portrait:
-        base_y=h*.66+math.sin(t*2.1)*h*.008
-        scale=h/800
-        gx=w*.28+camera_sway
-        bx=w*.72-camera_sway
+        y_offsets=[.65,.66,.69,.66,.70,.70,.66,.65,.69,.66,.66,.63]
+        base_y=h*y_offsets[index%12]+math.sin(t*2.1)*h*.008
+        scale=h/(730 if index in (4,6,7,10) else 790)
+        gx_factor,bx_factor=.28,.72
+        dog_x,dog_y,dog_scale=w*.50,h*.84,h/(850 if index==6 else 1000)
+        if index==5:
+            gx_factor,bx_factor=.39,.61
+        elif index in (2,8,10):
+            gx_factor,bx_factor=.25,.75
+        elif index==6:
+            gx_factor,bx_factor=.22,.78
+            dog_x,dog_y=w*.50,h*.82
+        elif index==9:
+            gx_factor,bx_factor=.24,.76
+        gx=w*gx_factor+camera_sway
+        bx=w*bx_factor-camera_sway
         draw_girl(d,gx,base_y,scale,t,girl_pose,luna_speaks)
         draw_boy(d,bx,base_y,scale,t,boy_pose,tomi_speaks)
-        draw_dog(d,w*.50,h*.84,h/1000,t,dog_pose,pipo_speaks)
+        draw_dog(d,dog_x,dog_y,dog_scale,t,dog_pose,pipo_speaks)
         if index in (2,8,10):
-            draw_alien(d,w*.10,h*.77,h/1900,t,light)
-            draw_alien(d,w*.90,h*.77,h/1900,t,accent)
+            draw_alien(d,w*.10,h*.76,h/1850,t,light)
+            draw_alien(d,w*.90,h*.76,h/1850,t,accent)
         if index in (0,11):
             draw_rocket(d,w*.50,h*.25,h/1100,t)
     else:
-        base_y=h*.66+math.sin(t*2.1)*h*.008
-        scale=h/500
-        gx=w*.30+camera_sway
-        bx=w*.65-camera_sway
+        y_offsets=[.65,.65,.69,.65,.70,.70,.66,.65,.69,.66,.66,.63]
+        base_y=h*y_offsets[index%12]+math.sin(t*2.1)*h*.008
+        scale=h/(455 if index in (4,6,7,10) else 500)
+        gx_factor,bx_factor=.30,.65
+        dog_x,dog_y,dog_scale=w*.83,h*.80,h/720
+        if index==5:
+            gx_factor,bx_factor=.39,.61
+        elif index in (2,8,10):
+            gx_factor,bx_factor=.24,.69
+            dog_x=w*.83
+        elif index==6:
+            gx_factor,bx_factor=.22,.75
+            dog_x,dog_y,dog_scale=w*.84,h*.79,h/610
+        elif index==9:
+            gx_factor,bx_factor=.24,.68
+        gx=w*gx_factor+camera_sway
+        bx=w*bx_factor-camera_sway
         draw_girl(d,gx,base_y,scale,t,girl_pose,luna_speaks)
         draw_boy(d,bx,base_y,scale,t,boy_pose,tomi_speaks)
-        draw_dog(d,w*.83,h*.80,h/720,t,dog_pose,pipo_speaks)
+        draw_dog(d,dog_x,dog_y,dog_scale,t,dog_pose,pipo_speaks)
         if index in (2,8,10):
             draw_alien(d,w*.91,h*.73,h/1250,t,light)
         if index in (0,11):
