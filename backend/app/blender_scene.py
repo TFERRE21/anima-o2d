@@ -690,7 +690,12 @@ def render(config: dict):
         span = max(0.02, current["end"] - current["start"])
         local_progress = max(0.0, min(1.0, (global_time - current["start"]) / span))
         shot = stage_models[scene_slot]
-        action = action_by_scene.get(source_index, "walk")
+        shot_spec = scenes[scene_slot] if scene_slot < len(scenes) else {}
+        action = (
+            str(shot_spec.get("action") or action_by_scene.get(source_index, "walk"))
+            if isinstance(shot_spec, dict)
+            else action_by_scene.get(source_index, "walk")
+        )
         # Camera follows the active set with a mild lateral drift and story beat zoom.
         center = shot["center"] + math.sin(local_progress * math.pi) * (0.32 if not portrait else 0.12)
         camera.location.x = center
