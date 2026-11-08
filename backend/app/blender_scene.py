@@ -448,12 +448,16 @@ def make_stage(stage_index, plan, scene, portrait):
             xx = cx - 3.3 + j * 2.2
             cylinder("Teamwork tool stand", None, (xx, 1.5, 0.72), 0.10, 1.3, M["metal"])
             cube("Teamwork work light", None, (xx, 1.35, 1.50), (0.45, 0.20, 0.22), M["gold"], 0.06)
-    if stage_index == 0 or stage_index == 11:
-        # Original small spaceship for arrival and departure shots.
-        cone("Little starship nose", None, (cx, -1.5, 4.5), 0.85, 2.3, M["white"], (math.pi / 2, 0, 0), 12)
-        sphere("Starship window", None, (cx, -2.0, 4.9), (0.32, 0.12, 0.32), M["blue_light"])
+    ship_root = None
+    if stage_index in (0, 2, 11, 13):
+        # A reusable 3D shuttle is visible at take-off, landing and return.
+        ship_root = empty("Estrelinha shuttle stage " + str(stage_index), (cx, -1.5, 0))
+        cone("Little starship nose", ship_root, (0, 0, 4.5), 0.85, 2.3, M["white"], (math.pi / 2, 0, 0), 12)
+        sphere("Starship window", ship_root, (0, -0.5, 4.9), (0.32, 0.12, 0.32), M["blue_light"])
         for wing in (-1, 1):
-            cone("Starship wing", None, (cx + wing * 0.95, -1.3, 4.0), 0.55, 1.7, M["pink"], (math.pi / 2, 0, wing * .22), 6)
+            cone("Starship wing", ship_root, (wing * 0.95, 0.2, 4.0), 0.55, 1.7, M["pink"], (math.pi / 2, 0, wing * .22), 6)
+        for flame_index in range(3):
+            cone("Starship engine flame", ship_root, ((flame_index - 1) * 0.20, 0.5, 3.25), 0.13, 0.65, M["gold"], (0, 0, 0), 8)
     # One or two local residents join conversations on the village scenes.
     natives = []
     if stage_index in (2, 8, 10):
@@ -469,7 +473,7 @@ def make_stage(stage_index, plan, scene, portrait):
     luna = human_character("Luna scene " + str(stage_index), "Luna", positions[0], size_h)
     tomi = human_character("Tomi scene " + str(stage_index), "Tomi", positions[1], size_h)
     pipo = dog_character(positions[2], size_d)
-    return {"Luna": luna, "Tomi": tomi, "Pipo": pipo, "Natives": natives, "center": cx}
+    return {"Luna": luna, "Tomi": tomi, "Pipo": pipo, "Natives": natives, "center": cx, "ship": ship_root}
 
 
 def animate_actor(actor, global_time, local_time, action, speaking=False, side=0):
@@ -696,6 +700,19 @@ def render(config: dict):
             animate_actor(actor, global_time, local_progress, action, active == name, side)
         for n, actor in enumerate(shot["Natives"]):
             animate_actor(actor, global_time, local_progress, "converse", active == "Moradora", n)
+
+        # Shuttle motion follows the spoken action: launch, arrival, farewell.
+        ship = shot.get("ship")
+        if ship:
+            if source_index == 0:
+                ship.location.z = 0.15 + local_progress * 1.55
+                ship.rotation_euler[1] = math.sin(local_progress * math.pi) * 0.12
+            elif source_index == 2:
+                ship.location.z = 1.7 * (1.0 - local_progress)
+                ship.rotation_euler[1] = -0.08 + local_progress * 0.08
+            else:
+                ship.location.z = 0.15 + local_progress * 1.25
+                ship.rotation_euler[1] = math.sin(local_progress * math.pi) * 0.10
 
         scene.render.filepath = str(out_dir / f"frame-{frame + 1:06d}.png")
         scene.frame_set(1)
