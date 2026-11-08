@@ -11,7 +11,7 @@
 3. **Roteiro Shorts:** seleciona o momento mais impactante (pista, virada e solução) e monta uma sequência curta própria, com falas e cenas específicas.
 4. **Storyboard:** prepara 15 cenas com título, legenda curta e ação visual.
 5. **Prévia e revisão:** o painel mostra planeta, sinopse, valor, narração, falas individuais dos personagens, trecho escolhido para o Short e storyboard.
-6. **Aprovação do usuário:** somente após clicar em “Aprovar roteiro e gerar vídeos 2D” a fila de renderização começa.
+6. **Aprovação do usuário:** somente após clicar em “Aprovar roteiro e gerar vídeos 3D” a fila de renderização começa.
 7. **Animação 3D sincronizada:** cada parágrafo narrado tem índice de storyboard; o intervalo real de áudio determina quando a cena começa e termina. Blender cria cenários, câmera, iluminação, modelos volumétricos e moradores por planeta. Luna, Tomi e Pipo caminham, exploram, apontam, gesticulam, conversam, investigam, registram descobertas, trabalham e comemoram. A câmera acompanha o falante e os ouvintes reagem. O quadro não recebe legendas ou títulos sobrepostos.
 8. **Áudio e diálogo:** narrador, Luna, Tomi, Pipo e moradores têm vozes fixas em português brasileiro; o mapa fica em `/data/jobs/voice-profiles.json`. A linha do tempo aciona a boca do personagem que está falando.
 9. **Render duplo:** versões horizontais e verticais com composições e tempos próprios.
