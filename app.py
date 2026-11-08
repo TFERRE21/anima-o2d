@@ -12,8 +12,8 @@ def _repair_blender_system_libraries() -> None:
         status = ensure_blender_native_libraries()
         print("ANIMA_NATIVE_LIBRARIES:", status, flush=True)
         # A health request may have cached the pre-install import error.
-        from backend.app.runtime import inspect_bpy_module
-        inspect_bpy_module.cache_clear()
+        from backend.app.runtime import reset_bpy_import_state
+        reset_bpy_import_state()
     except Exception as exc:
         print(
             f"ANIMA_NATIVE_LIBRARIES_BOOTSTRAP_ERROR: {type(exc).__name__}: {exc}",
