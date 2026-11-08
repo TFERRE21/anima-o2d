@@ -567,7 +567,7 @@ def render(config: dict):
             actor = shot[name]
             animate_actor(actor, global_time, local_progress, action, active == name, side)
         for n, actor in enumerate(shot["Natives"]):
-            animate_actor(actor, global_time, local_progress, "converse", active == "Narrador", n)
+            animate_actor(actor, global_time, local_progress, "converse", active == "Moradora", n)
 
         scene.render.filepath = str(out_dir / f"frame-{frame + 1:06d}.png")
         scene.frame_set(1)
