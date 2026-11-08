@@ -46,7 +46,7 @@ class RenderDurationTests(unittest.TestCase):
             # Keep CI lightweight while still running Blender, rendering real 3D
             # geometry, synthesizing dialogue and validating final MP4 duration/resolution.
             original_fps = renderer.FPS
-            renderer.FPS = 0.04
+            renderer.FPS = 0.015
             try:
                 long_result = render_episode(
                     plan["title"], plan["long_script"], "16:9", long_video, root,
