@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import math
+import os
 import re
 import shutil
 import subprocess
@@ -9,7 +11,7 @@ from pathlib import Path
 from typing import Callable
 from PIL import Image, ImageDraw, ImageFont
 
-FPS = 4
+FPS = 8
 SCENE_SECONDS = 4
 SCENES = [
     ("UM DIA NA ESCOLA", "Na escola do bairro, algumas mochilas aparecem trocadas.", "school"),
@@ -539,13 +541,37 @@ def _probe_duration(path: Path) -> float:
     )
 
 
-VOICE_PROFILE = {
+DEFAULT_VOICE_PROFILE = {
     "Narrador": {"voice": "pt-BR-ThalitaMultilingualNeural", "rate": "+0%", "pitch": "+0Hz", "espeak_pitch": 48},
     "Luna": {"voice": "pt-BR-FranciscaNeural", "rate": "+2%", "pitch": "+5Hz", "espeak_pitch": 60},
     "Tomi": {"voice": "pt-BR-AntonioNeural", "rate": "+0%", "pitch": "-3Hz", "espeak_pitch": 43},
-    # Pipo gets a brighter, higher-pitched delivery; the text remains a short playful line.
     "Pipo": {"voice": "pt-BR-AntonioNeural", "rate": "+8%", "pitch": "+22Hz", "espeak_pitch": 76},
 }
+VOICE_PROFILE_FILE = Path(os.getenv("ANIMA_STORAGE", "/data/jobs")) / "voice-profiles.json"
+
+
+def load_voice_profiles() -> dict:
+    """Persist one stable cast voice map so every episode reuses the same identities."""
+    profiles = {key: dict(value) for key, value in DEFAULT_VOICE_PROFILE.items()}
+    try:
+        VOICE_PROFILE_FILE.parent.mkdir(parents=True, exist_ok=True)
+        if VOICE_PROFILE_FILE.exists():
+            saved = json.loads(VOICE_PROFILE_FILE.read_text(encoding="utf-8"))
+            for name in profiles:
+                if isinstance(saved.get(name), dict):
+                    profiles[name].update(saved[name])
+        else:
+            VOICE_PROFILE_FILE.write_text(
+                json.dumps(profiles, ensure_ascii=False, indent=2),
+                encoding="utf-8",
+            )
+    except (OSError, json.JSONDecodeError, TypeError):
+        # A read-only volume should not prevent preview or rendering.
+        pass
+    return profiles
+
+
+VOICE_PROFILE = load_voice_profiles()
 
 
 async def _edge_tts_save(text: str, output: Path, speaker: str = "Narrador") -> None:
@@ -613,7 +639,7 @@ async def _synthesize_edge_segments(segments: list[dict], files: list[Path], pro
 
 
 def _synthesize_segments(segments: list[dict], workdir: Path, fmt: str,
-                         speech_rate: int, progress_callback=None) -> tuple[Path, Path]:
+                         speech_rate: int, progress_callback=None) -> tuple[Path, Path, list[dict]]:
     """Create one continuous track by alternating narrator and distinct character voices."""
     suffix = fmt.replace(":", "x")
     use_espeak = bool(shutil.which("espeak-ng"))
@@ -648,13 +674,24 @@ def _synthesize_segments(segments: list[dict], workdir: Path, fmt: str,
 
     raw = workdir / f"narration-source-{suffix}.{'wav' if use_espeak else 'm4a'}"
     fitted = workdir / f"narration-final-{suffix}.{'wav' if use_espeak else 'm4a'}"
+    timeline = []
+    cursor = 0.0
+    for segment, part in zip(segments, files):
+        part_duration = _probe_duration(part)
+        timeline.append({
+            "start": cursor,
+            "end": cursor + part_duration,
+            "speaker": str(segment.get("speaker", "Narrador")),
+            "scene": int(segment.get("scene", -1)),
+        })
+        cursor += part_duration
     _concat_audio_files(files, raw, "pcm_s16le" if use_espeak else "aac")
     if progress_callback:
         progress_callback(12, "Áudio das personagens montado. Preparando animação.")
-    return raw, fitted
+    return raw, fitted, timeline
 
 
-def _synthesize_narration(text: str, workdir: Path, fmt: str, speech_rate: int) -> tuple[Path, Path]:
+def _synthesize_narration(text: str, workdir: Path, fmt: str, speech_rate: int):
     # Backward-compatible route for jobs generated before character dialogue was added.
     return _synthesize_segments([{"speaker": "Narrador", "text": text}], workdir, fmt, speech_rate)
 
@@ -725,7 +762,11 @@ def render_episode(title: str, story: str, fmt: str, output: Path, workdir: Path
 
     # Give the final scene a short visual tail after the last spoken line.
     duration_seconds = fitted_duration + 1.2
-    width, height = (406, 720) if portrait else (720, 406)
+    timeline_scale = initial_duration / max(.001, fitted_duration)
+    for item in voice_timeline:
+        item["start"] /= timeline_scale
+        item["end"] /= timeline_scale
+    width, height = (480, 854) if portrait else (854, 480)
     frames = workdir / f"frames-{fmt.replace(':','x')}"
     frames.mkdir(parents=True, exist_ok=True)
 
@@ -761,8 +802,15 @@ def render_episode(title: str, story: str, fmt: str, output: Path, workdir: Path
         scene_start = int(scene_index * total_frames / scene_count)
         local_frame = frame_number - scene_start
         scene = render_scenes[scene_index]
-        image = draw_scene_frame((width, height), scene, scene_index, local_frame,
-                                 portrait, planet_name)
+        frame_time = frame_number / FPS
+        active_speaker = next((item["speaker"] for item in voice_timeline if item["start"] <= frame_time < item["end"]), "")
+        image = draw_scene_frame(
+            (width, height), scene, scene_index, local_frame, portrait, planet_name,
+            biome=plan.get("biome", ""),
+            mission_object=plan.get("mission_object", ""),
+            landmark=plan.get("landmark", ""),
+            active_speaker=active_speaker,
+        )
         image.save(frames / f"frame-{frame_number:06d}.jpg", quality=88)
         frame_progress = int((frame_number + 1) * 75 / total_frames)
         if progress_callback and frame_progress >= last_reported + 2:
@@ -802,4 +850,5 @@ def render_episode(title: str, story: str, fmt: str, output: Path, workdir: Path
         "scene_count": scene_count,
         "narration_word_count": sum(len(str(item.get("text", "")).split()) for item in audio_segments),
         "speakers": sorted({str(item.get("speaker", "Narrador")) for item in audio_segments}),
+        "voice_profiles_file": str(VOICE_PROFILE_FILE),
     }
