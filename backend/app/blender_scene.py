@@ -318,6 +318,44 @@ def add_mission_object(center, y, mission, scene_index):
         sphere("Artifact glow", None, (x, y - 0.52, z + 1.4), (0.16, 0.08, 0.18), M["gold"])
 
 
+def add_landmark(cx, y, landmark):
+    name = str(landmark or "").lower()
+    x = cx + 5.4
+    if any(k in name for k in ("gruta", "caverna", "caverna", "montanha")):
+        cube("Landmark cave pillar L", None, (x - 1.15, y, 1.25), (0.55, 1.0, 2.5), M["stone"], 0.18)
+        cube("Landmark cave pillar R", None, (x + 1.15, y, 1.25), (0.55, 1.0, 2.5), M["stone"], 0.18)
+        sphere("Landmark cave arch", None, (x, y, 2.25), (1.65, 0.8, 1.1), M["ice"])
+        cube("Cave entrance shadow", None, (x, y - 0.56, 1.0), (1.35, 0.12, 1.9), M["sky"], 0.28)
+    elif any(k in name for k in ("farol", "observat")):
+        cylinder("Landmark lighthouse tower", None, (x, y, 1.5), 0.42, 3.0, M["metal"])
+        sphere("Landmark lighthouse lantern", None, (x, y - 0.02, 3.25), (0.65, 0.58, 0.55), M["gold"])
+        cone("Landmark lighthouse roof", None, (x, y, 3.75), 0.72, 0.6, M["house"])
+    elif any(k in name for k in ("estação", "estacao", "lua", "anel")):
+        sphere("Landmark space station core", None, (x, y, 2.15), (1.0, 0.8, 0.9), M["metal"])
+        bpy.ops.mesh.primitive_torus_add(major_segments=48, minor_segments=10, major_radius=1.75, minor_radius=0.10, location=(x, y, 2.15))
+        ring = bpy.context.object
+        ring.name = "Landmark orbital ring"
+        ring.data.materials.append(M["gold"])
+        sphere("Station observation window", None, (x, y - 0.76, 2.2), (0.34, 0.08, 0.28), M["blue_light"])
+        for xx in (-1.6, 1.6):
+            cube("Station solar panel", None, (x + xx, y, 2.2), (0.85, 0.12, 0.55), M["blue"])
+    elif any(k in name for k in ("campo", "pétala", "petala", "flor")):
+        for j in range(3):
+            xx = x + (j - 1) * 1.05
+            cylinder("Landmark flower stalk", None, (xx, y, 1.1), 0.08, 2.2, M["leaf"])
+            sphere("Landmark giant blossom", None, (xx, y, 2.4), (0.62, 0.50, 0.62), M["pink_light"])
+            sphere("Landmark flower heart", None, (xx, y - 0.45, 2.4), (0.22, 0.10, 0.22), M["gold"])
+    elif "ponte" in name:
+        cube("Landmark bridge deck", None, (x, y, 0.95), (4.6, 1.1, 0.25), M["gold"])
+        for xx in (-1.9, -0.95, 0, 0.95, 1.9):
+            cylinder("Landmark bridge support", None, (x + xx, y + 0.1, 1.65), 0.11, 1.4, M["metal"])
+        cube("Landmark bridge arch", None, (x, y + 0.25, 2.6), (4.0, 0.18, 0.18), M["ice"])
+    else:
+        cylinder("Landmark monument", None, (x, y, 1.55), 0.5, 3.1, M["metal"])
+        cone("Landmark monument crown", None, (x, y, 3.5), 0.8, 0.9, M["gold"])
+        sphere("Landmark monument beacon", None, (x, y - 0.52, 2.8), (0.18, 0.08, 0.18), M["blue_light"])
+
+
 def make_stage(stage_index, plan, scene, portrait):
     cx = stage_index * STAGE_GAP
     biome = str(plan.get("biome", "")).lower()
@@ -358,6 +396,8 @@ def make_stage(stage_index, plan, scene, portrait):
         zz = 4.0 + ((j * 19) % 55) / 10
         sphere("Distant star", None, (xx, 4.94, zz), (0.035, 0.035, 0.035), M["gold_light"], 8, 6)
     # Scene-specific set dressing.
+    if stage_index in (1, 2, 8, 10, 11):
+        add_landmark(cx, 2.7, plan.get("landmark", ""))
     if stage_index in (2, 8, 10):
         for j in range(4):
             hx = cx - 6 + j * 4
@@ -366,8 +406,48 @@ def make_stage(stage_index, plan, scene, portrait):
             cube("Village door", None, (hx, 1.36, 0.66), (0.42, 0.08, 0.95), M["wood"], 0.06)
             for wx in (-0.48, 0.48):
                 cube("Village window", None, (hx + wx, 1.34, 1.45), (0.34, 0.08, 0.38), M["window"], 0.04)
-    if stage_index in (3, 4, 6, 7, 9):
+    if stage_index == 3:
         add_mission_object(cx, 1.2, mission, stage_index)
+    elif stage_index == 4:
+        # Close-up investigation: a 3D magnifying glass and a luminous clue.
+        bpy.ops.mesh.primitive_torus_add(major_segments=40, minor_segments=12, major_radius=0.55, minor_radius=0.10, location=(cx - 3.3, -0.65, 1.8))
+        lens = bpy.context.object
+        lens.name = "Luna magnifying glass lens"
+        lens.rotation_euler[0] = math.radians(90)
+        lens.data.materials.append(M["blue_light"])
+        cylinder("Magnifier handle", None, (cx - 2.65, -0.58, 1.12), 0.10, 1.15, M["wood"], (0, -0.65, 0))
+        sphere("Clue crystal", None, (cx + 2.7, 0.15, 1.1), (0.40, 0.34, 0.42), M["gold"])
+        sphere("Clue sparkle", None, (cx + 2.55, -0.22, 1.55), (0.10, 0.08, 0.10), M["white"])
+    elif stage_index == 5:
+        # Tomi's plan: a raised holographic map with connected waypoints.
+        cube("Tomi hologram map base", None, (cx, 0.9, 0.75), (3.9, 1.4, 0.18), M["metal"], 0.08)
+        cube("Tomi hologram screen", None, (cx, 0.25, 1.65), (3.2, 0.10, 1.4), M["purple"], 0.05)
+        for j in range(4):
+            sphere("Hologram waypoint", None, (cx - 1.05 + j * 0.70, 0.12, 1.68 + math.sin(j) * 0.35), (0.14, 0.09, 0.14), M["gold_light"])
+    elif stage_index == 6:
+        # Pipo's discovery: a trail of paw prints leads toward the hidden clue.
+        for j in range(7):
+            px = cx - 3.0 + j * 0.72
+            pz = 0.10 + (j % 2) * 0.025
+            sphere("Pipo paw print", None, (px, -0.35, pz), (0.16, 0.08, 0.10), M["dog_light"])
+            for toe in (-0.15, 0, 0.15):
+                sphere("Pipo toe print", None, (px + toe, -0.42, pz + 0.12), (0.065, 0.05, 0.06), M["dog_light"], 10, 8)
+        sphere("Hidden clue glow", None, (cx + 3.5, 0.4, 1.25), (0.30, 0.3, 0.30), M["gold"])
+    elif stage_index == 7:
+        # The twist is a cinematic reveal, not a repeated copy of the mission prop.
+        for j in range(4):
+            bpy.ops.mesh.primitive_torus_add(major_segments=40, minor_segments=8, major_radius=0.7 + j * 0.34, minor_radius=0.045, location=(cx, 1.9, 2.0))
+            ring = bpy.context.object
+            ring.name = "Surprise energy ring"
+            ring.data.materials.append(M["purple"] if j % 2 else M["blue_light"])
+        sphere("Surprise energy core", None, (cx, 1.8, 2.0), (0.48, 0.48, 0.48), M["gold"])
+    elif stage_index == 9:
+        # Worksite props make the teamwork scene visibly different from discovery.
+        add_mission_object(cx, 1.2, mission, stage_index)
+        for j in range(4):
+            xx = cx - 3.3 + j * 2.2
+            cylinder("Teamwork tool stand", None, (xx, 1.5, 0.72), 0.10, 1.3, M["metal"])
+            cube("Teamwork work light", None, (xx, 1.35, 1.50), (0.45, 0.20, 0.22), M["gold"], 0.06)
     if stage_index == 0 or stage_index == 11:
         # Original small spaceship for arrival and departure shots.
         cone("Little starship nose", None, (cx, -1.5, 4.5), 0.85, 2.3, M["white"], (math.pi / 2, 0, 0), 12)
@@ -394,7 +474,7 @@ def make_stage(stage_index, plan, scene, portrait):
 
 def animate_actor(actor, global_time, local_time, action, speaking=False, side=0):
     root = actor["root"]
-    phase = local_time * 2.0 * math.pi * 1.25 + side * 1.7
+    phase = global_time * 6.4 + side * math.pi
     walk = action in {"walk", "explore", "work", "sniff"}
     if walk:
         root.location.x = actor["base_x"] + math.sin(local_time * math.pi * 2 + side) * 0.30 + (local_time - 0.5) * (0.58 if side == 0 else -0.42)
@@ -480,7 +560,7 @@ def create_camera(portrait, cx):
     bpy.context.scene.camera = camera
     camera.data.type = "ORTHO"
     camera.data.lens = 50
-    data.ortho_scale = 7.6 if portrait else 14.2
+    data.ortho_scale = 6.8 if portrait else 14.2
     camera.location = (cx, -19.5, 5.5)
     target = Vector((cx, 0.4, 2.25))
     camera.rotation_euler = (target - camera.location).to_track_quat("-Z", "Y").to_euler()
