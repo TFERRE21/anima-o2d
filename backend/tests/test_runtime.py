@@ -36,7 +36,7 @@ class BlenderDiscoveryTests(unittest.TestCase):
             with patch("backend.app.runtime.inspect_bpy_module", return_value={"available": True, "version": "5.2.3", "error": None}):
                 self.assertEqual(
                     find_blender_runtime(),
-                    {"backend": "python-module", "executable": None, "module": "bpy"},
+                    {"backend": "python-module", "executable": None, "module": "bpy", "version": "5.2.3"},
                 )
 
     def test_reports_engine_missing_when_neither_binary_nor_module_exists(self):
