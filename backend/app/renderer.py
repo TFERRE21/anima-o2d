@@ -361,8 +361,20 @@ def _render_blender_frames(frames: Path, fmt: str, width: int, height: int,
     else:
         # Run the official Blender Python module inside the exact CPython
         # version used by the app (Python 3.13 in the current container).
+        # Start with -c so Python keeps the application working directory
+        # at sys.path[0]. Executing the .py file directly moves its directory
+        # to sys.path[0], which can hide bpy's native _bpy extension in some
+        # container layouts. Import bpy first, then execute the scene script.
+        bootstrap = (
+            "import bpy, runpy, sys; "
+            "print('ANIMA_BLENDER_BACKEND:python-module', flush=True); "
+            "script=sys.argv[1]; "
+            "sys.argv=[script, *sys.argv[2:]]; "
+            "runpy.run_path(script, run_name='__main__')"
+        )
         command = [
-            sys.executable, str(script), "--module", "--config", str(config_path)
+            sys.executable, "-c", bootstrap, str(script),
+            "--module", "--config", str(config_path)
         ]
     xvfb = shutil.which("xvfb-run")
     if xvfb:
