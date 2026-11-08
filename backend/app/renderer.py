@@ -220,109 +220,247 @@ def draw_rocket(d, x, y, s, t):
     flame=18+int((math.sin(t*13)+1)*7)
     d.polygon([(x-8*s,y+20*s+wobble),(x,y+(20+flame)*s+wobble),(x+8*s,y+20*s+wobble)],fill="#ffbd4a")
 
-def draw_scene_frame(size, scene, index, frame, portrait, planet_name="Aurora-7"):
+def _mix_hex(a: str, b: str, amount: float) -> str:
+    amount=max(0.0,min(1.0,amount))
+    av=[int(a[i:i+2],16) for i in (1,3,5)]
+    bv=[int(b[i:i+2],16) for i in (1,3,5)]
+    values=[int(av[i]*(1-amount)+bv[i]*amount) for i in range(3)]
+    return "#{:02x}{:02x}{:02x}".format(*values)
+
+
+def _draw_flower(d,x,y,r,petal,center):
+    for angle in range(0,360,60):
+        rad=math.radians(angle)
+        px=x+math.cos(rad)*r*.66; py=y+math.sin(rad)*r*.66
+        d.ellipse((px-r*.38,py-r*.38,px+r*.38,py+r*.38),fill=petal)
+    d.ellipse((x-r*.28,y-r*.28,x+r*.28,y+r*.28),fill=center)
+
+
+def _draw_mission_prop(d,w,h,mission_object,accent,light,t,index):
+    obj=(mission_object or "").lower()
+    cx=w*(.73 if index%2 else .27)
+    cy=h*.62
+    scale=h*.001
+    glow=_mix_hex(accent,light,.48)
+    if any(k in obj for k in ("farol","observat","luz","sinal")):
+        d.ellipse((cx-h*.09,cy-h*.09,cx+h*.09,cy+h*.09),fill=glow,outline="#fff7d6",width=max(2,int(h*.006)))
+        d.rounded_rectangle((cx-h*.035,cy+h*.04,cx+h*.035,cy+h*.28),radius=int(h*.02),fill="#f4e8c2",outline="#263b57",width=max(2,int(h*.006)))
+        for ray in range(8):
+            a=math.radians(ray*45+t*15)
+            d.line((cx+math.cos(a)*h*.12,cy+math.sin(a)*h*.12,cx+math.cos(a)*h*.20,cy+math.sin(a)*h*.20),fill=light,width=max(2,int(h*.008)))
+    elif any(k in obj for k in ("semente","jardim","flor","planta")):
+        for j in range(5):
+            fx=cx+(j-2)*h*.065
+            stem_y=cy+h*.21
+            d.line((fx,stem_y,fx+math.sin(t+j)*h*.012,cy-h*.03),fill="#68b777",width=max(3,int(h*.009)))
+            _draw_flower(d,fx+math.sin(t+j)*h*.012,cy-h*.06,h*.045,light,"#ffd45a")
+    elif any(k in obj for k in ("ponte","canal","água","agua")):
+        d.polygon([(cx-h*.28,cy+h*.08),(cx-h*.20,cy-h*.08),(cx+h*.20,cy-h*.08),(cx+h*.28,cy+h*.08)],fill="#b88a58",outline="#503e44")
+        for j in range(5):
+            bx=cx-h*.19+j*h*.095
+            d.line((bx,cy-h*.07,bx,cy+h*.07),fill="#f1d29a",width=max(2,int(h*.009)))
+        d.arc((cx-h*.31,cy+h*.05,cx+h*.31,cy+h*.27),0,180,fill=light,width=max(3,int(h*.014)))
+    elif any(k in obj for k in ("biblioteca","livro")):
+        for j,col in enumerate(("#e85d87","#4c96c9","#e4b94c","#7ac18b")):
+            bx=cx-h*.20+j*h*.10
+            d.rounded_rectangle((bx,cy-h*.13,bx+h*.085,cy+h*.13),radius=int(h*.012),fill=col,outline="#26334d",width=max(2,int(h*.005)))
+            d.line((bx+h*.014,cy-h*.09,bx+h*.014,cy+h*.09),fill="#fff1c7",width=max(1,int(h*.003)))
+    elif any(k in obj for k in ("recicl","caixa","placa","mensagem","recado")):
+        for j,col in enumerate(("#55b8a6","#e8bd58","#ee806c")):
+            bx=cx+(j-1)*h*.12
+            d.rounded_rectangle((bx-h*.045,cy-h*.12,bx+h*.045,cy+h*.14),radius=int(h*.014),fill=col,outline="#243c55",width=max(2,int(h*.005)))
+            d.ellipse((bx-h*.015,cy-h*.04,bx+h*.015,cy-h*.01),fill="#fff3d2")
+    elif any(k in obj for k in ("coral","concha","musical")):
+        d.arc((cx-h*.22,cy-h*.20,cx+h*.22,cy+h*.20),180,360,fill="#ffe9c8",width=max(5,int(h*.018)))
+        for j in range(5):
+            bx=cx+(j-2)*h*.055
+            d.line((bx,cy,bx+math.sin(t+j)*h*.03,cy-h*(.12+.025*(j%2))),fill=light,width=max(2,int(h*.006)))
+    elif any(k in obj for k in ("robô","robo","ajudante")):
+        d.rounded_rectangle((cx-h*.16,cy-h*.18,cx+h*.16,cy+h*.18),radius=int(h*.05),fill="#9ed7e6",outline="#283c59",width=max(3,int(h*.009)))
+        d.ellipse((cx-h*.10,cy-h*.10,cx-h*.035,cy-h*.035),fill="#24405f")
+        d.ellipse((cx+h*.035,cy-h*.10,cx+h*.10,cy-h*.035),fill="#24405f")
+        d.arc((cx-h*.07,cy-h*.015,cx+h*.07,cy+h*.11),0,180,fill="#34516a",width=max(3,int(h*.008)))
+    else:
+        d.ellipse((cx-h*.11,cy-h*.11,cx+h*.11,cy+h*.11),fill=glow,outline="#fff7d6",width=max(2,int(h*.006)))
+        d.arc((cx-h*.24,cy-h*.17,cx+h*.24,cy+h*.22),190,350,fill=light,width=max(3,int(h*.012)))
+
+
+def draw_scene_frame(size, scene, index, frame, portrait, planet_name="Aurora-7",
+                     biome="", mission_object="", landmark="", active_speaker=""):
+    """Cinematic scene art: varied composition, no subtitles, expressive character animation."""
     w,h=size
     t=frame/FPS
-    base_planet = next((name for name in WORLD_VISUALS if planet_name == name or planet_name.startswith(name + " ")), "Aurora-7")
-    sky,accent,light,terrain=WORLD_VISUALS.get(base_planet,WORLD_VISUALS["Aurora-7"])
+    base_planet=next((name for name in WORLD_VISUALS if planet_name==name or planet_name.startswith(name+" ")), "Aurora-7")
+    palette=WORLD_VISUALS.get(base_planet,WORLD_VISUALS["Aurora-7"])
+    sky,accent,light,terrain=palette
+    scene_sky=[
+        "#101d49","#182c59","#1b4560","#27395a",
+        "#1b3d4d","#233e55","#18294e","#362d58",
+        "#24465a","#1d4b4b","#314164","#111b40"
+    ][index%12]
+    sky=_mix_hex(sky,scene_sky,.32)
     im=Image.new("RGB",(w,h),sky)
     d=ImageDraw.Draw(im)
-    # soft atmospheric glow and distant stars
-    for yy in range(0,h,4):
+    # Smooth atmospheric gradient and cinematic horizon glow
+    for yy in range(0,h,3):
         mix=yy/h
-        col=tuple(int(int(sky[i:i+2],16)*(1-mix*.25)+int(terrain[i:i+2],16)*mix*.25) for i in (1,3,5))
+        col=_mix_hex(sky,terrain,.20+mix*.46)
         d.line((0,yy,w,yy),fill=col)
-    for k in range(38):
-        sx=(k*97+int(t*8*(k%3+1)))%w
-        sy=(k*53)%int(h*.64)
-        r=max(1,int(h*(.0025 if k%4 else .004)))
-        d.ellipse((sx-r,sy-r,sx+r,sy+r),fill="#ffffff" if k%3 else light)
-    # giant ringed planet and two moons
-    px,py=w*.78,h*.24
-    d.ellipse((px-w*.17,py-h*.18,px+w*.17,py+h*.18),fill=accent,outline=light,width=max(1,int(h*.004)))
-    d.arc((px-w*.23,py-h*.08,px+w*.23,py+h*.15),190,350,fill=light,width=max(2,int(h*.012)))
-    d.ellipse((w*.13,h*.17,w*.18,h*.22),fill=light)
-    d.ellipse((w*.89,h*.43,w*.92,h*.46),fill=accent)
-    # floating rock shelves / alien landscape
-    d.polygon([(0,h*.68),(w*.12,h*.57),(w*.25,h*.66),(w*.42,h*.55),(w*.58,h*.67),(w*.76,h*.56),(w,h*.66),(w,h),(0,h)],fill=terrain)
-    d.polygon([(0,h*.79),(w*.22,h*.71),(w*.42,h*.78),(w*.62,h*.69),(w*.82,h*.78),(w,h*.72),(w,h),(0,h)],fill=accent)
-    # scene-specific environmental landmark and mission props
-    if index in (0,1):
-        # glowing crystal grove
-        for cx,cy,cs in [(w*.12,h*.64,.08),(w*.87,h*.62,.10),(w*.25,h*.73,.05),(w*.72,h*.73,.06)]:
-            d.polygon([(cx,cy-h*cs),(cx+w*cs*.35,cy),(cx,cy+h*cs*.5),(cx-w*cs*.35,cy)],fill=light,outline="#ffffff")
-            d.line((cx,cy-h*cs*.7,cx,cy+h*cs*.35),fill="#ffffff",width=max(1,int(h*.003)))
-    elif index in (2,3):
-        # local settlement and glowing windows
-        for bx in (w*.12,w*.78):
-            rounded(d,(bx,h*.48,bx+w*.12,h*.72),int(h*.03),accent,light,max(1,int(h*.004)))
-            d.polygon([(bx-w*.02,h*.49),(bx+w*.06,h*.37),(bx+w*.14,h*.49)],fill=light)
-            for wx in (bx+w*.025,bx+w*.075):
-                rounded(d,(wx,h*.54,wx+w*.025,h*.59),4,sky)
+    glow_layer=Image.new("RGBA",(w,h),(0,0,0,0))
+    gd=ImageDraw.Draw(glow_layer)
+    glow_x=w*(.70 if index%2 else .28)+math.sin(t*.28)*w*.025
+    glow_y=h*(.29 if index in (0,1,11) else .49)
+    radius=int(h*.24)
+    gd.ellipse((glow_x-radius,glow_y-radius,glow_x+radius,glow_y+radius),fill=(100,230,218,32))
+    glow_layer=glow_layer.filter(__import__("PIL.ImageFilter",fromlist=["GaussianBlur"]).GaussianBlur(max(8,int(h*.055))))
+    im=Image.alpha_composite(im.convert("RGBA"),glow_layer)
+    d=ImageDraw.Draw(im)
+    # Layered distant planet, moons and moving starfield
+    for k in range(68):
+        sx=(k*137+int(t*(5+k%4)*(.4 if k%3 else 1.0)))%w
+        sy=(k*71)%int(h*.72)
+        r=max(1,int(h*(.0015 if k%5 else .0035)))
+        d.ellipse((sx-r,sy-r,sx+r,sy+r),fill="#fffdf4" if k%4 else light)
+    if index in (0,1,11):
+        px,py=w*(.76 if index!=11 else .20),h*(.25 if index!=0 else .20)
+        pr=h*(.18 if portrait else .25)
+        d.ellipse((px-pr,py-pr,px+pr,py+pr),fill=accent,outline=light,width=max(2,int(h*.007)))
+        d.arc((px-pr*1.48,py-pr*.36,px+pr*1.48,py+pr*.80),190,350,fill="#d7fff2",width=max(3,int(h*.012)))
+        d.ellipse((px-pr*.30,py-pr*.40,px-pr*.10,py-pr*.20),fill=_mix_hex(accent,"#ffffff",.45))
+    # Biome-aware scenery: ocean, jungle, ice, desert, clouds or alien hills
+    bio=(biome or "").lower()
+    ground=h*.72
+    if any(k in bio for k in ("oceano","mar","água","agua")):
+        d.polygon([(0,h*.53),(w,h*.50),(w,h),(0,h)],fill="#087d91")
+        for layer in range(4):
+            yy=h*(.58+layer*.105)+math.sin(t*1.8+layer)*h*.008
+            d.arc((-w*.2,yy-h*.07,w*1.2,yy+h*.08),0,180,fill=_mix_hex(accent,light,.35+layer*.10),width=max(2,int(h*.009)))
+        ground=h*.70
+    elif any(k in bio for k in ("floresta","jardim","flor","árvore","arvore")):
+        d.polygon([(0,h*.70),(w*.18,h*.54),(w*.35,h*.67),(w*.55,h*.50),(w*.80,h*.67),(w,h*.55),(w,h),(0,h)],fill=terrain)
+        for j in range(11):
+            tx=w*(j/10)+math.sin(t*.45+j)*w*.009
+            ty=h*(.57+(j%3)*.035)
+            d.line((tx,ty+h*.16,tx,ty-h*.06),fill="#614d52",width=max(3,int(h*.018)))
+            d.ellipse((tx-h*.065,ty-h*.14,tx+h*.065,ty+h*.015),fill=_mix_hex(accent,light,.18+(j%3)*.12))
+            _draw_flower(d,tx+math.sin(t+j)*h*.02,ty-h*.07,h*.025,light,"#ffd45a")
+        ground=h*.73
+    elif any(k in bio for k in ("gelo","ice","neve","montanha","polar")):
+        d.polygon([(0,h*.73),(w*.18,h*.32),(w*.36,h*.69),(w*.57,h*.28),(w*.79,h*.68),(w*.93,h*.41),(w,h*.72),(w,h),(0,h)],fill="#567f9f")
+        for mx in (w*.18,w*.57,w*.93):
+            d.polygon([(mx-h*.10,h*.47),(mx,h*.32),(mx+h*.11,h*.49),(mx,h*.45)],fill="#ecfbff")
+        ground=h*.73
+    elif any(k in bio for k in ("deserto","cânion","canion","areia")):
+        d.polygon([(0,h*.63),(w*.15,h*.51),(w*.35,h*.62),(w*.52,h*.47),(w*.76,h*.61),(w,h*.50),(w,h),(0,h)],fill="#9a5e59")
+        for layer in range(3):
+            yy=h*(.70+layer*.08)+math.sin(t*.9+layer)*h*.014
+            d.arc((-w*.2,yy-h*.10,w*1.2,yy+h*.12),180,355,fill=_mix_hex(terrain,light,.22+layer*.18),width=max(3,int(h*.012)))
+        ground=h*.74
+    elif any(k in bio for k in ("nuvem","ilha flutuante","arco-íris","arco-iris")):
+        for j in range(4):
+            cx=w*(.12+j*.26)+math.sin(t*.35+j)*w*.012
+            cy=h*(.47+(j%2)*.12)
+            d.ellipse((cx-w*.12,cy-h*.045,cx+w*.12,cy+h*.045),fill="#e9f4ff")
+            d.polygon([(cx-w*.08,cy+h*.03),(cx+w*.08,cy+h*.03),(cx+w*.045,cy+h*.17),(cx-w*.045,cy+h*.17)],fill=terrain)
+        ground=h*.72
     else:
-        # mission beacon / community garden
-        d.ellipse((w*.78,h*.48,w*.88,h*.58),fill=light,outline="#ffffff",width=max(1,int(h*.004)))
-        d.line((w*.83,h*.57,w*.83,h*.72),fill=light,width=max(2,int(h*.01)))
-        for k in range(5):
-            xx=w*(.12+k*.07)
-            d.ellipse((xx,h*.69,xx+w*.025,h*.73),fill=light)
-    # glowing path and small craters
-    d.polygon([(w*.42,h*.68),(w*.58,h*.68),(w*.72,h),(w*.28,h)],fill=light)
-    for cx,cy,rx in [(w*.18,h*.86,w*.035),(w*.83,h*.88,w*.045),(w*.63,h*.75,w*.02)]:
-        d.ellipse((cx-rx,cy-h*.012,cx+rx,cy+h*.012),outline=terrain,width=max(1,int(h*.004)))
-    # heroes: same proportions, signature clothes and badges in every frame
+        d.polygon([(0,h*.70),(w*.14,h*.57),(w*.28,h*.68),(w*.46,h*.49),(w*.64,h*.69),(w*.82,h*.55),(w,h*.68),(w,h),(0,h)],fill=terrain)
+        ground=h*.72
+    # Foreground is redesigned for each story beat; no fixed repeated crystal layout
+    if index==0:
+        # Departure from orbit: glowing engine trails and a large moving rocket
+        for j in range(5):
+            yy=h*(.60+j*.045)
+            d.line((w*.12,yy,w*.53,yy+math.sin(t*3+j)*h*.018),fill=_mix_hex(accent,light,.55),width=max(2,int(h*.007)))
+    elif index==1:
+        # Grand reveal: a sweeping luminous landing path
+        d.polygon([(w*.40,h*.66),(w*.60,h*.66),(w*.83,h),(w*.17,h)],fill=_mix_hex(accent,light,.52))
+    elif index in (2,8,10):
+        # Community village with rounded houses, warm windows, balconies and walkways
+        for j in range(5):
+            bx=w*(.06+j*.20)
+            bh=h*(.13+(j%3)*.035)
+            d.rounded_rectangle((bx,ground-bh,bx+w*.14,ground),radius=int(h*.025),fill=_mix_hex(terrain,accent,.30),outline=light,width=max(1,int(h*.004)))
+            d.polygon([(bx-w*.015,ground-bh),(bx+w*.07,ground-bh-h*.075),(bx+w*.155,ground-bh)],fill=_mix_hex(accent,light,.45))
+            for wx in (bx+w*.035,bx+w*.09):
+                d.rounded_rectangle((wx,ground-bh*.68,wx+w*.022,ground-bh*.42),radius=3,fill="#fff0b5")
+        d.polygon([(0,ground+h*.04),(w*.38,ground-h*.02),(w*.62,ground-h*.02),(w,ground+h*.04),(w,h),(0,h)],fill=_mix_hex(terrain,"#f4d69b",.14))
+    elif index in (3,4,6,7,9):
+        _draw_mission_prop(d,w,h,mission_object,accent,light,t,index)
+    elif index==5:
+        # Floating holographic mission map
+        rounded(d,(w*.22,h*.53,w*.78,h*.72),int(h*.035),"#173a59",light,max(2,int(h*.007)))
+        d.polygon([(w*.32,h*.65),(w*.45,h*.56),(w*.58,h*.66),(w*.70,h*.57)],fill="#36b9bd")
+        for j in range(4):
+            d.ellipse((w*(.34+j*.095),h*(.58+(j%2)*.06),w*(.36+j*.095),h*(.60+(j%2)*.06)),fill="#fff2a4")
+        d.line((w*.37,h*.63,w*.66,h*.60),fill="#fff4bd",width=max(2,int(h*.006)))
+    elif index==11:
+        # Farewell and launch back into orbit
+        for j in range(7):
+            xx=w*(.12+j*.12)
+            d.ellipse((xx,ground-h*.14-math.sin(t*2+j)*h*.02,xx+h*.028,ground-h*.11),fill=light)
+    # Small details, drifting particles and foreground plants add depth
+    for j in range(15):
+        xx=(j*w/15+math.sin(t*.8+j)*w*.012)%w
+        yy=h*(.48+(j%5)*.065)+math.cos(t*1.4+j)*h*.008
+        rr=max(2,int(h*.004))
+        d.ellipse((xx-rr,yy-rr,xx+rr,yy+rr),fill=light)
+    for j in range(7):
+        tx=w*(.04+j*.15)
+        d.ellipse((tx,ground+h*.04,tx+h*.016,ground+h*.06),fill=_mix_hex(accent,light,.6))
+    # Hero blocking changes with the scene; they no longer hold one identical lineup.
+    poses=[
+        ("wave","look","idle"),
+        ("look","look","idle"),
+        ("wave","wave","idle"),
+        ("surprised","surprised","surprised"),
+        ("point","think","sniff"),
+        ("think","point","idle"),
+        ("look","point","sniff"),
+        ("surprised","surprised","surprised"),
+        ("talk","talk","idle"),
+        ("work","work","work"),
+        ("celebrate","celebrate","celebrate"),
+        ("wave","wave","idle"),
+    ]
+    girl_pose,boy_pose,dog_pose=poses[index%len(poses)]
+    luna_speaks=active_speaker=="Luna"
+    tomi_speaks=active_speaker=="Tomi"
+    pipo_speaks=active_speaker=="Pipo"
+    camera_sway=math.sin(t*.75)*w*.006
     if portrait:
-        base_y=h*.61
-        draw_girl(d,w*.29,base_y,w/900,t)
-        draw_boy(d,w*.70,base_y,w/900,t)
-        draw_dog(d,w*.50,h*.78,w/1500,t)
-        draw_alien(d,w*.84,h*.75,w/2100,t,light)
-        draw_rocket(d,w*.50,h*.30,w/1500,t)
-        header_y=h*.055; sub_y=h*.845
+        base_y=h*.66+math.sin(t*2.1)*h*.008
+        scale=h/800
+        gx=w*.28+camera_sway
+        bx=w*.72-camera_sway
+        draw_girl(d,gx,base_y,scale,t,girl_pose,luna_speaks)
+        draw_boy(d,bx,base_y,scale,t,boy_pose,tomi_speaks)
+        draw_dog(d,w*.50,h*.84,h/1000,t,dog_pose,pipo_speaks)
+        if index in (2,8,10):
+            draw_alien(d,w*.10,h*.77,h/1900,t,light)
+            draw_alien(d,w*.90,h*.77,h/1900,t,accent)
+        if index in (0,11):
+            draw_rocket(d,w*.50,h*.25,h/1100,t)
     else:
-        base_y=h*.63
-        draw_girl(d,w*.34,base_y,h/720*.9,t)
-        draw_boy(d,w*.57,base_y,h/720*.9,t)
-        draw_dog(d,w*.78,h*.78,h/1300,t)
-        draw_alien(d,w*.90,h*.75,h/1500,t,light)
-        draw_rocket(d,w*.16,h*.31,h/1500,t)
-        header_y=h*.045; sub_y=h*.835
-    # little emotional/action cue changes each scene, keeping model sheets stable
-    cue=["✦","?","!","♥","★","✓"][index % 6]
-    cue_font=font(max(20,int(h*.075)),True)
-    d.text((w*.08,h*.31),cue,font=cue_font,fill=light,stroke_width=1,stroke_fill=sky)
-    # cinematic title ribbon
-    rounded(d,(w*.055,header_y,w*.945,header_y+h*.105),int(h*.026),"#10264f","#f7d77a",max(1,int(h*.003)))
-    title=scene[0]
-    f=font(max(15,int(h*.039)),True)
-    box=d.textbbox((0,0),title,font=f)
-    d.text(((w-(box[2]-box[0]))/2,header_y+h*.02),title,font=f,fill="#ffffff",stroke_width=1,stroke_fill="#102044")
-    # legible caption with wrapped lines and safe margins
-    rounded(d,(w*.045,sub_y,w*.955,sub_y+h*.135),int(h*.025),"#fffdf4","#f3cb63",max(1,int(h*.004)))
-    text=scene[1]
-    f2=font(max(12,int(h*(.025 if portrait else .029))),True)
-    max_width=w*.82
-    words=text.split(); lines=[]; line=""
-    for word in words:
-        test=(line+" "+word).strip()
-        if d.textlength(test,font=f2)<=max_width: line=test
-        else:
-            if line: lines.append(line)
-            line=word
-    if line: lines.append(line)
-    line_h=int(h*.036)
-    total=min(len(lines),3)*line_h
-    start_y=sub_y+(h*.135-total)/2
-    for j,line in enumerate(lines[:3]):
-        tw=d.textlength(line,font=f2)
-        d.text(((w-tw)/2,start_y+j*line_h),line,font=f2,fill="#17294a")
-    # subtle drifting sparkles add life without changing character designs
-    for k in range(8):
-        sx=(w*(.08+k*.12)+math.sin(t*1.7+k)*w*.009)%w
-        sy=h*(.23+(k%3)*.055)+math.cos(t*2+k)*h*.008
-        r=max(2,int(h*.005))
-        d.ellipse((sx-r,sy-r,sx+r,sy+r),fill=light)
-    return im
+        base_y=h*.66+math.sin(t*2.1)*h*.008
+        scale=h/500
+        gx=w*.30+camera_sway
+        bx=w*.65-camera_sway
+        draw_girl(d,gx,base_y,scale,t,girl_pose,luna_speaks)
+        draw_boy(d,bx,base_y,scale,t,boy_pose,tomi_speaks)
+        draw_dog(d,w*.83,h*.80,h/720,t,dog_pose,pipo_speaks)
+        if index in (2,8,10):
+            draw_alien(d,w*.91,h*.73,h/1250,t,light)
+        if index in (0,11):
+            draw_rocket(d,w*.13,h*.34,h/1100,t)
+    # Subtle camera particles and foreground sparkle; deliberately no titles or subtitles.
+    for j in range(9):
+        xx=(w*(.10+j*.10)+math.sin(t*1.6+j)*w*.012)%w
+        yy=h*(.15+(j%4)*.07)+math.cos(t*1.3+j)*h*.01
+        rr=max(1,int(h*.003))
+        d.ellipse((xx-rr,yy-rr,xx+rr,yy+rr),fill="#fff8d8" if j%3 else light)
+    return im.convert("RGB")
+
 
 def _ffmpeg_executable() -> str:
     system_ffmpeg = shutil.which("ffmpeg")
