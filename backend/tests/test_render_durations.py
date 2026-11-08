@@ -2,12 +2,49 @@ import copy
 import shutil
 import tempfile
 import unittest
+from unittest import mock
 from pathlib import Path
 
 from backend.app.worlds import build_episode_plan
 import backend.app.renderer as renderer
 from backend.app.renderer import render_episode, VOICE_PROFILE
 from backend.app.runtime import blender_available
+
+
+
+class ProbeDurationFallbackTests(unittest.TestCase):
+    def test_reads_duration_from_ffmpeg_when_ffprobe_and_mutagen_are_unavailable(self):
+        class FakeProcess:
+            def __init__(self):
+                self.stderr = iter([
+                    "Input #0, mov,mp4,m4a, from 'sample.mp4':\\n",
+                    "  Duration: 00:05:12.50, start: 0.000000, bitrate: 1200 kb/s\\n",
+                ])
+                self.returncode = None
+
+            def poll(self):
+                return self.returncode
+
+            def terminate(self):
+                self.returncode = 0
+
+            def wait(self, timeout=None):
+                self.returncode = 0
+                return 0
+
+            def kill(self):
+                self.returncode = -9
+
+        with tempfile.TemporaryDirectory(prefix="anima-probe-test-") as tmp:
+            media = Path(tmp) / "sample.mp4"
+            media.write_bytes(b"fake-media")
+            with (
+                mock.patch.object(renderer.shutil, "which", return_value=None),
+                mock.patch.object(renderer, "_ffmpeg_executable", return_value="/usr/bin/ffmpeg"),
+                mock.patch.object(renderer.subprocess, "Popen", return_value=FakeProcess()),
+                mock.patch("mutagen.File", return_value=None),
+            ):
+                self.assertEqual(renderer._probe_duration(media), 312.5)
 
 
 @unittest.skipUnless(shutil.which("ffmpeg") and shutil.which("ffprobe") and shutil.which("espeak-ng") and blender_available(),
