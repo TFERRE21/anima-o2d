@@ -44,7 +44,7 @@ O renderizador mede a duração da faixa de áudio final e ajusta a velocidade d
 
 - Engine: `ANIMA_RENDER_ENGINE=blender`.
 - Binário: `BLENDER_BIN=blender`.
-- Porta interna padrão: `8000` (ou defina `PORT` e faça o mapeamento correspondente).
+- Porta interna padrão: `5000` (ou defina `PORT` e faça o mapeamento correspondente).
 - Volume persistente: `/data/jobs` para roteiros, perfis de voz, vídeos e tokens.
 - O endpoint de saúde informa se Blender está disponível; sem o motor 3D, a API bloqueia a renderização com mensagem explícita em vez de entregar um vídeo 2D como substituto.
 
@@ -75,9 +75,9 @@ cp .env.example .env
 docker compose up -d --build
 ```
 
-Painel: http://localhost:8000  
-API: http://localhost:8000/docs  
-Saúde: http://localhost:8000/api/health
+Painel: http://localhost:5000  
+API: http://localhost:5000/docs  
+Saúde: http://localhost:5000/api/health
 
 Vídeos, histórico e preferências ficam persistidos em `./data`.
 
@@ -87,7 +87,7 @@ Para renderização 3D, publique a imagem Docker construída a partir do Dockerf
 
 - Build: `docker build -t anima-studio-3d .`.
 - Inicialização: o Dockerfile inicia Uvicorn e Blender no modo headless via Xvfb/Mesa.
-- Porta interna: `8000` (defina `PORT` para outro valor se o painel exigir).
+- Porta interna: `5000` (defina `PORT` para outro valor se o painel exigir).
 - Variável: `ANIMA_RENDER_ENGINE=blender`.
 - Volume persistente: montar em `/data/jobs` para preservar vídeos, roteiros, vozes e token OAuth do YouTube.
 - Voz neural: Edge TTS exige conexão de saída à internet.
