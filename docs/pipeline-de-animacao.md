@@ -12,8 +12,8 @@
 4. **Storyboard:** prepara 12 cenas com título, legenda curta e ação visual.
 5. **Prévia e revisão:** o painel mostra planeta, sinopse, valor, narração, falas individuais dos personagens, trecho escolhido para o Short e storyboard.
 6. **Aprovação do usuário:** somente após clicar em “Aprovar roteiro e gerar vídeos 2D” a fila de renderização começa.
-7. **Animação:** personagens consistentes, fundos próprios do planeta, elementos da missão e movimentos procedurais.
-8. **Áudio:** narrador e personagens recebem vozes diferenciadas em português brasileiro; Pipo tem uma entrega mais aguda. O renderizador alterna os segmentos e mede a duração total.
+7. **Animação:** cenários cinematográficos diferentes por planeta e por etapa da história; personagens maiores, poses variadas, movimento de braços/pernas, partículas, objetos de missão e efeitos ambientais. O quadro não recebe legendas ou títulos sobrepostos.
+8. **Áudio:** narrador e personagens recebem vozes diferenciadas e fixas em português brasileiro; o mapa de vozes é persistido em `/data/jobs/voice-profiles.json`. O renderizador mantém uma linha do tempo por fala e anima a boca do personagem correspondente.
 9. **Render duplo:** versões horizontais e verticais com composições e tempos próprios.
 10. **Controle de qualidade:** conferir duração, arquivo MP4, áudio, legibilidade, continuidade visual e adequação para crianças.
 11. **Revisão e publicação:** aprovação editorial separada e envio ao YouTube somente após autorização do canal.
@@ -48,4 +48,4 @@ A publicação automática não é ligada por padrão. O upload/agendamento no Y
 
 ## Estado do motor
 
-O motor atual usa desenho procedural com Pillow e FFmpeg. No ICP, usa Edge TTS com vozes brasileiras separadas para narrador, Luna e Tomi, e voz de pitch elevado para Pipo; fora do ICP, pode usar espeak-ng com variações de pitch. O movimento é procedural e ainda não há sincronização labial quadro a quadro nem rigging 2D profissional.
+O motor atual usa desenho procedural com Pillow e FFmpeg. No ICP, usa Edge TTS com vozes brasileiras fixas para narrador, Luna e Tomi, e a voz de Tomi com pitch elevado para Pipo; o mapa de vozes é salvo no volume persistente. Os personagens têm poses e boca animadas conforme a linha do tempo do áudio, mas ainda não há lip-sync por fonema nem rigging 2D profissional.
