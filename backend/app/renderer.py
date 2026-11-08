@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Callable
 from PIL import Image, ImageDraw, ImageFont
 
-FPS = 6
+FPS = 12
 SCENE_SECONDS = 4
 SCENES = [
     ("UM DIA NA ESCOLA", "Na escola do bairro, algumas mochilas aparecem trocadas.", "school"),
@@ -716,9 +716,17 @@ def load_voice_profiles() -> dict:
         VOICE_PROFILE_FILE.parent.mkdir(parents=True, exist_ok=True)
         if VOICE_PROFILE_FILE.exists():
             saved = json.loads(VOICE_PROFILE_FILE.read_text(encoding="utf-8"))
+            needs_upgrade = False
             for name in profiles:
                 if isinstance(saved.get(name), dict):
                     profiles[name].update(saved[name])
+                else:
+                    needs_upgrade = True
+            if needs_upgrade:
+                VOICE_PROFILE_FILE.write_text(
+                    json.dumps(profiles, ensure_ascii=False, indent=2),
+                    encoding="utf-8",
+                )
         else:
             VOICE_PROFILE_FILE.write_text(
                 json.dumps(profiles, ensure_ascii=False, indent=2),
