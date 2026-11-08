@@ -505,8 +505,14 @@ def animate_actor(actor, global_time, local_time, action, speaking=False, side=0
             actor["arms"][0].rotation_euler[1] = math.sin(phase) * 0.42
             actor["arms"][1].rotation_euler[1] = -math.sin(phase) * 0.42
         elif action in {"talk", "converse"}:
-            actor["arms"][1].rotation_euler[1] = -0.45 + math.sin(global_time * 4.0) * 0.25
-            actor["arms"][0].rotation_euler[1] = 0.18
+            if speaking:
+                actor["arms"][1].rotation_euler[1] = -0.45 + math.sin(global_time * 4.0) * 0.25
+                actor["arms"][0].rotation_euler[1] = 0.18
+                actor["head"].rotation_euler[1] = 0.10
+            else:
+                actor["arms"][0].rotation_euler[1] = 0.05
+                actor["arms"][1].rotation_euler[1] = -0.05
+                actor["head"].rotation_euler[1] = -0.12
         elif action == "discover":
             actor["arms"][1].rotation_euler[1] = -1.15 + math.sin(global_time * 4.5) * 0.12
         elif action == "surprise":
@@ -523,8 +529,14 @@ def animate_actor(actor, global_time, local_time, action, speaking=False, side=0
             actor["arms"][0].rotation_euler[1] = -math.sin(phase) * 0.42
             actor["arms"][1].rotation_euler[1] = math.sin(phase) * 0.42
         elif action in {"talk", "converse"}:
-            actor["arms"][0].rotation_euler[1] = 0.5 + math.sin(global_time * 4.2) * 0.28
-            actor["arms"][1].rotation_euler[1] = -0.25
+            if speaking:
+                actor["arms"][0].rotation_euler[1] = 0.5 + math.sin(global_time * 4.2) * 0.28
+                actor["arms"][1].rotation_euler[1] = -0.25
+                actor["head"].rotation_euler[1] = -0.10
+            else:
+                actor["arms"][0].rotation_euler[1] = 0.04
+                actor["arms"][1].rotation_euler[1] = -0.04
+                actor["head"].rotation_euler[1] = 0.12
         elif action in {"discover", "work"}:
             actor["arms"][0].rotation_euler[1] = 0.8
             actor["arms"][1].rotation_euler[1] = -0.55
