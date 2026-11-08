@@ -62,7 +62,7 @@ def ensure_blender_native_libraries() -> dict:
 
     try:
         update = subprocess.run(
-            [apt, "update", "-y"],
+            [apt, "update"],
             check=False, capture_output=True, text=True, timeout=120,
         )
         if update.returncode != 0:
