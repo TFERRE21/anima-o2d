@@ -7,19 +7,18 @@ services:
       - "${HOST_PORT:-5001}:5000"
     environment:
       ANIMA_STORAGE: /data/jobs
-      ANIMA_RENDER_ENGINE: blender
-      BLENDER_BIN: /usr/bin/blender
+      BLENDER_BACKEND: python-module
       PORT: 5000
     volumes:
       - anima2d_data:/data/jobs
     shm_size: "1gb"
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen(\u0027http://127.0.0.1:5000/api/health/3d\u0027, timeout=5).read()"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:5000/api/health/3d', timeout=5).read()"]
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 90s
+      start_period: 120s
 
 volumes:
   anima2d_data:
