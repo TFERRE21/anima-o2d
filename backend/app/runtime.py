@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import importlib.util
+import functools
 import os
 import shutil
 from pathlib import Path
@@ -29,21 +30,40 @@ def find_blender_binary() -> str | None:
     return None
 
 
-def has_bpy_module() -> bool:
-    """Check whether the official Blender Python module is installed for this Python."""
+@functools.lru_cache(maxsize=1)
+def inspect_bpy_module() -> dict:
+    """Import bpy for real; find_spec alone misses missing native shared libraries."""
     try:
-        return importlib.util.find_spec("bpy") is not None
-    except (ImportError, ValueError, ModuleNotFoundError):
-        return False
+        if importlib.util.find_spec("bpy") is None:
+            return {"available": False, "version": None, "error": "módulo bpy não instalado"}
+        import bpy
+        version = str(getattr(bpy.app, "version_string", "unknown"))
+        return {"available": True, "version": version, "error": None}
+    except Exception as exc:
+        return {
+            "available": False,
+            "version": None,
+            "error": f"{type(exc).__name__}: {exc}",
+        }
+
+
+def has_bpy_module() -> bool:
+    return bool(inspect_bpy_module()["available"])
 
 
 def find_blender_runtime() -> dict | None:
-    """Return the preferred actual Blender runtime, not a 2D drawing substitute."""
+    """Return a tested Blender runtime, not merely a package that has metadata."""
     binary = find_blender_binary()
     if binary:
         return {"backend": "binary", "executable": binary, "module": "bpy"}
-    if has_bpy_module():
-        return {"backend": "python-module", "executable": None, "module": "bpy"}
+    module = inspect_bpy_module()
+    if module["available"]:
+        return {
+            "backend": "python-module",
+            "executable": None,
+            "module": "bpy",
+            "version": module["version"],
+        }
     return None
 
 
