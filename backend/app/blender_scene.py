@@ -841,12 +841,21 @@ def render(config: dict):
 
 
 def main():
-    args = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else []
+    # Supports both: blender -b --python script.py -- --config file.json
+    # and: python backend/app/blender_scene.py --module --config file.json
+    raw_args = sys.argv[1:]
+    args = raw_args[raw_args.index("--") + 1:] if "--" in raw_args else raw_args
+    if "--module" in args:
+        args.remove("--module")
+        print("ANIMA_BLENDER_BACKEND:python-module", flush=True)
     if "--version-check" in args:
         print("ANIMA_BLENDER_READY:" + bpy.app.version_string, flush=True)
         return
     if "--config" not in args:
-        raise SystemExit("Uso: blender -b --python blender_scene.py -- --config config.json")
+        raise SystemExit(
+            "Uso: blender -b --python blender_scene.py -- --config config.json "
+            "ou python blender_scene.py --module --config config.json"
+        )
     path = Path(args[args.index("--config") + 1])
     config = json.loads(path.read_text(encoding="utf-8"))
     result = render(config)
