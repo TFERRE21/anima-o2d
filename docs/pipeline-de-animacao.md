@@ -50,4 +50,4 @@ A publicação automática não é ligada por padrão. O upload/agendamento no Y
 
 A produção agora usa modelos 3D procedurais no Blender Eevee, com materiais, iluminação, sombras, articulações simples, ciclos de caminhada, exploração, gestos, conversa, objetos de missão, cenários por bioma e câmera que acompanha o falante. O tempo do storyboard é calculado pelos intervalos reais de narração e diálogo. A boca é animada pela linha do tempo das falas; não há ainda sincronização fonema a fonema nem rig facial de estúdio.
 
-**Runtime obrigatório:** Docker com Blender, Xvfb e Mesa. Python Standalone não contém o binário Blender e a API bloqueia a renderização nesse modo para não entregar um vídeo 2D como substituto.
+**Runtime obrigatório:** CPython 3.13 com `bpy==5.2.3`, Xvfb e Mesa. O aplicativo executa o módulo oficial Blender no mesmo Python da API; também aceita um executável Blender se estiver instalado. Não existe caminho de renderização 2D.
