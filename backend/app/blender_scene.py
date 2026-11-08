@@ -567,6 +567,39 @@ def create_camera(portrait, cx):
     return camera
 
 
+def build_scene_schedule(scene_source_indices, voice_timeline, total_duration):
+    """Map every scene to the exact start/end times of its narration and dialogue."""
+    allowed = [int(value) for value in scene_source_indices]
+    spans = {value: [float("inf"), 0.0] for value in allowed}
+    for line in voice_timeline:
+        scene_id = int(line.get("scene", -1))
+        if scene_id not in spans:
+            # Older drafts or appended topic lines belong to the final visible beat.
+            scene_id = allowed[-1]
+        start = max(0.0, float(line.get("start", 0.0)))
+        end = max(start, float(line.get("end", start)))
+        spans[scene_id][0] = min(spans[scene_id][0], start)
+        spans[scene_id][1] = max(spans[scene_id][1], end)
+
+    schedule = []
+    cursor = 0.0
+    fallback = total_duration / max(1, len(allowed))
+    for scene_id in allowed:
+        start, end = spans[scene_id]
+        if not math.isfinite(start) or end <= start:
+            start, end = cursor, cursor + fallback
+        start = min(max(cursor, start), total_duration)
+        end = min(max(start + 0.02, end), total_duration)
+        if schedule and start > cursor:
+            start = cursor
+        schedule.append({"scene_index": scene_id, "start": start, "end": end})
+        cursor = end
+    if schedule:
+        schedule[0]["start"] = 0.0
+        schedule[-1]["end"] = max(schedule[-1]["end"], total_duration)
+    return schedule
+
+
 def render(config: dict):
     portrait = config["format"] == "9:16"
     width, height = config["resolution"]
@@ -623,18 +656,23 @@ def render(config: dict):
 
     # Scene cuts follow the actual storyboard; actors move and interact inside each shot.
     action_by_scene = {
-        0: "walk", 1: "explore", 2: "converse", 3: "surprise",
+        0: "walk", 1: "explore", 2: "converse", 3: "converse",
         4: "discover", 5: "talk", 6: "sniff", 7: "surprise",
-        8: "converse", 9: "work", 10: "celebrate", 11: "walk",
+        8: "converse", 9: "work", 10: "celebrate", 11: "talk",
+        12: "talk", 13: "walk", 14: "celebrate",
     }
-    frame_duration = max(1.0, total_frames / max(1, len(scenes)))
+    scene_schedule = build_scene_schedule(source_indices, timeline, total_frames / fps)
     for frame in range(total_frames):
-        scene_slot = min(len(scenes) - 1, int(frame / frame_duration))
-        local_progress = (frame - scene_slot * frame_duration) / frame_duration
-        local_progress = max(0.0, min(1.0, local_progress))
         global_time = frame / fps
+        current = next(
+            (item for item in scene_schedule if item["start"] <= global_time < item["end"]),
+            scene_schedule[-1],
+        )
+        source_index = current["scene_index"]
+        scene_slot = source_indices.index(source_index)
+        span = max(0.02, current["end"] - current["start"])
+        local_progress = max(0.0, min(1.0, (global_time - current["start"]) / span))
         shot = stage_models[scene_slot]
-        source_index = shot["source_index"]
         action = action_by_scene.get(source_index, "walk")
         # Camera follows the active set with a mild lateral drift and story beat zoom.
         center = shot["center"] + math.sin(local_progress * math.pi) * (0.32 if not portrait else 0.12)
