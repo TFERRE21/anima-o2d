@@ -443,11 +443,13 @@ def animate_actor(actor, global_time, local_time, action, speaking=False, side=0
         else:
             actor["arms"][0].rotation_euler[1] = math.sin(global_time * 3 + 1) * 0.16
             actor["arms"][1].rotation_euler[1] = math.sin(global_time * 3) * 0.16
-    else:
+    elif actor["kind"] == "Pipo":
         actor["head"].rotation_euler[1] = math.sin(global_time * 2.1) * (0.18 if action == "sniff" else 0.05)
         actor["tail"].rotation_euler[0] = math.sin(global_time * 11) * 0.75
         actor["arms"][0].rotation_euler[1] = math.sin(phase) * 0.25
         actor["arms"][1].rotation_euler[1] = -math.sin(phase) * 0.25
+    else:
+        actor["head"].rotation_euler[1] = math.sin(global_time * 2.2) * 0.12
     # Turn the two humans subtly toward one another when they are talking.
     if actor["kind"] == "Luna":
         actor["root"].rotation_euler[2] = 0.10 if action in {"talk", "converse"} else math.sin(global_time * .9) * .025
