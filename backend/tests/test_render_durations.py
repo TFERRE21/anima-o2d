@@ -87,8 +87,8 @@ class RenderDurationTests(unittest.TestCase):
             self.assertEqual(short_result["scene_count"], 1)
             self.assertEqual(long_result["resolution"], "1920x1080")
             self.assertEqual(short_result["resolution"], "1080x1920")
-            self.assertEqual(long_result["render_engine"], "BLENDER_EEVEE_NEXT")
-            self.assertEqual(short_result["render_engine"], "BLENDER_EEVEE_NEXT")
+            self.assertEqual(long_result["render_engine"], "Blender 3D")
+            self.assertEqual(short_result["render_engine"], "Blender 3D")
 
 
 if __name__ == "__main__":
