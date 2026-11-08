@@ -11,3 +11,4 @@ tzdata==2025.2
 imageio-ffmpeg==0.8.1
 edge-tts==7.3.1
 mutagen==1.47.0
+bpy==5.2.3
