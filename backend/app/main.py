@@ -18,8 +18,8 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from backend.app.worlds import WORLDS, build_episode_plan
-from backend.app.runtime import find_blender_binary, find_blender_runtime, has_bpy_module, inspect_bpy_module, blender_available
-from backend.app.system_deps import native_library_status
+from backend.app.runtime import find_blender_binary, find_blender_runtime, has_bpy_module, inspect_bpy_module, blender_available, reset_bpy_import_state
+from backend.app.system_deps import native_library_status, ensure_blender_native_libraries
 
 ROOT = Path(__file__).resolve().parents[2]
 WEB = ROOT / "web"
@@ -36,6 +36,27 @@ class Settings(BaseSettings):
 settings = Settings()
 app = FastAPI(title=settings.app_name, version="0.2.2")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=False, allow_methods=["*"], allow_headers=["*"])
+
+
+@app.on_event("startup")
+def schedule_blender_native_dependency_repair():
+    """Repair missing OS libraries regardless of the ICP/Uvicorn launch command."""
+    def repair():
+        try:
+            status = ensure_blender_native_libraries()
+            print("ANIMA_NATIVE_LIBRARIES:", status, flush=True)
+            reset_bpy_import_state()
+        except Exception as exc:
+            print(
+                f"ANIMA_NATIVE_LIBRARIES_BOOTSTRAP_ERROR: {type(exc).__name__}: {exc}",
+                flush=True,
+            )
+
+    threading.Thread(
+        target=repair,
+        name="anima-blender-native-deps",
+        daemon=True,
+    ).start()
 
 class GenerateRequest(BaseModel):
     title: str = Field(min_length=2, max_length=140)
