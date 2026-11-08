@@ -734,7 +734,7 @@ def render_episode(title: str, story: str, fmt: str, output: Path, workdir: Path
 
     if progress_callback:
         progress_callback(1, "Preparando vozes e diálogos dos personagens.")
-    voice_raw, voice_fit = _synthesize_segments(audio_segments, workdir, fmt, speech_rate, progress_callback)
+    voice_raw, voice_fit, voice_timeline = _synthesize_segments(audio_segments, workdir, fmt, speech_rate, progress_callback)
     initial_duration = _probe_duration(voice_raw)
     if progress_callback:
         progress_callback(14, "Vozes prontas. Ajustando duração e cenas.")
@@ -788,9 +788,11 @@ def render_episode(title: str, story: str, fmt: str, output: Path, workdir: Path
         ]
     if not render_scenes:
         raise RuntimeError("O roteiro não contém cenas para animar.")
+    scene_source_indices = list(range(len(render_scenes)))
     if portrait:
-        highlight_indices = plan.get("short_scene_indices") or list(range(len(render_scenes)))
-        render_scenes = [render_scenes[index] for index in highlight_indices if 0 <= index < len(render_scenes)]
+        highlight_indices = plan.get("short_scene_indices") or scene_source_indices
+        scene_source_indices = [index for index in highlight_indices if 0 <= index < len(render_scenes)]
+        render_scenes = [render_scenes[index] for index in scene_source_indices]
         if not render_scenes:
             raise RuntimeError("O roteiro não contém cenas para o destaque do Shorts.")
 
@@ -804,8 +806,9 @@ def render_episode(title: str, story: str, fmt: str, output: Path, workdir: Path
         scene = render_scenes[scene_index]
         frame_time = frame_number / FPS
         active_speaker = next((item["speaker"] for item in voice_timeline if item["start"] <= frame_time < item["end"]), "")
+        visual_scene_index = scene_source_indices[scene_index]
         image = draw_scene_frame(
-            (width, height), scene, scene_index, local_frame, portrait, planet_name,
+            (width, height), scene, visual_scene_index, local_frame, portrait, planet_name,
             biome=plan.get("biome", ""),
             mission_object=plan.get("mission_object", ""),
             landmark=plan.get("landmark", ""),
@@ -829,10 +832,12 @@ def render_episode(title: str, story: str, fmt: str, output: Path, workdir: Path
         progress_callback(95, "Sincronizando vídeo e áudio final.")
     output.parent.mkdir(parents=True, exist_ok=True)
     output_duration = duration_seconds
+    target_size = "1080:1920" if portrait else "1920:1080"
     _run(["ffmpeg", "-y", "-loglevel", "error", "-i", str(low_video), "-i", str(voice_fit),
-          "-filter_complex", "[1:a]apad=pad_dur=2, loudnorm=I=-16:TP=-1.5:LRA=11, highpass=f=90, lowpass=f=9000[a]",
-          "-map", "0:v:0", "-map", "[a]", "-t", f"{output_duration:.3f}",
-          "-c:v", "copy", "-c:a", "aac", "-b:a", "160k", "-movflags", "+faststart",
+          "-filter_complex", f"[0:v]scale={target_size}:flags=lanczos,setsar=1[v];[1:a]apad=pad_dur=2,loudnorm=I=-16:TP=-1.5:LRA=11,highpass=f=90,lowpass=f=9000[a]",
+          "-map", "[v]", "-map", "[a]", "-t", f"{output_duration:.3f}",
+          "-c:v", "libx264", "-preset", "fast", "-crf", "18", "-pix_fmt", "yuv420p",
+          "-r", "24", "-c:a", "aac", "-b:a", "160k", "-movflags", "+faststart",
           str(output)])
     if not output.exists() or output.stat().st_size < 10000:
         raise RuntimeError("O arquivo de vídeo não foi gerado corretamente.")
