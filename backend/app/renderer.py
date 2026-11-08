@@ -497,7 +497,7 @@ def render_episode(title: str, story: str, fmt: str, output: Path, workdir: Path
     for item in voice_timeline:
         item["start"] /= timeline_scale
         item["end"] /= timeline_scale
-    width, height = (540, 960) if portrait else (960, 540)
+    width, height = (360, 640) if portrait else (640, 360)
     frames = workdir / f"frames-{fmt.replace(':','x')}"
     frames.mkdir(parents=True, exist_ok=True)
 
