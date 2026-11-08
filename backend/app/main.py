@@ -82,6 +82,8 @@ def health():
         "ffmpeg": _has("ffmpeg"),
         "tts": _has("tts"),
         "storage_writable": os.access(STORAGE, os.W_OK),
+        "blender": _has("blender"),
+        "render_engine": os.getenv("ANIMA_RENDER_ENGINE", "blender").lower(),
     }
 
 @app.get("/api/config")
@@ -92,9 +94,9 @@ def config():
             {"id": "9:16", "width": 1080, "height": 1920, "label": "YouTube Shorts"},
         ],
         "youtube_oauth_configured": bool(settings.youtube_client_id and settings.youtube_client_secret),
-        "generation_enabled": _has("ffmpeg") and _has("tts"),
-        "media": {"ffmpeg": _has("ffmpeg"), "tts": _has("tts")},
-        "engine": "Anima 2D Planet Adventure Studio — procedural 2D animation",
+        "generation_enabled": _has("ffmpeg") and _has("tts") and _has("blender"),
+        "media": {"ffmpeg": _has("ffmpeg"), "tts": _has("tts"), "blender": _has("blender")},
+        "engine": "Anima Studio — Blender 3D character animation" if _has("blender") else "Blender 3D ausente — use o runtime Docker do projeto",
     }
 
 @app.post("/api/stories/generate", status_code=201)
@@ -168,7 +170,12 @@ def render_story(job_id: str, payload: RenderRequest):
     if not formats or any(x not in {"16:9", "9:16"} for x in formats):
         raise HTTPException(400, "Formatos inválidos.")
     if not _has("ffmpeg") or not _has("tts"):
-        raise HTTPException(503, "Motor de mídia incompleto. É necessário FFmpeg (imageio-ffmpeg) e voz (espeak-ng ou edge-tts).")
+        raise HTTPException(503, "Motor de mídia incompleto. É necessário FFmpeg e voz (espeak-ng ou edge-tts).")
+    if os.getenv("ANIMA_RENDER_ENGINE", "blender").lower() == "blender" and not _has("blender"):
+        raise HTTPException(
+            503,
+            "O motor 3D não está instalado neste runtime. Publique o projeto usando o Dockerfile (runtime Docker com Blender); não será gerado um vídeo 2D como substituto."
+        )
     _update(job_id, status="queued", stage="render_queued", progress=8,
             message="Roteiro aprovado. Preparando cenas e narração.", formats=formats,
             review_status="pending_review", outputs={}, error=None)
@@ -454,6 +461,8 @@ def download(job_id: str, fmt: str):
 
 def _has(binary: str) -> bool:
     from shutil import which
+    if binary == "blender":
+        return bool(which(os.getenv("BLENDER_BIN", "blender")))
     if binary == "ffmpeg":
         if which("ffmpeg"):
             return True
