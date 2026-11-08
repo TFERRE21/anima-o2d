@@ -641,6 +641,11 @@ def _run_ffmpeg_with_progress(cmd, progress_callback, total_seconds: float):
             process.kill()
             process.wait()
         raise
+    finally:
+        if process.stdout:
+            process.stdout.close()
+        if process.stderr:
+            process.stderr.close()
 
 def _probe_duration(path: Path) -> float:
     """Measure duration even when the runtime has FFmpeg but no separate ffprobe."""
@@ -961,6 +966,9 @@ def _render_blender_frames(frames: Path, fmt: str, width: int, height: int,
             process.kill()
             process.wait()
         raise
+    finally:
+        if process.stdout:
+            process.stdout.close()
     png_frames = list(frames.glob("frame-*.png"))
     if len(png_frames) != total_frames:
         raise RuntimeError(
