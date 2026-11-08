@@ -313,7 +313,7 @@ def _render_blender_frames(frames: Path, fmt: str, width: int, height: int,
     if not runtime:
         raise RuntimeError(
             "Motor Blender 3D ausente. Instale bpy==5.2.3 para Python 3.13 "
-            "ou disponibilize o executável Blender; o estúdio não possui renderizador 2D."
+            "ou disponibilize o executável Blender; não existe renderizador alternativo."
         )
     script = Path(__file__).with_name("blender_scene.py")
     if not script.is_file():
@@ -496,7 +496,6 @@ def render_episode(title: str, story: str, fmt: str, output: Path, workdir: Path
             raise RuntimeError("O roteiro não contém cenas para o destaque do Shorts.")
 
     scene_count = len(render_scenes)
-    total_frames = max(1, int(math.ceil(duration_seconds * FPS)))
     total_frames = max(1, int(math.ceil(duration_seconds * FPS)))
     _render_blender_frames(
         frames, fmt, width, height, total_frames,
