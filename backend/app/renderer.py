@@ -704,6 +704,7 @@ DEFAULT_VOICE_PROFILE = {
     "Luna": {"voice": "pt-BR-FranciscaNeural", "rate": "+2%", "pitch": "+5Hz", "espeak_pitch": 60},
     "Tomi": {"voice": "pt-BR-AntonioNeural", "rate": "+0%", "pitch": "-3Hz", "espeak_pitch": 43},
     "Pipo": {"voice": "pt-BR-AntonioNeural", "rate": "+8%", "pitch": "+22Hz", "espeak_pitch": 76},
+    "Moradora": {"voice": "pt-BR-ThalitaMultilingualNeural", "rate": "+4%", "pitch": "+8Hz", "espeak_pitch": 66},
 }
 VOICE_PROFILE_FILE = Path(os.getenv("ANIMA_STORAGE", "/data/jobs")) / "voice-profiles.json"
 
