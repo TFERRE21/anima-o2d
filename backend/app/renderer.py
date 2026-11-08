@@ -4,7 +4,6 @@ import asyncio
 import json
 import math
 import os
-import re
 import shutil
 import subprocess
 import sys
@@ -13,16 +12,6 @@ from typing import Callable
 from backend.app.runtime import find_blender_runtime
 
 FPS = 12
-SCENE_SECONDS = 4
-SCENES = [
-    ("UM DIA NA ESCOLA", "Na escola do bairro, algumas mochilas aparecem trocadas.", "school"),
-    ("UMA PISTA IMPORTANTE", "Luna observa as etiquetas. Tomi decide conferir os nomes.", "clue"),
-    ("SEM ACUSAR NINGUÉM", "Antes de apontar alguém, os amigos procuram a professora.", "care"),
-    ("A DESCOBERTA", "As mochilas eram parecidas. A troca aconteceu por engano!", "discovery"),
-    ("JUNTOS É MELHOR", "Com ajuda, todos devolvem os pertences e criam etiquetas coloridas.", "team"),
-    ("A LIÇÃO DO DIA", "Honestidade é falar a verdade. Responsabilidade é corrigir nossos erros.", "lesson"),
-]
-
 def _ffmpeg_executable() -> str:
     system_ffmpeg = shutil.which("ffmpeg")
     if system_ffmpeg:
@@ -476,7 +465,7 @@ def render_episode(title: str, story: str, fmt: str, output: Path, workdir: Path
     for item in voice_timeline:
         item["start"] /= timeline_scale
         item["end"] /= timeline_scale
-    width, height = (480, 854) if portrait else (854, 480)
+    width, height = (540, 960) if portrait else (960, 540)
     frames = workdir / f"frames-{fmt.replace(':','x')}"
     frames.mkdir(parents=True, exist_ok=True)
 
