@@ -6,9 +6,10 @@ import re
 import shutil
 import subprocess
 from pathlib import Path
+from typing import Callable
 from PIL import Image, ImageDraw, ImageFont
 
-FPS = 8
+FPS = 4
 SCENE_SECONDS = 4
 SCENES = [
     ("UM DIA NA ESCOLA", "Na escola do bairro, algumas mochilas aparecem trocadas.", "school"),
@@ -397,33 +398,38 @@ def _concat_audio_files(files: list[Path], output: Path, audio_codec: str) -> Pa
     return output
 
 
-async def _synthesize_edge_segments(segments: list[dict], files: list[Path]) -> None:
+async def _synthesize_edge_segments(segments: list[dict], files: list[Path], progress_callback=None) -> None:
     semaphore = asyncio.Semaphore(2)
+    completed = 0
 
     async def render_one(segment: dict, path: Path):
+        nonlocal completed
         text = str(segment.get("text", "")).strip()
         speaker = str(segment.get("speaker", "Narrador"))
         if not text:
             raise RuntimeError("Foi encontrada uma fala vazia no roteiro.")
         async with semaphore:
             last_error = None
-            for attempt in range(3):
+            for attempt in range(2):
                 try:
-                    await _edge_tts_save(text, path, speaker)
+                    await asyncio.wait_for(_edge_tts_save(text, path, speaker), timeout=45)
                     if path.exists() and path.stat().st_size > 500:
+                        completed += 1
+                        if progress_callback:
+                            progress_callback(int(completed * 10 / max(1, len(files))), f"Gerando falas: {completed}/{len(files)}")
                         return
                     raise RuntimeError("O serviço de voz retornou um arquivo vazio.")
                 except Exception as exc:
                     last_error = exc
-                    if attempt < 2:
-                        await asyncio.sleep(1.5 * (attempt + 1))
+                    if attempt < 1:
+                        await asyncio.sleep(1.5)
             raise RuntimeError(f"Falha na voz de {speaker}: {last_error}")
 
     await asyncio.gather(*(render_one(segment, path) for segment, path in zip(segments, files)))
 
 
 def _synthesize_segments(segments: list[dict], workdir: Path, fmt: str,
-                         speech_rate: int) -> tuple[Path, Path]:
+                         speech_rate: int, progress_callback=None) -> tuple[Path, Path]:
     """Create one continuous track by alternating narrator and distinct character voices."""
     suffix = fmt.replace(":", "x")
     use_espeak = bool(shutil.which("espeak-ng"))
@@ -445,9 +451,11 @@ def _synthesize_segments(segments: list[dict], workdir: Path, fmt: str,
                 "espeak-ng", "-v", "pt-br", "-s", str(rate), "-p", str(pitch),
                 "-a", "165", "-w", str(path), str(segment.get("text", ""))
             ])
+            if progress_callback:
+                progress_callback(int((len(files) and (files.index(path) + 1) * 10 / len(files)) or 0), f"Gerando falas: {files.index(path) + 1}/{len(files)}")
     else:
         try:
-            asyncio.run(_synthesize_edge_segments(segments, files))
+            asyncio.run(_synthesize_edge_segments(segments, files, progress_callback))
         except Exception as exc:
             raise RuntimeError(
                 "Não foi possível gerar as falas com voz neural. Verifique a conexão de saída "
@@ -457,6 +465,8 @@ def _synthesize_segments(segments: list[dict], workdir: Path, fmt: str,
     raw = workdir / f"narration-source-{suffix}.{'wav' if use_espeak else 'm4a'}"
     fitted = workdir / f"narration-final-{suffix}.{'wav' if use_espeak else 'm4a'}"
     _concat_audio_files(files, raw, "pcm_s16le" if use_espeak else "aac")
+    if progress_callback:
+        progress_callback(12, "Áudio das personagens montado. Preparando animação.")
     return raw, fitted
 
 
@@ -480,7 +490,8 @@ def _fit_narration(source: Path, output: Path, target_seconds: float) -> float:
     return _probe_duration(output)
 
 def render_episode(title: str, story: str, fmt: str, output: Path, workdir: Path,
-                   planet_name: str = "Aurora-7", story_plan: dict | None = None):
+                   planet_name: str = "Aurora-7", story_plan: dict | None = None,
+                   progress_callback: Callable[[int, str], None] | None = None):
     """Render separate long-form and vertical-short edits from one approved story plan."""
     plan = story_plan or {}
     portrait = fmt == "9:16"
@@ -500,8 +511,12 @@ def render_episode(title: str, story: str, fmt: str, output: Path, workdir: Path
         speech_rate = 140
         min_duration, max_duration, target_duration = 301.0, 598.5, 420.0
 
-    voice_raw, voice_fit = _synthesize_segments(audio_segments, workdir, fmt, speech_rate)
+    if progress_callback:
+        progress_callback(1, "Preparando vozes e diálogos dos personagens.")
+    voice_raw, voice_fit = _synthesize_segments(audio_segments, workdir, fmt, speech_rate, progress_callback)
     initial_duration = _probe_duration(voice_raw)
+    if progress_callback:
+        progress_callback(14, "Vozes prontas. Ajustando duração e cenas.")
 
     if portrait:
         if initial_duration < min_duration or initial_duration > max_duration:
@@ -556,6 +571,7 @@ def render_episode(title: str, story: str, fmt: str, output: Path, workdir: Path
 
     scene_count = len(render_scenes)
     total_frames = max(1, int(math.ceil(duration_seconds * FPS)))
+    last_reported = -1
     for frame_number in range(total_frames):
         scene_index = min(scene_count - 1, int(frame_number * scene_count / total_frames))
         scene_start = int(scene_index * total_frames / scene_count)
@@ -563,14 +579,22 @@ def render_episode(title: str, story: str, fmt: str, output: Path, workdir: Path
         scene = render_scenes[scene_index]
         image = draw_scene_frame((width, height), scene, scene_index, local_frame,
                                  portrait, planet_name)
-        image.save(frames / f"frame-{frame_number:06d}.jpg", quality=91)
+        image.save(frames / f"frame-{frame_number:06d}.jpg", quality=88)
+        frame_progress = int((frame_number + 1) * 75 / total_frames)
+        if progress_callback and frame_progress >= last_reported + 2:
+            last_reported = frame_progress
+            progress_callback(14 + frame_progress, f"Desenhando cenas 2D: {int((frame_number + 1) * 100 / total_frames)}%")
 
     low_video = workdir / f"silent-{fmt.replace(':','x')}.mp4"
+    if progress_callback:
+        progress_callback(91, "Montando sequência de imagens em vídeo.")
     _run(["ffmpeg", "-y", "-loglevel", "error", "-framerate", str(FPS),
           "-i", str(frames / "frame-%06d.jpg"), "-c:v", "libx264",
           "-preset", "ultrafast", "-crf", "20", "-pix_fmt", "yuv420p",
           "-r", "24", "-g", "24", "-keyint_min", "24", "-sc_threshold", "0", str(low_video)])
 
+    if progress_callback:
+        progress_callback(95, "Sincronizando vídeo e áudio final.")
     output.parent.mkdir(parents=True, exist_ok=True)
     output_duration = duration_seconds
     _run(["ffmpeg", "-y", "-loglevel", "error", "-i", str(low_video), "-i", str(voice_fit),
@@ -581,6 +605,8 @@ def render_episode(title: str, story: str, fmt: str, output: Path, workdir: Path
     if not output.exists() or output.stat().st_size < 10000:
         raise RuntimeError("O arquivo de vídeo não foi gerado corretamente.")
     actual_video_duration = _probe_duration(output)
+    if progress_callback:
+        progress_callback(99, "Validando arquivo, áudio e duração.")
     if portrait and not (60 <= actual_video_duration <= 90):
         raise RuntimeError(f"O vídeo Shorts ficou fora da faixa de 1:00 a 1:30 ({actual_video_duration:.1f}s).")
     if not portrait and not (300 < actual_video_duration <= 600):
