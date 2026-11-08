@@ -5,28 +5,21 @@ import unittest
 from pathlib import Path
 
 from backend.app.worlds import build_episode_plan
-from PIL import ImageChops
-
 import backend.app.renderer as renderer
-from backend.app.renderer import render_episode, draw_scene_frame, VOICE_PROFILE
+from backend.app.renderer import render_episode, VOICE_PROFILE
+from backend.app.runtime import blender_available
 
 
-@unittest.skipUnless(shutil.which("ffmpeg") and shutil.which("ffprobe") and shutil.which("espeak-ng") and shutil.which("blender"),
-                     "FFmpeg/ffprobe/espeak-ng/Blender not installed")
+@unittest.skipUnless(shutil.which("ffmpeg") and shutil.which("ffprobe") and shutil.which("espeak-ng") and blender_available(),
+                     "FFmpeg/ffprobe/espeak-ng/Blender 3D runtime not installed")
 class RenderDurationTests(unittest.TestCase):
-    def test_scene_art_changes_without_text_overlays_and_voice_cast_is_stable(self):
-        first = draw_scene_frame(
-            (270, 480), ("A CHEGADA", "Legenda não deve aparecer", ""), 0, 5,
-            True, "Aurora-7", biome="florestas de cristais", mission_object="farol",
-            landmark="Grande Bosque"
-        )
-        reveal = draw_scene_frame(
-            (270, 480), ("A SURPRESA", "Outra legenda que não deve aparecer", ""), 7, 5,
-            True, "Aurora-7", biome="florestas de cristais", mission_object="farol",
-            landmark="Grande Bosque"
-        )
-        self.assertEqual(first.size, (270, 480))
-        self.assertIsNotNone(ImageChops.difference(first, reveal).getbbox())
+    def test_blender_3d_is_the_only_video_renderer_and_voice_cast_is_stable(self):
+        source = Path(renderer.__file__).read_text(encoding="utf-8")
+        self.assertIn("find_blender_runtime", source)
+        self.assertIn("_render_blender_frames(", source)
+        self.assertNotIn("draw_scene_frame", source)
+        self.assertNotIn('engine == "2d"', source)
+        self.assertNotIn("from PIL", source)
         self.assertEqual(
             {name: profile["voice"] for name, profile in VOICE_PROFILE.items()},
             {
