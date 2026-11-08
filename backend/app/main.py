@@ -18,7 +18,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from backend.app.worlds import WORLDS, build_episode_plan
-from backend.app.runtime import find_blender_binary, find_blender_runtime, has_bpy_module, blender_available
+from backend.app.runtime import find_blender_binary, find_blender_runtime, has_bpy_module, inspect_bpy_module, blender_available
 
 ROOT = Path(__file__).resolve().parents[2]
 WEB = ROOT / "web"
@@ -122,6 +122,7 @@ def health_3d():
 def diagnostics():
     """Non-secret runtime diagnostics for Blender 3D binary/module and media assets."""
     blender_runtime = find_blender_runtime()
+    bpy_info = inspect_bpy_module()
     blender_script = Path(__file__).with_name("blender_scene.py")
     blender_path = find_blender_binary()
     return {
@@ -134,7 +135,9 @@ def diagnostics():
         "blender_bin_setting": os.getenv("BLENDER_BIN") or "(not set)",
         "blender_path": blender_path,
         "blender_executable": bool(blender_path and os.access(blender_path, os.X_OK)),
-        "bpy_module_available": has_bpy_module(),
+        "bpy_module_available": bpy_info["available"],
+        "bpy_version": bpy_info["version"],
+        "bpy_import_error": bpy_info["error"],
         "blender_scene_path": str(blender_script.resolve()),
         "blender_scene_exists": blender_script.is_file(),
         "render_engine": "blender-3d-only",
