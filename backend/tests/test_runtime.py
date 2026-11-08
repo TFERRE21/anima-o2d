@@ -21,7 +21,9 @@ class BlenderDiscoveryTests(unittest.TestCase):
         expected = "/usr/bin/blender"
         with patch.dict(os.environ, {}, clear=True):
             with patch("backend.app.runtime.shutil.which", side_effect=lambda name: expected if name == "blender" else None):
-                self.assertEqual(find_blender_binary(), expected)
+                with patch("backend.app.runtime.Path.is_file", return_value=True):
+                    with patch("backend.app.runtime.os.access", return_value=True):
+                        self.assertEqual(find_blender_binary(), expected)
 
     def test_returns_none_when_binary_is_missing(self):
         with patch.dict(os.environ, {}, clear=True):
