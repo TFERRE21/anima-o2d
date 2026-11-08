@@ -65,20 +65,21 @@ def ensure_blender_native_libraries() -> dict:
             [apt, "update"],
             check=False, capture_output=True, text=True, timeout=120,
         )
-        if update.returncode != 0:
-            return {
-                "ok": False, "installed": False, "missing": missing,
-                "error": (update.stderr or update.stdout or "apt-get update falhou")[-1800:],
-            }
-
+        # If repository refresh is blocked, still try cached package indexes.
         install = subprocess.run(
-            [apt, "install", "-y", "--no-install-recommends", *PACKAGES],
+            [apt, "install", "-y", "--no-install-recommends", "--fix-missing", *PACKAGES],
             check=False, capture_output=True, text=True, timeout=180,
         )
         if install.returncode != 0:
+            detail = install.stderr or install.stdout or "apt-get install falhou"
+            if update.returncode != 0:
+                detail = (
+                    "apt-get update: " + (update.stderr or update.stdout or "falhou")[-700:]
+                    + "\\napt-get install: " + detail[-1000:]
+                )
             return {
                 "ok": False, "installed": False, "missing": _missing_libraries(),
-                "error": (install.stderr or install.stdout or "apt-get install falhou")[-1800:],
+                "error": detail[-1800:],
             }
 
         ldconfig = shutil.which("ldconfig")
