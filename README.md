@@ -32,7 +32,7 @@ O renderizador mede a duração da faixa de áudio final e ajusta a velocidade d
 - Personagens 2D desenhados proceduralmente com Pillow, mantendo figurinos, emblemas e proporções consistentes entre cenas.
 - Cenários cinematográficos diferentes por planeta e por cena: espaço, chegada, vilas, jardins, montanhas, desertos, pistas, reunião, ação, surpresa e celebração, usando bioma e objeto da missão.
 - Personagens maiores e mais expressivos, com poses de caminhada, descoberta, surpresa, apontar, conversa, trabalho e comemoração.
-- Movimento contínuo de braços, pernas, corpo, cauda, foguete, partículas, flores, água e efeitos de luz, com renderização intermediária a 8 fps e saída final a 24 fps.
+- Movimento contínuo de braços, pernas, corpo, cauda, foguete, partículas, flores, água e efeitos de luz, com renderização intermediária a 6 fps e saída final a 24 fps.
 - Boca animada no personagem correspondente ao trecho de fala. Ainda não é sincronização labial por fonema.
 - Vídeo final efetivamente redimensionado em alta qualidade para 1920×1080 e 1080×1920.
 - Sem caixas de legenda, título ou texto explicativo sobreposto ao quadro: as falas são transmitidas pelo áudio.
