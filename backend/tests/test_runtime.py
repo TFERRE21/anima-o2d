@@ -26,7 +26,7 @@ class BlenderDiscoveryTests(unittest.TestCase):
     def test_returns_none_when_binary_is_missing(self):
         with patch.dict(os.environ, {}, clear=True):
             with patch("backend.app.runtime.shutil.which", return_value=None):
-                with patch("backend.app.runtime.Path.is_file", return_value=False):
+                with patch("backend.app.runtime.os.access", return_value=False):
                     self.assertIsNone(find_blender_binary())
 
 
