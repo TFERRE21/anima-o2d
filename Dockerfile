@@ -4,6 +4,9 @@ FROM python:3.12-slim
 RUN apt-get update && apt-get install -y --no-install-recommends \
     blender xvfb xauth libgl1-mesa-dri libegl1 libosmesa6 \
     ffmpeg espeak-ng fonts-dejavu-core \
+    && test -x /usr/bin/blender \
+    && /usr/bin/blender --background --factory-startup --python-expr \
+       "import bpy; print('ANIMA_BLENDER_IMAGE_OK', bpy.app.version_string)" \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
@@ -16,7 +19,7 @@ COPY web ./web
 ENV PYTHONPATH=/app \
     ANIMA_STORAGE=/data/jobs \
     ANIMA_RENDER_ENGINE=blender \
-    BLENDER_BIN=blender \
+    BLENDER_BIN=/usr/bin/blender \
     BLENDER_USER_CONFIG=/tmp/blender-config \
     PORT=5000
 
