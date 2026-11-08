@@ -4,7 +4,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from backend.app.runtime import find_blender_binary
+from backend.app.runtime import find_blender_binary, find_blender_runtime
 
 
 class BlenderDiscoveryTests(unittest.TestCase):
@@ -28,6 +28,19 @@ class BlenderDiscoveryTests(unittest.TestCase):
             with patch("backend.app.runtime.shutil.which", return_value=None):
                 with patch("backend.app.runtime.os.access", return_value=False):
                     self.assertIsNone(find_blender_binary())
+
+    def test_uses_bpy_python_module_when_cli_binary_is_missing(self):
+        with patch("backend.app.runtime.find_blender_binary", return_value=None):
+            with patch("backend.app.runtime.has_bpy_module", return_value=True):
+                self.assertEqual(
+                    find_blender_runtime(),
+                    {"backend": "python-module", "executable": None, "module": "bpy"},
+                )
+
+    def test_reports_engine_missing_when_neither_binary_nor_module_exists(self):
+        with patch("backend.app.runtime.find_blender_binary", return_value=None):
+            with patch("backend.app.runtime.has_bpy_module", return_value=False):
+                self.assertIsNone(find_blender_runtime())
 
 
 if __name__ == "__main__":
