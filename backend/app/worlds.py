@@ -76,6 +76,9 @@ def build_episode_plan(episode_number: int, used_planets: set[str] | None = None
         ("MÃOS À OBRA", "Todos começam a solução em equipe.", mission["solution"].capitalize() + "."),
         ("A COMUNIDADE CONSEGUE", "O planeta volta a sorrir.", "Os habitantes testam a solução, agradecem aos amigos e combinam como cuidar dela no futuro."),
         ("A LIÇÃO DA VIAGEM", f"A aventura ensina {value}.", "Luna e Tomi lembram que ajudar começa por escutar, pensar e trabalhar em equipe."),
+        ("O DIÁRIO DA MISSÃO", "Os amigos registram a descoberta antes de partir.", "Luna desenha a pista, Tomi marca o plano e Pipo deixa uma patinha no diário holográfico."),
+        ("DE VOLTA À ESTRELINHA", "A nave inicia a viagem de volta para casa.", "Os três acenam aos moradores enquanto o planeta fica pequenino pela janela."),
+        ("SUA VEZ DE SER GUARDIÃO", "A aventura termina com um convite para quem está assistindo.", "Luna, Tomi e Pipo olham para a câmera e convidam as crianças a praticar a lição no próprio dia."),
     ]
     # 12 distinct narration passages; the production script expands them into a
     # full episode rather than reusing a short summary as the entire voice track.
@@ -127,21 +130,16 @@ def build_episode_plan(episode_number: int, used_planets: set[str] | None = None
     dialogue_by_scene = {}
     for line in dialogues:
         dialogue_by_scene.setdefault(line["scene"], []).append(line)
-    # Keep the long episode conversational: six narrative chapters alternate
-    # with character dialogue so the heroes are heard, not merely described.
+    # Each narration paragraph owns one storyboard scene. This explicit mapping
+    # lets the 3D animator cut to the exact action while that sentence is spoken.
     audio_segments_long = []
-    for block in range(6):
-        first = block * 2
-        narrator_text = " ".join(long_script[first:first + 2])
-        audio_segments_long.append({"speaker": "Narrador", "text": narrator_text, "scene": first})
-        for scene_index in (first, first + 1):
-            audio_segments_long.extend(dialogue_by_scene.get(scene_index, []))
-    if len(long_script) > 12:
+    for scene_index, narrator_text in enumerate(long_script):
         audio_segments_long.append({
             "speaker": "Narrador",
-            "text": " ".join(long_script[12:]),
-            "scene": 11,
+            "text": narrator_text,
+            "scene": min(scene_index, len(scenes) - 1),
         })
+        audio_segments_long.extend(dialogue_by_scene.get(scene_index, []))
 
     # Shorts use the most emotional section: the unexpected clue, the failed
     # first attempt, the team's decision to listen, and the successful solution.
@@ -168,7 +166,7 @@ def build_episode_plan(episode_number: int, used_planets: set[str] | None = None
         "dialogue_script": long_dialogue_script,
         "audio_segments_long": audio_segments_long, "audio_segments_short": short_segments,
         "short_script": short_script, "short_highlight": "a pista inesperada, a mudança de plano e a solução em equipe",
-        "short_scene_indices": [6, 7, 8, 9, 10, 11],
+        "short_scene_indices": [7, 8, 9, 10, 11],
         "scenes": [
             {"title": item[0], "caption": item[1], "visual_action": item[2]} for item in scenes
         ],
