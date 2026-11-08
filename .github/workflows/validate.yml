@@ -13,7 +13,7 @@ jobs:
         with:
           python-version: "3.12"
       - name: Install system dependencies
-        run: sudo apt-get update && sudo apt-get install -y ffmpeg espeak-ng fonts-dejavu-core blender xvfb libgl1-mesa-dri libegl1 libosmesa6
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg espeak-ng fonts-dejavu-core blender xvfb xauth libgl1-mesa-dri libegl1 libosmesa6
       - name: Install Python dependencies
         run: pip install -r backend/requirements.txt
       - name: Compile Python
