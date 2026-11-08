@@ -1,6 +1,6 @@
-# Anima 2D Studio — Pequenos Guardiões
+# Anima Studio 3D — Pequenos Guardiões
 
-Estúdio web para produção de episódios infantis 2D com Luna, Tomi e Pipo.
+Estúdio web para produção de episódios infantis em 3D com Luna, Tomi, Pipo e moradores de planetas originais.
 
 ## Painel do estúdio
 
@@ -27,23 +27,26 @@ O painel possui:
 
 O renderizador mede a duração da faixa de áudio final e ajusta a velocidade dentro de limites para respeitar as duas faixas. O episódio longo alterna narrador e falas dos três personagens. O Shorts usa a pista, a virada e a solução da missão — a parte mais impactante — com áudio e seleção de cenas próprios. Se não conseguir cumprir a faixa, marca o job como falha em vez de entregar um vídeo com duração incorreta.
 
-## Motor de animação atual
+## Motor de animação 3D
 
-- Personagens 2D desenhados proceduralmente com Pillow, mantendo figurinos, emblemas e proporções consistentes entre cenas.
-- Cenários cinematográficos diferentes por planeta e por cena: espaço, chegada, vilas, jardins, montanhas, desertos, pistas, reunião, ação, surpresa e celebração, usando bioma e objeto da missão.
-- Personagens maiores e mais expressivos, com poses de caminhada, descoberta, surpresa, apontar, conversa, trabalho e comemoração.
-- Movimento contínuo de braços, pernas, corpo, cauda, foguete, partículas, flores, água e efeitos de luz, com renderização intermediária a 6 fps e saída final a 24 fps.
-- Boca animada no personagem correspondente ao trecho de fala. Ainda não é sincronização labial por fonema.
-- Vídeo final efetivamente redimensionado em alta qualidade para 1920×1080 e 1080×1920.
-- Sem caixas de legenda, título ou texto explicativo sobreposto ao quadro: as falas são transmitidas pelo áudio.
-- Vozes em português brasileiro: no ICP, Edge TTS alterna `pt-BR-ThalitaMultilingualNeural` (narrador), `pt-BR-FranciscaNeural` (Luna) e `pt-BR-AntonioNeural` (Tomi); Pipo usa a mesma base de Antonio com pitch elevado. O mapa fixo fica salvo em `/data/jobs/voice-profiles.json`, junto aos dados persistentes, para manter a identidade vocal entre episódios. Requer conexão de saída à internet. Em ambientes com espeak-ng, o motor usa variações de pitch para diferenciar as falas.
-- FFmpeg: usa a instalação do sistema quando disponível; no runtime Python do ICP, usa o binário portátil fornecido por `imageio-ffmpeg`.
-- A duração é medida com ffprobe quando disponível, Mutagen e leitura de metadados pelo FFmpeg portátil como alternativas.
-- Renderização MP4 com FFmpeg.
-- Saídas 16:9 (1920×1080) e 9:16 (1080×1920).
-- Jobs em segundo plano e histórico persistido em volume Docker.
+- Renderizador baseado em **Blender 3D**, com geometria real, câmera com perspectiva ortográfica e profundidade, iluminação de estúdio, sombras, cavidade e contornos suaves.
+- Luna, Tomi e Pipo são modelos 3D procedurais com volumes, figurinos, acessórios e articulações próprias; moradores também aparecem nos encontros.
+- Animação por cena: caminhada com ciclos de braços/pernas, exploração com deslocamento, apontar, gestos, surpresa, conversa virada entre os personagens, trabalho em equipe e comemoração.
+- Linha do tempo de voz por personagem: a boca do falante é animada durante a fala, incluindo moradores locais. As vozes ficam fixas em `/data/jobs/voice-profiles.json`.
+- Planetas têm cenários 3D diferentes conforme bioma e missão: florestas, oceanos, gelo, desertos, ilhas flutuantes, vilas, pontes, faróis, bibliotecas, equipamentos e objetos da história.
+- Câmera acompanha a ação e muda o enquadramento em cada parte do storyboard. Não são usadas caixas de legenda ou títulos sobre a imagem.
+- Blender Workbench é usado como renderizador 3D estilizado e leve para execução em CPU. A saída final é codificada em 24 fps e em 1920×1080 ou 1080×1920.
+- A boca é animada conforme os intervalos das falas; ainda não é sincronização fonema a fonema nem rig facial profissional.
 
-> Este é um motor 2D procedural em evolução, não uma ferramenta de animação profissional nem geração de vídeo por IA. As poses e o movimento da boca são guiados pela linha do tempo das falas, mas ainda não existe sincronização labial por fonema, rigging com ossos ou animação desenhada quadro a quadro por artista.
+### Runtime necessário
+
+**A renderização de vídeo requer runtime Docker.** O modo Python Standalone não contém Blender e não deve ser usado para renderizar. O Dockerfile instala Blender, Xvfb e Mesa para renderização 3D sem monitor/GPU dedicada.
+
+- Engine: `ANIMA_RENDER_ENGINE=blender`.
+- Binário: `BLENDER_BIN=blender`.
+- Porta interna padrão: `8000` (ou defina `PORT` e faça o mapeamento correspondente).
+- Volume persistente: `/data/jobs` para roteiros, perfis de voz, vídeos e tokens.
+- O endpoint de saúde informa se Blender está disponível; sem o motor 3D, a API bloqueia a renderização com mensagem explícita em vez de entregar um vídeo 2D como substituto.
 
 ## Automação e publicação — estado real
 
@@ -78,16 +81,16 @@ Saúde: http://localhost:8000/api/health
 
 Vídeos, histórico e preferências ficam persistidos em `./data`.
 
-## Publicar no iContainer (Standalone Python)
+## Publicar no iContainer (runtime Docker)
 
-O projeto pode rodar no módulo Standalone com runtime Python, sem selecionar Node.js. O repositório contém `app.py` na raiz e `requirements.txt` para o instalador do painel.
+Para renderização 3D, publique a imagem Docker construída a partir do Dockerfile. Não selecione runtime Node.js nem Python Standalone para produção de vídeos 3D.
 
-- Runtime: Python 3.13 (ou versão compatível).
-- Instalação: `pip install -r requirements.txt` (executado pelo build do painel).
-- Comando de inicialização: `python app.py`.
-- Porta: `5000` por padrão; o processo respeita a variável de ambiente `PORT` quando fornecida.
-- Volume persistente recomendado: montar em `/data/jobs` para preservar vídeos, roteiros, configurações e o token OAuth do YouTube durante novos deploys.
-- A renderização usa `imageio-ffmpeg` e `edge-tts` como alternativas portáveis. Edge TTS precisa que o servidor consiga acessar o serviço externo de voz.
+- Build: `docker build -t anima-studio-3d .`.
+- Inicialização: o Dockerfile inicia Uvicorn e Blender no modo headless via Xvfb/Mesa.
+- Porta interna: `8000` (defina `PORT` para outro valor se o painel exigir).
+- Variável: `ANIMA_RENDER_ENGINE=blender`.
+- Volume persistente: montar em `/data/jobs` para preservar vídeos, roteiros, vozes e token OAuth do YouTube.
+- Voz neural: Edge TTS exige conexão de saída à internet.
 
 ## Endpoints
 
