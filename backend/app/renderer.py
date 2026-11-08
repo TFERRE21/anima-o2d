@@ -5,6 +5,9 @@ import asyncio
 import json
 import math
 import os
+import queue
+import threading
+import time
 import shutil
 import subprocess
 import sys
@@ -406,22 +409,72 @@ def _render_blender_frames(frames: Path, fmt: str, width: int, height: int,
         text=True, bufsize=1, env=env,
     )
     tail: list[str] = []
+    lines: queue.Queue = queue.Queue()
+
+    def collect_output():
+        try:
+            if process.stdout:
+                for output_line in process.stdout:
+                    lines.put(output_line.rstrip())
+        finally:
+            lines.put(None)
+
+    reader = threading.Thread(target=collect_output, name="anima-blender-log-reader", daemon=True)
+    reader.start()
+    last_output = time.monotonic()
+    last_heartbeat = 0.0
+    idle_timeout = int(os.getenv("ANIMA_BLENDER_IDLE_TIMEOUT", "900"))
+    total_timeout = int(os.getenv("ANIMA_BLENDER_TOTAL_TIMEOUT", "10800"))
+    started = time.monotonic()
     try:
-        if process.stdout:
-            for line in process.stdout:
-                line = line.rstrip()
+        finished_reading = False
+        while not finished_reading:
+            try:
+                line = lines.get(timeout=15)
+            except queue.Empty:
+                elapsed = time.monotonic() - started
+                idle = time.monotonic() - last_output
+                if process.poll() is not None and not reader.is_alive():
+                    break
+                if elapsed > total_timeout:
+                    raise RuntimeError(
+                        f"Tempo máximo de renderização Blender excedido ({total_timeout}s). "
+                        "O processo foi encerrado para liberar o worker."
+                    )
+                if idle > idle_timeout:
+                    raise RuntimeError(
+                        f"Blender sem produzir logs/progresso por {idle_timeout}s. "
+                        "Últimas mensagens: " + " | ".join(tail[-8:])
+                    )
+                if progress_callback and time.monotonic() - last_heartbeat >= 30:
+                    last_heartbeat = time.monotonic()
+                    progress_callback(
+                        18,
+                        f"Blender trabalhando na montagem/renderização 3D; "
+                        f"última saída há {int(idle)}s."
+                    )
+                continue
+            if line is None:
+                finished_reading = True
+                continue
+            last_output = time.monotonic()
+            if line:
                 tail.append(line)
-                if len(tail) > 30:
+                if len(tail) > 40:
                     tail.pop(0)
-                if line.startswith("ANIMA_PROGRESS:"):
-                    try:
-                        _, pct, message = line.split(":", 2)
-                        if progress_callback:
-                            mapped = 14 + int(float(pct) * 0.77)
-                            progress_callback(mapped, message)
-                    except (ValueError, TypeError):
-                        pass
-        code = process.wait()
+                print("ANIMA_BLENDER_LOG: " + line, flush=True)
+            if line.startswith("ANIMA_PROGRESS:"):
+                try:
+                    _, pct, message = line.split(":", 2)
+                    if progress_callback:
+                        mapped = 14 + int(float(pct) * 0.77)
+                        progress_callback(mapped, message)
+                except (ValueError, TypeError):
+                    pass
+            elif line.startswith("ANIMA_BOOT:"):
+                if progress_callback:
+                    progress_callback(16, line.replace("ANIMA_BOOT:", "").strip())
+        code = process.wait(timeout=30)
         if code:
             raise RuntimeError("Blender 3D falhou: " + " | ".join(tail[-12:]))
     except Exception:
