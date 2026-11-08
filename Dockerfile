@@ -1,30 +1,30 @@
-FROM python:3.12-slim
+FROM python:3.13-slim
 
-# Blender runs headlessly through Xvfb + Mesa software OpenGL in CPU-only VPS containers.
+# Blender runs as its official bpy Python module; Mesa/Xvfb provide headless OpenGL
+# for Eevee on CPU-only servers. The application and bpy use the same CPython ABI.
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    blender xvfb xauth libgl1-mesa-dri libegl1 libosmesa6 \
+    xvfb xauth libgl1 libegl1 libosmesa6 libx11-6 libxi6 libxrender1 \
+    libxfixes3 libxkbcommon0 libsm6 libxext6 libxrandr2 libxinerama1 \
+    libxcursor1 libxxf86vm1 libdbus-1-3 libfontconfig1 libfreetype6 \
+    libwayland-client0 libwayland-egl1 libglib2.0-0 libstdc++6 libgomp1 \
     ffmpeg espeak-ng fonts-dejavu-core \
-    && test -x /usr/bin/blender \
-    && /usr/bin/blender --background --factory-startup --python-expr \
-       "import bpy; print('ANIMA_BLENDER_IMAGE_OK', bpy.app.version_string)" \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 COPY backend/requirements.txt ./requirements.txt
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt \
+    && python -c "import bpy; print('ANIMA_BLENDER_MODULE_OK', bpy.app.version_string)"
 
 COPY backend ./backend
 COPY web ./web
 
-# Fail the image build if either the real Blender engine or its Python scene file is missing.
+# Fail the image build if the 3D scene file cannot start under the deployed Python.
 RUN test -s /app/backend/app/blender_scene.py \
-    && /usr/bin/blender --background --factory-startup --python-exit-code 1 \
-       --python /app/backend/app/blender_scene.py -- --version-check
+    && python /app/backend/app/blender_scene.py --module --version-check
 
 ENV PYTHONPATH=/app \
     ANIMA_STORAGE=/data/jobs \
-    ANIMA_RENDER_ENGINE=blender \
-    BLENDER_BIN=/usr/bin/blender \
+    BLENDER_BACKEND=python-module \
     BLENDER_USER_CONFIG=/tmp/blender-config \
     PORT=5000
 
