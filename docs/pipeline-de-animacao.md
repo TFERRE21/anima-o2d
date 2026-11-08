@@ -1,4 +1,4 @@
-# Pipeline de histórias e animação 2D
+# Pipeline de histórias e animação 3D
 
 ## Regra central
 
@@ -12,8 +12,8 @@
 4. **Storyboard:** prepara 12 cenas com título, legenda curta e ação visual.
 5. **Prévia e revisão:** o painel mostra planeta, sinopse, valor, narração, falas individuais dos personagens, trecho escolhido para o Short e storyboard.
 6. **Aprovação do usuário:** somente após clicar em “Aprovar roteiro e gerar vídeos 2D” a fila de renderização começa.
-7. **Animação:** cenários cinematográficos diferentes por planeta e por etapa da história; personagens maiores, poses variadas, movimento de braços/pernas, partículas, objetos de missão e efeitos ambientais. O quadro não recebe legendas ou títulos sobrepostos.
-8. **Áudio:** narrador e personagens recebem vozes diferenciadas e fixas em português brasileiro; o mapa de vozes é persistido em `/data/jobs/voice-profiles.json`. O renderizador mantém uma linha do tempo por fala e anima a boca do personagem correspondente.
+7. **Animação 3D:** Blender cria cenários, câmera, iluminação, modelos volumétricos e moradores por planeta. Luna, Tomi e Pipo caminham, exploram, apontam, gesticulam, conversam, trabalham e comemoram. O quadro não recebe legendas ou títulos sobrepostos.
+8. **Áudio e diálogo:** narrador, Luna, Tomi, Pipo e moradores têm vozes fixas em português brasileiro; o mapa fica em `/data/jobs/voice-profiles.json`. A linha do tempo aciona a boca do personagem que está falando.
 9. **Render duplo:** versões horizontais e verticais com composições e tempos próprios.
 10. **Controle de qualidade:** conferir duração, arquivo MP4, áudio, legibilidade, continuidade visual e adequação para crianças.
 11. **Revisão e publicação:** aprovação editorial separada e envio ao YouTube somente após autorização do canal.
@@ -48,4 +48,6 @@ A publicação automática não é ligada por padrão. O upload/agendamento no Y
 
 ## Estado do motor
 
-O motor atual usa desenho procedural com Pillow e FFmpeg. No ICP, usa Edge TTS com vozes brasileiras fixas para narrador, Luna e Tomi, e a voz de Tomi com pitch elevado para Pipo; o mapa de vozes é salvo no volume persistente. Os personagens têm poses e boca animadas conforme a linha do tempo do áudio, mas ainda não há lip-sync por fonema nem rigging 2D profissional.
+A produção agora usa modelos 3D procedurais no Blender Workbench, com articulações simples, ciclos de caminhada, exploração, gestos, conversa, objetos de missão, cenários por bioma e câmera que acompanha os planos. A boca é animada pela linha do tempo das falas; não há ainda sincronização fonema a fonema nem rig facial de estúdio.
+
+**Runtime obrigatório:** Docker com Blender, Xvfb e Mesa. Python Standalone não contém o binário Blender e a API bloqueia a renderização nesse modo para não entregar um vídeo 2D como substituto.
