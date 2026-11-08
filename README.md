@@ -1,6 +1,6 @@
 # Anima Studio 3D — Pequenos Guardiões
 
-Estúdio web para produção de episódios infantis em 3D com Luna, Tomi, Pipo e moradores de planetas originais.
+Estúdio web para produção exclusiva de episódios infantis em 3D com Luna, Tomi, Pipo e moradores de planetas originais.
 
 ## Painel do estúdio
 
@@ -29,31 +29,31 @@ O renderizador mede a duração da faixa de áudio final e ajusta a velocidade d
 
 ## Motor de animação 3D
 
-- Renderizador baseado em **Blender 3D**, com geometria real, câmera com perspectiva ortográfica e profundidade, iluminação de estúdio, sombras, cavidade e contornos suaves.
+- Renderizador exclusivo **Blender 3D (Eevee)**, com geometria real, câmera em perspectiva, materiais PBR estilizados, iluminação de estúdio, sombras suaves, ambient occlusion e profundidade.
 - Luna, Tomi e Pipo são modelos 3D procedurais com volumes arredondados, figurinos, acessórios e articulações próprias; moradores também aparecem nos encontros. A direção visual é uma série infantil original de aventura, colorida e cinematográfica, sem reproduzir personagens, logotipo ou modelos de outra franquia.
 - Animação por cena: caminhada com ciclos de braços/pernas, exploração com deslocamento, apontar, gestos, surpresa, conversa virada entre os personagens, trabalho em equipe e comemoração.
 - Linha do tempo de voz por personagem: a boca do falante é animada durante a fala, incluindo moradores locais. As vozes ficam fixas em `/data/jobs/voice-profiles.json`.
 - Planetas têm cenários 3D diferentes conforme bioma e missão: florestas, oceanos, gelo, desertos, ilhas flutuantes, vilas, pontes, faróis, bibliotecas, equipamentos e objetos da história.
 - Câmera acompanha a ação e muda o enquadramento em cada parte do storyboard. Não são usadas caixas de legenda ou títulos sobre a imagem.
-- Blender Eevee é usado como renderizador 3D estilizado, com materiais, luzes suaves, sombras e profundidade; Workbench é fallback de compatibilidade. A saída final é codificada em 24 fps e em 1920×1080 ou 1080×1920.
+- Blender Eevee é o único renderizador de vídeo. Não existe fallback 2D nem exportação de desenho 2D. A saída final é codificada em 24 fps e em 1920×1080 ou 1080×1920.
 - Cada parágrafo da narradora está ligado à cena correspondente por marcação de tempo real do áudio; o vídeo troca de cena junto com a fala. Atores fazem a ação descrita (pouso, exploração, investigação, descoberta, conversa com moradores, trabalho em equipe, diário e retorno). Durante diálogos, a câmera favorece quem fala, o personagem falante gesticula e os demais reagem como ouvintes. A boca é animada conforme os intervalos das falas; ainda não é sincronização fonema a fonema nem rig facial profissional.
 
 ### Runtime necessário
 
-### Diagnóstico do runtime
+### Motor 3D e diagnóstico do runtime
 
-- `GET /api/health` informa `blender`, `blender_path` e `blender_scene_file`.
-- `GET /api/diagnostics` informa o caminho resolvido do executável, se `backend/app/blender_scene.py` foi copiado para a imagem, a versão do Python, o tipo de container e a permissão de escrita do volume. Não expõe segredos nem o conteúdo das variáveis de ambiente.
-- A API e o worker usam a mesma função de descoberta do binário, que verifica `BLENDER_BIN`, o `PATH` e os caminhos padrão `/usr/bin/blender` e `/usr/local/bin/blender`.
-- O Dockerfile valida durante o build que `/usr/bin/blender` existe, inicia em modo background e consegue importar `bpy`. A imagem não é considerada válida se essa verificação falhar.
+- O runtime principal é o módulo oficial `bpy==5.2.3`, instalado no mesmo CPython 3.13 da aplicação. O executável `blender` também é aceito quando está disponível.
+- A API e o worker usam `find_blender_runtime()`: primeiro procuram o executável e depois o módulo `bpy`. O mesmo mecanismo é usado em `/api/health`, `/api/health/3d` e `/api/diagnostics`.
+- `GET /api/diagnostics` informa `blender_backend` (`binary` ou `python-module`), `bpy_module_available`, se `backend/app/blender_scene.py` existe, versão do Python, FFmpeg, voz e volume.
+- A renderização chama `blender_scene.py` usando o executável ou o próprio `sys.executable` com `bpy`; não depende de `BLENDER_BIN` estar definido.
+- O projeto não contém renderizador 2D, funções de desenho Pillow ou substituição 2D. Se o motor 3D não estiver instalado, a API retorna erro explícito e não cria um vídeo alternativo.
 
-**A renderização de vídeo requer runtime Docker.** O modo Python Standalone não contém Blender e não deve ser usado para renderizar. O Dockerfile instala Blender, Xvfb e Mesa para renderização 3D sem monitor/GPU dedicada.
+**Runtime necessário:** CPython 3.13 com `bpy==5.2.3`, bibliotecas OpenGL/Mesa, Xvfb, FFmpeg e Edge TTS. O Dockerfile instala e valida essas dependências; o `requirements.txt` também inclui o módulo `bpy` para builds Python 3.13 do painel.
 
-- Engine: `ANIMA_RENDER_ENGINE=blender`.
-- Binário: `BLENDER_BIN=blender`.
-- Porta interna do app: `5000` (`PORT=5000`). O Compose publica essa porta em `${HOST_PORT:-5000}`; use `HOST_PORT=5001` para testar sem conflitar com o Standalone antigo.
+- Engine exclusiva: Blender 3D / Eevee.
+- Porta interna: `5000`.
 - Volume persistente: `/data/jobs` para roteiros, perfis de voz, vídeos e tokens.
-- O endpoint de saúde informa se Blender está disponível; sem o motor 3D, a API bloqueia a renderização com mensagem explícita em vez de entregar um vídeo 2D como substituto.
+- Healthcheck Docker: `/api/health/3d`, que só retorna sucesso quando Blender e o arquivo de cena 3D estão disponíveis.
 
 ## Automação e publicação — estado real
 
@@ -90,12 +90,11 @@ Vídeos, histórico e preferências ficam persistidos em `./data`.
 
 ## Publicar no iContainer (runtime Docker)
 
-Para renderização 3D, publique a imagem Docker construída a partir do Dockerfile. Não selecione runtime Node.js nem Python Standalone para produção de vídeos 3D.
+Para renderização 3D, publique a imagem Docker construída a partir do Dockerfile. O runtime Python deve usar CPython 3.13 e instalar o `requirements.txt`, que inclui `bpy==5.2.3`. Para Docker, use o Dockerfile do projeto.
 
 - Build: `docker build -t anima-studio-3d .`.
-- Inicialização: o Dockerfile inicia Uvicorn e Blender no modo headless via Xvfb/Mesa.
+- Inicialização: o Dockerfile inicia Uvicorn; Blender 3D é executado pelo módulo `bpy` via CPython 3.13, com Xvfb/Mesa para renderização headless.
 - Porta interna: `5000` (defina `PORT` para outro valor se o painel exigir).
-- Variável: `ANIMA_RENDER_ENGINE=blender`.
 - Volume persistente: montar em `/data/jobs` para preservar vídeos, roteiros, vozes e token OAuth do YouTube.
 - Voz neural: Edge TTS exige conexão de saída à internet.
 
