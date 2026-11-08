@@ -19,6 +19,7 @@ from pydantic import BaseModel, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from backend.app.worlds import WORLDS, build_episode_plan
 from backend.app.runtime import find_blender_binary, find_blender_runtime, has_bpy_module, inspect_bpy_module, blender_available
+from backend.app.system_deps import native_library_status
 
 ROOT = Path(__file__).resolve().parents[2]
 WEB = ROOT / "web"
@@ -138,6 +139,7 @@ def diagnostics():
         "bpy_module_available": bpy_info["available"],
         "bpy_version": bpy_info["version"],
         "bpy_import_error": bpy_info["error"],
+        "native_libraries": native_library_status(),
         "blender_scene_path": str(blender_script.resolve()),
         "blender_scene_exists": blender_script.is_file(),
         "render_engine": "blender-3d-only",
