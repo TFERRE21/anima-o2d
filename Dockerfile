@@ -1,11 +1,24 @@
 FROM python:3.12-slim
-RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg espeak-ng fonts-dejavu-core && rm -rf /var/lib/apt/lists/*
+
+# Blender runs headlessly through Xvfb + Mesa software OpenGL in CPU-only VPS containers.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    blender xvfb libgl1-mesa-dri libegl1 libosmesa6 \
+    ffmpeg espeak-ng fonts-dejavu-core \
+    && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app
 COPY backend/requirements.txt ./requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
+
 COPY backend ./backend
 COPY web ./web
-ENV PYTHONPATH=/app
-ENV ANIMA_STORAGE=/data/jobs
+
+ENV PYTHONPATH=/app \
+    ANIMA_STORAGE=/data/jobs \
+    ANIMA_RENDER_ENGINE=blender \
+    BLENDER_BIN=blender \
+    BLENDER_USER_CONFIG=/tmp/blender-config \
+    PORT=8000
+
 EXPOSE 8000
-CMD ["uvicorn","backend.app.main:app","--host","0.0.0.0","--port","8000"]
+CMD ["sh","-c","uvicorn backend.app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
