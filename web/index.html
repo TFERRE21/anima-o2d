@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Anima 2D Studio — Pequenos Guardiões</title>
+<title>Anima Studio 3D — Pequenos Guardiões</title>
 <style>
 :root{color-scheme:dark;font-family:Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,sans-serif;background:#080e1c;color:#edf3ff;--panel:#101a2c;--panel2:#0c1628;--line:#263a59;--muted:#91a5c4;--blue:#79aaff;--mint:#70dfb3;--gold:#f6ca69}
 *{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at 72% -10%,#203d70 0,transparent 34%),#080e1c}button,input,textarea,select{font:inherit}button{cursor:pointer}
@@ -27,7 +27,7 @@
 <nav class="nav">
 <button data-page="publishing"><span class="ico">↗</span><span class="txt">YouTube & postagens</span></button>
 </nav>
-<div class="sidebottom">ANIMA 2D STUDIO<br>Pequenas histórias. Grandes valores.</div>
+<div class="sidebottom">ANIMA STUDIO 3D<br>Pequenas histórias. Grandes valores.</div>
 </aside>
 <main class="main">
 <header class="topbar"><div><div class="eyebrow">CENTRAL DE PRODUÇÃO</div><h1 id="pageTitle">Visão geral</h1></div><div class="topright"><span class="statuspill" id="systemStatus">● Sistema conectado</span><div class="avatar">✦</div></div></header>
@@ -118,7 +118,7 @@
 </div>
 <div class="card" style="margin-top:16px"><div class="cardhead"><h3>Checklist antes de publicar</h3></div><div class="pipeline"><div class="pipe"><span class="pipen">✓</span><div><b>Vídeo renderizado</b><small>Verificar imagem, áudio e duração.</small></div></div><div class="pipe"><span class="pipen">✓</span><div><b>Revisão de conteúdo infantil</b><small>Conferir linguagem, segurança e mensagem educativa.</small></div></div><div class="pipe"><span class="pipen">3</span><div><b>Metadados e miniatura</b><small>Título, descrição, classificação de público infantil e thumbnail.</small></div></div><div class="pipe"><span class="pipen">4</span><div><b>Upload autorizado</b><small>Enviar e acompanhar o processamento no YouTube Studio.</small></div></div></div></div>
 </section>
-<div class="footer">ANIMA 2D STUDIO · Pequenos Guardiões — A Liga do Bem · Painel em evolução</div>
+<div class="footer">ANIMA STUDIO 3D · Pequenos Guardiões — A Liga do Bem · Painel em evolução</div>
 </main>
 </div>
 <script>
@@ -176,8 +176,9 @@ async function loadDashboard(){
   const missing=[];
   if(!health.ffmpeg)missing.push('FFmpeg');
   if(!health.tts)missing.push('voz');
+  if(!health.blender)missing.push('Blender 3D (use runtime Docker)');
   if(!health.storage_writable)missing.push('armazenamento');
-  $('systemStatus').textContent=missing.length?'● API online · falta '+missing.join(', '):'● Sistema conectado · mídia pronta';
+  $('systemStatus').textContent=missing.length?'● API online · falta '+missing.join(', '):'● Blender 3D conectado · vozes e mídia prontas';
   $('systemStatus').style.color=missing.length?'#f5d28d':'#9ce8cb';
   youtubeConnected=!!d.youtube.connected;
   $('ytBadge').textContent=youtubeConnected?'CANAL CONECTADO':(d.youtube.configured?'PRONTO PARA CONECTAR':'AGUARDANDO CONFIGURAÇÃO');
