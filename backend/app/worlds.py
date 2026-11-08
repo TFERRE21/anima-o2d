@@ -159,6 +159,7 @@ def build_episode_plan(episode_number: int, used_planets: set[str] | None = None
     short_audio_words = sum(len(item["text"].split()) for item in short_segments)
     return {
         "title": title, "planet": planet, "biome": world["biome"], "palette": world["palette"],
+        "mission_object": mission["object"], "landmark": world["landmark"], "inhabitants": world["inhabitants"],
         "value": value, "challenge": mission["problem"], "synopsis": f"Em {planet}, os amigos ajudam os habitantes a resolver um desafio e aprendem sobre {value}.",
         "story": " ".join(long_script) + " " + long_dialogue_script,
         "long_script": " ".join(long_script), "dialogues": dialogues,
