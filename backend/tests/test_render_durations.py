@@ -4,12 +4,37 @@ import unittest
 from pathlib import Path
 
 from backend.app.worlds import build_episode_plan
-from backend.app.renderer import render_episode
+from PIL import ImageChops
+
+from backend.app.renderer import render_episode, draw_scene_frame, VOICE_PROFILE
 
 
 @unittest.skipUnless(shutil.which("ffmpeg") and shutil.which("ffprobe") and shutil.which("espeak-ng"),
                      "FFmpeg/ffprobe/espeak-ng not installed")
 class RenderDurationTests(unittest.TestCase):
+    def test_scene_art_changes_without_text_overlays_and_voice_cast_is_stable(self):
+        first = draw_scene_frame(
+            (270, 480), ("A CHEGADA", "Legenda não deve aparecer", ""), 0, 5,
+            True, "Aurora-7", biome="florestas de cristais", mission_object="farol",
+            landmark="Grande Bosque"
+        )
+        reveal = draw_scene_frame(
+            (270, 480), ("A SURPRESA", "Outra legenda que não deve aparecer", ""), 7, 5,
+            True, "Aurora-7", biome="florestas de cristais", mission_object="farol",
+            landmark="Grande Bosque"
+        )
+        self.assertEqual(first.size, (270, 480))
+        self.assertIsNotNone(ImageChops.difference(first, reveal).getbbox())
+        self.assertEqual(
+            {name: profile["voice"] for name, profile in VOICE_PROFILE.items()},
+            {
+                "Narrador": "pt-BR-ThalitaMultilingualNeural",
+                "Luna": "pt-BR-FranciscaNeural",
+                "Tomi": "pt-BR-AntonioNeural",
+                "Pipo": "pt-BR-AntonioNeural",
+            },
+        )
+
     def test_horizontal_and_vertical_duration_contracts(self):
         plan = build_episode_plan(0)
         with tempfile.TemporaryDirectory(prefix="anima2d-test-") as tmp:
