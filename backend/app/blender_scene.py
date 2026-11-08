@@ -756,6 +756,7 @@ def add_stage_lighting(stage_centers):
 
 
 def render(config: dict):
+    report(2, "Iniciando motor Blender e preparando a cena 3D.")
     portrait = config["format"] == "9:16"
     width, height = config["resolution"]
     fps = float(config["fps"])
@@ -767,6 +768,7 @@ def render(config: dict):
     out_dir = Path(config["frames_dir"])
     out_dir.mkdir(parents=True, exist_ok=True)
 
+    report(5, "Carregando modelos 3D e materiais.")
     bpy.ops.object.select_all(action="SELECT")
     bpy.ops.object.delete(use_global=False)
     scene = bpy.context.scene
@@ -798,7 +800,7 @@ def render(config: dict):
     scene.display.shading.curvature_valley_factor = 1.15
     scene.display.shading.show_specular_highlight = True
     if hasattr(scene, "eevee"):
-        scene.eevee.taa_render_samples = 24
+        scene.eevee.taa_render_samples = 8
         if hasattr(scene.eevee, "use_gtao"):
             scene.eevee.use_gtao = True
             scene.eevee.gtao_distance = 3.0
@@ -828,6 +830,7 @@ def render(config: dict):
         models["source_index"] = source_index
         stage_models.append(models)
 
+    report(12, "Montando iluminação e câmeras dos cenários.")
     add_stage_lighting([model["center"] for model in stage_models])
     camera = create_camera(portrait, 0)
     report(18, "Personagens 3D, cenário e câmera preparados.")
