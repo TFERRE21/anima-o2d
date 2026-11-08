@@ -578,15 +578,17 @@ def animate_actor(actor, global_time, local_time, action, speaking=False, side=0
         root.location.x = actor["base_x"] + math.sin(local_time * math.pi * 2 + side) * 0.30 + (local_time - 0.5) * (0.58 if side == 0 else -0.42)
         root.location.z = actor["base_z"] + abs(math.sin(phase)) * 0.055
         swing = math.sin(phase) * 0.58
-        if actor["legs"]:
+        if actor["kind"] == "Pipo":
+            # Pipo is a four-legged puppy: swing legs in the front/back plane.
+            actor["legs"][0].rotation_euler[0] = swing
+            actor["legs"][1].rotation_euler[0] = -swing
+            actor["arms"][0].rotation_euler[0] = -swing * 0.90
+            actor["arms"][1].rotation_euler[0] = swing * 0.90
+        else:
             actor["legs"][0].rotation_euler[1] = swing
             actor["legs"][1].rotation_euler[1] = -swing
-        if actor["kind"] != "Pipo":
             actor["arms"][0].rotation_euler[1] = -swing * 0.78
             actor["arms"][1].rotation_euler[1] = swing * 0.78
-        else:
-            actor["arms"][0].rotation_euler[1] = -swing * 0.65
-            actor["arms"][1].rotation_euler[1] = swing * 0.65
     else:
         actor["root"].location.x = actor["base_x"] + math.sin(local_time * 2.3 + side) * 0.08
         actor["root"].location.z = actor["base_z"] + abs(math.sin(global_time * 2.4 + side)) * 0.018
@@ -653,9 +655,12 @@ def animate_actor(actor, global_time, local_time, action, speaking=False, side=0
             actor["arms"][1].rotation_euler[1] = math.sin(global_time * 3) * 0.16
     elif actor["kind"] == "Pipo":
         actor["head"].rotation_euler[1] = math.sin(global_time * 2.1) * (0.18 if action == "sniff" else 0.05)
-        actor["tail"].rotation_euler[0] = math.sin(global_time * 11) * 0.75
-        actor["arms"][0].rotation_euler[1] = math.sin(phase) * 0.25
-        actor["arms"][1].rotation_euler[1] = -math.sin(phase) * 0.25
+        actor["tail"].rotation_euler[2] = math.sin(global_time * 11) * 0.55
+        if not walk:
+            actor["arms"][0].rotation_euler[0] = math.sin(global_time * 2.6) * 0.06
+            actor["arms"][1].rotation_euler[0] = -math.sin(global_time * 2.6) * 0.06
+            actor["legs"][0].rotation_euler[0] = math.sin(global_time * 2.2) * 0.035
+            actor["legs"][1].rotation_euler[0] = -math.sin(global_time * 2.2) * 0.035
     else:
         actor["head"].rotation_euler[1] = math.sin(global_time * 2.2) * 0.12
     # Turn the two humans subtly toward one another when they are talking.
@@ -667,8 +672,12 @@ def animate_actor(actor, global_time, local_time, action, speaking=False, side=0
     mouth = actor["mouth"]
     if speaking and math.sin(global_time * 18.0) > -0.25:
         mouth.scale.z = 0.125
+        if actor.get("tongue"):
+            actor["tongue"].scale.z = 0.065
     else:
         mouth.scale.z = 0.035
+        if actor.get("tongue"):
+            actor["tongue"].scale.z = 0.018
 
 
 def create_camera(portrait, cx):
