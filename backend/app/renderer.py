@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Callable
 from PIL import Image, ImageDraw, ImageFont
 
-FPS = 8
+FPS = 6
 SCENE_SECONDS = 4
 SCENES = [
     ("UM DIA NA ESCOLA", "Na escola do bairro, algumas mochilas aparecem trocadas.", "school"),
