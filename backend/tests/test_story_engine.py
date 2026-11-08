@@ -13,7 +13,7 @@ class StoryEngineTests(unittest.TestCase):
             self.assertNotIn(plan["planet"], used)
             self.assertNotIn(plan["title"], titles)
             self.assertNotIn(plan["long_script"], stories)
-            self.assertEqual(len(plan["scenes"]), 12)
+            self.assertEqual(len(plan["scenes"]), 15)
             self.assertEqual(plan["characters"], ["Luna", "Tomi", "Pipo"])
             used.add(plan["planet"])
             titles.add(plan["title"])
@@ -51,6 +51,8 @@ class StoryEngineTests(unittest.TestCase):
         self.assertEqual(plan["duration_targets"]["9:16"]["min_seconds"], 60)
         self.assertEqual(plan["duration_targets"]["9:16"]["max_seconds"], 90)
         self.assertTrue(plan["short_scene_indices"])
+        self.assertEqual([item["scene"] for item in plan["audio_segments_long"] if item["speaker"] == "Narrador"], list(range(15)))
+        self.assertEqual(plan["short_scene_indices"], [7, 8, 9, 10, 11])
 
 
 if __name__ == "__main__":
