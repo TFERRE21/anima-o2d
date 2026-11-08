@@ -401,6 +401,105 @@ def draw_scene_frame(size, scene, index, frame, portrait, planet_name="Aurora-7"
         for j in range(7):
             xx=w*(.12+j*.12)
             d.ellipse((xx,ground-h*.14-math.sin(t*2+j)*h*.02,xx+h*.028,ground-h*.11),fill=light)
+    # Every planet has a recognizable landmark that anchors the episode visually.
+    landmark_key=(landmark or "").lower()
+    if landmark and index in (1,2,8,10):
+        lx=w*.82 if portrait else w*.82
+        ly=h*.53
+        if any(k in landmark_key for k in ("bosque","jardim","campo","floresta")):
+            for j in range(3):
+                tx=lx+(j-1)*h*.10
+                d.line((tx,ly+h*.22,tx,ly-h*.02),fill="#765642",width=max(4,int(h*.018)))
+                d.ellipse((tx-h*.075,ly-h*.20,tx+h*.075,ly+h*.02),fill=_mix_hex(accent,light,.28+j*.10),outline=light,width=max(1,int(h*.004)))
+                _draw_flower(d,tx,ly-h*.10,h*.025,"#fff0b5","#f8c54c")
+        elif "ponte" in landmark_key:
+            d.arc((lx-h*.22,ly-h*.08,lx+h*.22,ly+h*.26),180,360,fill=light,width=max(4,int(h*.018)))
+            d.line((lx-h*.22,ly+h*.09,lx+h*.22,ly+h*.09),fill="#e7d4a5",width=max(4,int(h*.025)))
+            for j in range(5):
+                xx=lx-h*.17+j*h*.085
+                d.line((xx,ly-h*.01,xx,ly+h*.10),fill="#f6e2bc",width=max(2,int(h*.008)))
+        elif any(k in landmark_key for k in ("gruta","caverna","montanha")):
+            d.arc((lx-h*.20,ly-h*.26,lx+h*.20,ly+h*.23),180,360,fill=light,width=max(5,int(h*.025)))
+            d.ellipse((lx-h*.12,ly-h*.04,lx+h*.12,ly+h*.22),fill="#172948")
+            d.polygon([(lx-h*.2,ly+h*.10),(lx-h*.12,ly-h*.16),(lx,ly-h*.25),(lx+h*.14,ly-h*.12),(lx+h*.2,ly+h*.10)],fill=_mix_hex(terrain,accent,.35))
+        elif any(k in landmark_key for k in ("estação","estacao","lua","anel")):
+            d.ellipse((lx-h*.20,ly-h*.16,lx+h*.20,ly+h*.16),outline=light,width=max(4,int(h*.018)))
+            d.ellipse((lx-h*.09,ly-h*.10,lx+h*.09,ly+h*.10),fill=accent,outline="#f5e9c4",width=max(2,int(h*.008)))
+            d.arc((lx-h*.29,ly-h*.09,lx+h*.29,ly+h*.20),195,350,fill="#f7d78b",width=max(3,int(h*.009)))
+        elif any(k in landmark_key for k in ("farol","observatório","observatorio")):
+            d.rounded_rectangle((lx-h*.07,ly-h*.08,lx+h*.07,ly+h*.28),radius=int(h*.018),fill="#f3e5c2",outline="#34445a",width=max(2,int(h*.007)))
+            d.polygon([(lx-h*.10,ly-h*.08),(lx,ly-h*.22),(lx+h*.10,ly-h*.08)],fill="#e47d65",outline="#34445a")
+            d.ellipse((lx-h*.08,ly-h*.22,lx+h*.08,ly-h*.06),fill=light)
+        else:
+            d.rounded_rectangle((lx-h*.16,ly-h*.14,lx+h*.16,ly+h*.24),radius=int(h*.025),fill=_mix_hex(terrain,accent,.45),outline=light,width=max(2,int(h*.008)))
+            d.polygon([(lx-h*.19,ly-h*.14),(lx,ly-h*.34),(lx+h*.19,ly-h*.14)],fill=_mix_hex(accent,light,.52))
+            for j in range(3):
+                d.rounded_rectangle((lx-h*.10+j*h*.07,ly, lx-h*.06+j*h*.07,ly+h*.08),radius=3,fill="#fff0b5")
+
+    # The same mission object is staged differently for each story beat.
+    if index==3:
+        # The problem is revealed with a spotlight and warning pulses, not a static icon.
+        prop_x=w*(.73 if index%2 else .27)
+        prop_y=h*.60
+        d.polygon([(prop_x-h*.24,h*.18),(prop_x+h*.24,h*.18),(prop_x+h*.15,prop_y),(prop_x-h*.15,prop_y)],fill=_mix_hex(sky,light,.78))
+        for ray in range(8):
+            a=math.radians(ray*45+t*12)
+            d.line((prop_x+math.cos(a)*h*.18,prop_y+math.sin(a)*h*.18,
+                    prop_x+math.cos(a)*h*.26,prop_y+math.sin(a)*h*.26),
+                   fill="#ffe6a1",width=max(2,int(h*.007)))
+    elif index==4:
+        # Discovery: a large magnifying lens and a clear trail to the clue.
+        mx,my=w*.22,h*.54
+        d.ellipse((mx-h*.09,my-h*.09,mx+h*.09,my+h*.09),outline="#effaff",width=max(4,int(h*.014)))
+        d.line((mx+h*.055,my+h*.055,mx+h*.15,my+h*.16),fill="#f3d49c",width=max(6,int(h*.022)))
+        for j in range(4):
+            px=w*(.43+j*.075)
+            py=h*(.72-j*.035)
+            d.ellipse((px-h*.018,py-h*.012,px+h*.018,py+h*.012),fill="#fff0be")
+    elif index==6:
+        # Pipo's discovery is supported by moving paw prints across the foreground.
+        for j in range(5):
+            px=w*(.17+j*.075)+math.sin(t*2+j)*w*.008
+            py=h*(.76-j*.045)
+            d.ellipse((px-h*.018,py-h*.015,px+h*.018,py+h*.015),fill="#f6d7ae")
+            d.ellipse((px-h*.035,py-h*.045,px-h*.020,py-h*.025),fill="#f6d7ae")
+            d.ellipse((px-h*.010,py-h*.052,px+h*.010,py-h*.029),fill="#f6d7ae")
+            d.ellipse((px+h*.020,py-h*.043,px+h*.035,py-h*.023),fill="#f6d7ae")
+    elif index==7:
+        # Twist/reversal: bright energy rings and radial rays create a dramatic reveal.
+        cx,cy=w*.50,h*.49
+        pulse=math.sin(t*4)*h*.018
+        for ring in range(4):
+            radius=h*(.12+ring*.055)+pulse
+            d.ellipse((cx-radius,cy-radius,cx+radius,cy+radius),outline=_mix_hex(light,"#ffffff",.4),width=max(2,int(h*.006)))
+        for ray in range(16):
+            a=math.radians(ray*22.5+t*9)
+            d.line((cx+math.cos(a)*h*.16,cy+math.sin(a)*h*.16,
+                    cx+math.cos(a)*h*.28,cy+math.sin(a)*h*.28),
+                   fill="#fff1ba",width=max(2,int(h*.005)))
+    elif index==8:
+        # Community conversation: an open circle of seats keeps the scene social.
+        cx,cy=w*.50,h*.73
+        for seat in range(5):
+            a=math.radians(205+seat*32)
+            sx=cx+math.cos(a)*w*.18
+            sy=cy+math.sin(a)*h*.07
+            d.rounded_rectangle((sx-h*.035,sy-h*.018,sx+h*.035,sy+h*.02),radius=int(h*.01),fill="#d7b57d",outline="#54445b",width=max(1,int(h*.004)))
+    elif index==9:
+        # Teamwork: work lights and safe construction rails appear around the mission.
+        for j in range(4):
+            xx=w*(.20+j*.20)
+            d.line((xx,h*.57,xx,h*.79),fill="#f0d7a5",width=max(2,int(h*.006)))
+            d.line((xx-h*.045,h*.61,xx+h*.045,h*.61),fill="#f0d7a5",width=max(2,int(h*.008)))
+        d.line((w*.12,h*.78,w*.88,h*.78),fill="#f5d18b",width=max(3,int(h*.012)))
+    elif index==10:
+        # Celebration: ribbons and petals fill the sky after the problem is solved.
+        for j in range(9):
+            px=(w*(.07+j*.105)+math.sin(t*1.2+j)*w*.025)%w
+            py=h*(.19+(j%4)*.07)+math.cos(t*1.7+j)*h*.012
+            _draw_flower(d,px,py,h*.022,("#ff9dc8","#ffe9a8","#a8f0cb")[j%3],"#fff4d2")
+        d.arc((w*.08,h*.18,w*.92,h*.72),190,350,fill="#ffe4a6",width=max(3,int(h*.008)))
+
     # Small details, drifting particles and foreground plants add depth
     for j in range(15):
         xx=(j*w/15+math.sin(t*.8+j)*w*.012)%w
