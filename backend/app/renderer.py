@@ -308,15 +308,15 @@ def draw_scene_frame(size, scene, index, frame, portrait, planet_name="Aurora-7"
         mix=yy/h
         col=_mix_hex(sky,terrain,.20+mix*.46)
         d.line((0,yy,w,yy),fill=col)
-    glow_layer=Image.new("RGBA",(w,h),(0,0,0,0))
-    gd=ImageDraw.Draw(glow_layer)
     glow_x=w*(.70 if index%2 else .28)+math.sin(t*.28)*w*.025
     glow_y=h*(.29 if index in (0,1,11) else .49)
     radius=int(h*.24)
-    gd.ellipse((glow_x-radius,glow_y-radius,glow_x+radius,glow_y+radius),fill=(100,230,218,32))
-    glow_layer=glow_layer.filter(__import__("PIL.ImageFilter",fromlist=["GaussianBlur"]).GaussianBlur(max(8,int(h*.055))))
-    im=Image.alpha_composite(im.convert("RGBA"),glow_layer)
-    d=ImageDraw.Draw(im)
+    # Concentric soft halos avoid an expensive full-frame Gaussian blur per frame.
+    for halo in range(5,0,-1):
+        halo_radius=int(radius*(.42+halo*.18))
+        halo_color=_mix_hex(sky,light,.025+halo*.018)
+        d.ellipse((glow_x-halo_radius,glow_y-halo_radius,
+                   glow_x+halo_radius,glow_y+halo_radius),fill=halo_color)
     # Layered distant planet, moons and moving starfield
     for k in range(68):
         sx=(k*137+int(t*(5+k%4)*(.4 if k%3 else 1.0)))%w
