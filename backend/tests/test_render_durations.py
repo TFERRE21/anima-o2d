@@ -10,8 +10,8 @@ import backend.app.renderer as renderer
 from backend.app.renderer import render_episode, draw_scene_frame, VOICE_PROFILE
 
 
-@unittest.skipUnless(shutil.which("ffmpeg") and shutil.which("ffprobe") and shutil.which("espeak-ng"),
-                     "FFmpeg/ffprobe/espeak-ng not installed")
+@unittest.skipUnless(shutil.which("ffmpeg") and shutil.which("ffprobe") and shutil.which("espeak-ng") and shutil.which("blender"),
+                     "FFmpeg/ffprobe/espeak-ng/Blender not installed")
 class RenderDurationTests(unittest.TestCase):
     def test_scene_art_changes_without_text_overlays_and_voice_cast_is_stable(self):
         first = draw_scene_frame(
@@ -42,10 +42,10 @@ class RenderDurationTests(unittest.TestCase):
             root = Path(tmp)
             long_video = root / "episode-16x9.mp4"
             short_video = root / "episode-9x16.mp4"
-            # Keep the integration test lightweight while still exercising actual
-            # audio synthesis, frame writing, FFmpeg encoding, duration and resolution.
+            # Keep CI lightweight while still running Blender, rendering real 3D
+            # geometry, synthesizing dialogue and validating final MP4 duration/resolution.
             original_fps = renderer.FPS
-            renderer.FPS = 1
+            renderer.FPS = 0.04
             try:
                 long_result = render_episode(
                     plan["title"], plan["long_script"], "16:9", long_video, root,
@@ -69,6 +69,8 @@ class RenderDurationTests(unittest.TestCase):
             self.assertEqual(short_result["scene_count"], len(plan["short_scene_indices"]))
             self.assertEqual(long_result["resolution"], "1920x1080")
             self.assertEqual(short_result["resolution"], "1080x1920")
+            self.assertEqual(long_result["render_engine"], "Blender 3D")
+            self.assertEqual(short_result["render_engine"], "Blender 3D")
 
 
 if __name__ == "__main__":
