@@ -40,6 +40,13 @@ O renderizador mede a duração da faixa de áudio final e ajusta a velocidade d
 
 ### Runtime necessário
 
+### Diagnóstico do runtime
+
+- `GET /api/health` informa `blender`, `blender_path` e `blender_scene_file`.
+- `GET /api/diagnostics` informa o caminho resolvido do executável, se `backend/app/blender_scene.py` foi copiado para a imagem, a versão do Python, o tipo de container e a permissão de escrita do volume. Não expõe segredos nem o conteúdo das variáveis de ambiente.
+- A API e o worker usam a mesma função de descoberta do binário, que verifica `BLENDER_BIN`, o `PATH` e os caminhos padrão `/usr/bin/blender` e `/usr/local/bin/blender`.
+- O Dockerfile valida durante o build que `/usr/bin/blender` existe, inicia em modo background e consegue importar `bpy`. A imagem não é considerada válida se essa verificação falhar.
+
 **A renderização de vídeo requer runtime Docker.** O modo Python Standalone não contém Blender e não deve ser usado para renderizar. O Dockerfile instala Blender, Xvfb e Mesa para renderização 3D sem monitor/GPU dedicada.
 
 - Engine: `ANIMA_RENDER_ENGINE=blender`.
