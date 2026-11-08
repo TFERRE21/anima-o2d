@@ -400,8 +400,9 @@ def animate_actor(actor, global_time, local_time, action, speaking=False, side=0
         root.location.x = actor["base_x"] + math.sin(local_time * math.pi * 2 + side) * 0.30 + (local_time - 0.5) * (0.58 if side == 0 else -0.42)
         root.location.z = actor["base_z"] + abs(math.sin(phase)) * 0.055
         swing = math.sin(phase) * 0.58
-        actor["legs"][0].rotation_euler[1] = swing
-        actor["legs"][1].rotation_euler[1] = -swing
+        if actor["legs"]:
+            actor["legs"][0].rotation_euler[1] = swing
+            actor["legs"][1].rotation_euler[1] = -swing
         if actor["kind"] != "Pipo":
             actor["arms"][0].rotation_euler[1] = -swing * 0.78
             actor["arms"][1].rotation_euler[1] = swing * 0.78
@@ -411,8 +412,9 @@ def animate_actor(actor, global_time, local_time, action, speaking=False, side=0
     else:
         actor["root"].location.x = actor["base_x"] + math.sin(local_time * 2.3 + side) * 0.08
         actor["root"].location.z = actor["base_z"] + abs(math.sin(global_time * 2.4 + side)) * 0.018
-        actor["legs"][0].rotation_euler[1] = math.sin(global_time * 2.4 + side) * 0.035
-        actor["legs"][1].rotation_euler[1] = -math.sin(global_time * 2.4 + side) * 0.035
+        if actor["legs"]:
+            actor["legs"][0].rotation_euler[1] = math.sin(global_time * 2.4 + side) * 0.035
+            actor["legs"][1].rotation_euler[1] = -math.sin(global_time * 2.4 + side) * 0.035
     # Gesture language changes with each beat: investigate, explain, react, cooperate.
     if actor["kind"] == "Luna":
         if walk:
