@@ -94,8 +94,27 @@ finally {
 }
 
 $pngCount = @(Get-ChildItem -Path $FramesDir -Filter "frame-*.png" -ErrorAction SilentlyContinue).Count
-$secondsPerFrame = if ($pngCount -gt 0) { [math]::Round($timer.Elapsed.TotalSeconds / $pngCount, 3) } else { $null }
-$estimate771 = if ($secondsPerFrame) { [math]::Round($secondsPerFrame * 771 / 60, 1) } else { $null }
+$timing = $null
+$stageTimings = @()
+if (Test-Path $BlenderLog) {
+    foreach ($line in Get-Content $BlenderLog) {
+        if ($line -match 'ANIMA_RENDER_TIMING:(\{.*\})') {
+            try { $timing = $Matches[1] | ConvertFrom-Json } catch { $timing = $null }
+        }
+        if ($line -match 'ANIMA_STAGE_TIMING:(\{.*\})') {
+            try { $stageTimings += ($Matches[1] | ConvertFrom-Json) } catch { }
+        }
+    }
+}
+$secondsPerFrame = if ($timing -and $timing.seconds_per_frame) {
+    [math]::Round([double]$timing.seconds_per_frame, 4)
+} else { $null }
+$setupSeconds = if ($timing) { [math]::Round([double]$timing.setup_seconds, 2) } else { $null }
+$renderSeconds = if ($timing) { [math]::Round([double]$timing.render_seconds, 2) } else { $null }
+# Extrapolate only frame-render time; scene setup is paid once per output video.
+$estimate771 = if ($secondsPerFrame -and $setupSeconds -ne $null) {
+    [math]::Round(($setupSeconds + ($secondsPerFrame * 771)) / 60, 1)
+} else { $null }
 
 $result = [ordered]@{
     status = if ($code -eq 0 -and $pngCount -eq $Frames) { "ok" } else { "error" }
@@ -106,8 +125,11 @@ $result = [ordered]@{
     resolution = "360x640"
     samples = $Samples
     total_seconds = [math]::Round($timer.Elapsed.TotalSeconds, 2)
-    seconds_per_frame_including_scene_setup = $secondsPerFrame
-    estimated_minutes_for_771_frames = $estimate771
+    setup_seconds = $setupSeconds
+    render_seconds = $renderSeconds
+    seconds_per_frame_render_only = $secondsPerFrame
+    estimated_minutes_for_771_frames_plus_one_setup = $estimate771
+    stage_timings = $stageTimings
     exit_code = $code
     frames_directory = $FramesDir
     blender_log = $BlenderLog
