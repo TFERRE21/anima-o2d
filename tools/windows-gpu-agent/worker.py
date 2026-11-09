@@ -22,11 +22,50 @@ def request_json(base, route, token, method="GET", payload=None, timeout=35):
         return json.loads(raw.decode("utf-8")) if raw else {}
 
 def upload_zip(base, route, token, path):
-    req = urllib.request.Request(base.rstrip("/") + route, data=pathlib.Path(path).read_bytes(),
-        method="POST", headers={"Authorization": "Bearer " + token,
-        "Content-Type": "application/zip"})
-    with urllib.request.urlopen(req, timeout=300) as response:
-        return json.loads(response.read().decode("utf-8"))
+    """Upload a ZIP in small retryable chunks to survive reverse-proxy limits."""
+    chunk_size = 8 * 1024 * 1024
+    file_size = pathlib.Path(path).stat().st_size
+    total_chunks = (file_size + chunk_size - 1) // chunk_size
+    if total_chunks < 1:
+        raise RuntimeError("Pacote ZIP vazio.")
+
+    def send_chunk(index, chunk):
+        url = base.rstrip("/") + route + "/chunks/" + str(index)
+        last_error = None
+        for attempt in range(5):
+            req = urllib.request.Request(url, data=chunk, method="POST",
+                headers={"Authorization": "Bearer " + token,
+                         "Content-Type": "application/octet-stream"})
+            try:
+                with urllib.request.urlopen(req, timeout=120) as response:
+                    response.read()
+                return
+            except (urllib.error.URLError, TimeoutError, OSError) as exc:
+                last_error = exc
+                if attempt == 4:
+                    break
+                delay = min(20, 2 ** attempt)
+                print("ANIMA_UPLOAD_RETRY chunk=" + str(index) +
+                      " attempt=" + str(attempt + 1) + " wait=" + str(delay) +
+                      "s error=" + str(exc), flush=True)
+                time.sleep(delay)
+        raise RuntimeError("Falha ao enviar bloco " + str(index) +
+                           "/" + str(total_chunks) + ": " + str(last_error))
+
+    with pathlib.Path(path).open("rb") as source:
+        for index in range(total_chunks):
+            chunk = source.read(chunk_size)
+            if not chunk:
+                raise RuntimeError("Arquivo ZIP terminou antes do esperado.")
+            send_chunk(index, chunk)
+            print("ANIMA_UPLOAD_PROGRESS " + str(index + 1) + "/" +
+                  str(total_chunks), flush=True)
+
+    result = request_json(base, route + "/finalize", token, method="POST",
+                          payload={"total_chunks": total_chunks}, timeout=120)
+    if result.get("status") != "done":
+        raise RuntimeError("VPS não confirmou a montagem do ZIP: " + str(result))
+    return result
 
 def main():
     parser = argparse.ArgumentParser(description="Anima Studio 3D RX580 worker")
