@@ -807,7 +807,7 @@ def render(config: dict):
     if hasattr(scene, "eevee"):
         # Six temporal samples are a quality/speed compromise for the 3D Shorts.
         # Keep this configurable so a higher-quality render can be requested later.
-        sample_count = max(2, min(16, int(os.getenv("ANIMA_EEVEE_SAMPLES", "6"))))
+        sample_count = max(2, min(16, int(os.getenv("ANIMA_EEVEE_SAMPLES", "8"))))
         if hasattr(scene.eevee, "taa_render_samples"):
             scene.eevee.taa_render_samples = sample_count
         elif hasattr(scene.eevee, "taa_samples"):
@@ -828,7 +828,7 @@ def render(config: dict):
     scene.render.fps = 24
     # Render slightly below the already-small working resolution, then upscale
     # to 1080p in FFmpeg. The final output dimensions and aspect ratio do not change.
-    render_scale = max(70, min(100, int(os.getenv("ANIMA_RENDER_SCALE", "85"))))
+    render_scale = max(70, min(100, int(os.getenv("ANIMA_RENDER_SCALE", "100"))))
     scene.render.resolution_percentage = render_scale
     # Eevee renders the original 3D models with studio lighting, material response and depth;
     # Workbench remains a compatibility fallback on Blender builds without Eevee.
