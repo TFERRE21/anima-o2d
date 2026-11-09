@@ -345,6 +345,7 @@ def diagnostics():
         "bpy_version": bpy_info["version"],
         "bpy_import_error": bpy_info["error"],
         "native_libraries": native_library_status(),
+        "native_library_bootstrap": NATIVE_LIBRARY_BOOTSTRAP,
         "blender_scene_path": str(blender_script.resolve()),
         "blender_scene_exists": blender_script.is_file(),
         "render_engine": "blender-3d-only",
