@@ -60,7 +60,8 @@ $config = @{
     }
     voice_timeline = @()
 }
-$config | ConvertTo-Json -Depth 8 | Set-Content -Path $ConfigPath -Encoding UTF8
+$configJson = $config | ConvertTo-Json -Depth 8
+[System.IO.File]::WriteAllText($ConfigPath, $configJson, (New-Object System.Text.UTF8Encoding($false)))
 
 $env:ANIMA_EEVEE_SAMPLES = "$Samples"
 $env:ANIMA_RENDER_SCALE = "100"
