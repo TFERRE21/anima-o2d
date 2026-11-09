@@ -124,6 +124,13 @@ async def create_worker_task(request: Request, authorization: str | None = Heade
     WORKER_QUEUE.put(task_id)
     return {"task_id": task_id, "status": "queued"}
 
+@app.post("/api/worker/heartbeat")
+def worker_heartbeat(worker_id: str = "windows-rx580",
+                     authorization: str | None = Header(default=None)):
+    _require_worker_token(authorization)
+    WORKER_LAST_SEEN[worker_id] = time.time()
+    return {"ok": True, "worker_id": worker_id}
+
 @app.get("/api/worker/next")
 def claim_worker_task(worker_id: str = "windows-rx580",
                       authorization: str | None = Header(default=None)):
