@@ -139,7 +139,7 @@ def main():
                     with zipfile.ZipFile(archive, "w", compression=zipfile.ZIP_STORED) as zf:
                         for frame in sorted(frames.glob("frame-*.png")):
                             zf.write(frame, frame.name)
-                    upload_zip(args.server, "/api/worker/tasks/" + task_id + "/complete",
+                    upload_zip(args.server, "/api/worker/tasks/" + task_id,
                                args.token, archive)
                     print("ANIMA_WORKER_DONE " + task_id + " (" + str(actual) + " frames)", flush=True)
             except Exception as exc:
