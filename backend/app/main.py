@@ -6,6 +6,7 @@ import queue
 import time
 import os
 import subprocess
+import shutil
 import sys
 import threading
 import uuid
@@ -148,9 +149,72 @@ def claim_worker_task(worker_id: str = "windows-rx580",
     task["started_at"] = datetime.now(timezone.utc).isoformat()
     return {"task": {"id": task_id, "config": task["config"]}}
 
+@app.post("/api/worker/tasks/{task_id}/chunks/{chunk_index}", status_code=202)
+async def upload_worker_chunk(task_id: str, chunk_index: int, request: Request,
+                              authorization: str | None = Header(default=None)):
+    """Receive one bounded ZIP part; small requests avoid proxy limits on large uploads."""
+    _require_worker_token(authorization)
+    task = WORKER_TASKS.get(task_id)
+    if not task or task.get("status") != "running":
+        raise HTTPException(404, "Trabalho remoto não encontrado ou não está ativo.")
+    if chunk_index < 0 or chunk_index > 10000:
+        raise HTTPException(400, "Índice de bloco inválido.")
+    chunk = await request.body()
+    if not chunk or len(chunk) > 12 * 1024 * 1024:
+        raise HTTPException(400, "Bloco vazio ou maior que 12 MB.")
+    folder = STORAGE / "remote-worker" / task_id / "chunks"
+    folder.mkdir(parents=True, exist_ok=True)
+    chunk_path = folder / f"{chunk_index:06d}.part"
+    temp_path = chunk_path.with_suffix(".tmp")
+    temp_path.write_bytes(chunk)
+    temp_path.replace(chunk_path)
+    task["upload_chunks"] = max(int(task.get("upload_chunks", 0)), chunk_index + 1)
+    return {"status": "chunk_received", "chunk_index": chunk_index, "bytes": len(chunk)}
+
+
+@app.post("/api/worker/tasks/{task_id}/finalize", status_code=200)
+def finalize_worker_upload(task_id: str, payload: dict,
+                           authorization: str | None = Header(default=None)):
+    """Assemble uploaded parts atomically and mark the render task complete."""
+    _require_worker_token(authorization)
+    task = WORKER_TASKS.get(task_id)
+    if not task or task.get("status") != "running":
+        raise HTTPException(404, "Trabalho remoto não encontrado ou não está ativo.")
+    total_chunks = int(payload.get("total_chunks", 0))
+    if total_chunks < 1 or total_chunks > 10001:
+        raise HTTPException(400, "Quantidade de blocos inválida.")
+    folder = STORAGE / "remote-worker" / task_id
+    chunks_dir = folder / "chunks"
+    result_path = folder / f"{task_id}.zip"
+    if not chunks_dir.is_dir():
+        raise HTTPException(400, "Nenhum bloco recebido.")
+    temp_path = folder / f"{task_id}.zip.part"
+    try:
+        with temp_path.open("wb") as output:
+            for index in range(total_chunks):
+                part = chunks_dir / f"{index:06d}.part"
+                if not part.is_file():
+                    raise HTTPException(400, f"Bloco {index} ausente.")
+                with part.open("rb") as source:
+                    shutil.copyfileobj(source, output, length=1024 * 1024)
+        if temp_path.stat().st_size == 0:
+            raise HTTPException(400, "Pacote de quadros vazio.")
+        temp_path.replace(result_path)
+    except Exception:
+        temp_path.unlink(missing_ok=True)
+        raise
+    task.update(status="done", result_path=str(result_path),
+                completed_at=datetime.now(timezone.utc).isoformat(),
+                uploaded_bytes=result_path.stat().st_size)
+    shutil.rmtree(chunks_dir, ignore_errors=True)
+    return {"status": "done", "bytes": result_path.stat().st_size,
+            "chunks": total_chunks}
+
+
 @app.post("/api/worker/tasks/{task_id}/complete")
 async def complete_worker_task(task_id: str, request: Request,
                                authorization: str | None = Header(default=None)):
+    """Backward-compatible endpoint for older workers; new workers use chunk upload."""
     _require_worker_token(authorization)
     task = WORKER_TASKS.get(task_id)
     if not task or task.get("status") != "running":
