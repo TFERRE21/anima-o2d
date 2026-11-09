@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Anima Studio authenticated Windows render worker (pull model)."""
 import argparse
+import threading
 import json
 import os
 import pathlib
@@ -46,6 +47,15 @@ def main():
     if not script.is_file():
         parser.error("blender_scene.py não encontrado: " + str(script))
     print("ANIMA_WORKER_ONLINE " + args.worker_id, flush=True)
+    def heartbeat_loop():
+        while True:
+            try:
+                request_json(args.server, "/api/worker/heartbeat?worker_id=" + args.worker_id,
+                             args.token, method="POST", timeout=15)
+            except Exception as exc:
+                print("ANIMA_WORKER_HEARTBEAT: " + str(exc), flush=True)
+            time.sleep(20)
+    threading.Thread(target=heartbeat_loop, name="anima-worker-heartbeat", daemon=True).start()
     while True:
         try:
             result = request_json(args.server, "/api/worker/next?worker_id=" + args.worker_id,
