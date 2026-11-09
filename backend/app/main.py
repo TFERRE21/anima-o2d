@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import json
 import math
+import queue
+import time
 import os
 import subprocess
 import sys
@@ -11,7 +13,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request, Header
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, RedirectResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
@@ -84,6 +86,106 @@ class PublishRequest(BaseModel):
     description: str = ""
 
 LOCK = threading.Lock()
+
+# Authenticated pull-based Windows render workers. The worker initiates every
+# connection; no inbound port is required on the Windows machine.
+WORKER_TASKS: dict[str, dict[str, Any]] = {}
+WORKER_QUEUE: queue.Queue = queue.Queue()
+WORKER_LAST_SEEN: dict[str, float] = {}
+
+def _require_worker_token(authorization: str | None):
+    expected = os.getenv("ANIMA_WORKER_TOKEN", "").strip()
+    supplied = (authorization or "").removeprefix("Bearer ").strip()
+    if not expected:
+        raise HTTPException(503, "Render worker remoto desativado: configure ANIMA_WORKER_TOKEN na VPS.")
+    if not supplied or not __import__("hmac").compare_digest(supplied, expected):
+        raise HTTPException(401, "Token do trabalhador inválido.")
+
+@app.get("/api/worker/status")
+def worker_status(authorization: str | None = Header(default=None)):
+    _require_worker_token(authorization)
+    now = time.time()
+    connected = [name for name, seen in WORKER_LAST_SEEN.items() if now - seen < 75]
+    return {"enabled": True, "connected": bool(connected), "workers": connected,
+            "queued": WORKER_QUEUE.qsize(),
+            "active": sum(1 for item in WORKER_TASKS.values() if item.get("status") == "running")}
+
+@app.post("/api/worker/tasks", status_code=202)
+async def create_worker_task(request: Request, authorization: str | None = Header(default=None)):
+    _require_worker_token(authorization)
+    payload = await request.json()
+    config = payload.get("config")
+    if not isinstance(config, dict) or int(config.get("total_frames", 0)) < 1:
+        raise HTTPException(400, "Configuração de renderização inválida.")
+    task_id = uuid.uuid4().hex
+    task = {"id": task_id, "status": "queued", "config": config,
+            "created_at": datetime.now(timezone.utc).isoformat()}
+    WORKER_TASKS[task_id] = task
+    WORKER_QUEUE.put(task_id)
+    return {"task_id": task_id, "status": "queued"}
+
+@app.post("/api/worker/heartbeat")
+def worker_heartbeat(worker_id: str = "windows-rx580",
+                     authorization: str | None = Header(default=None)):
+    _require_worker_token(authorization)
+    WORKER_LAST_SEEN[worker_id] = time.time()
+    return {"ok": True, "worker_id": worker_id}
+
+@app.get("/api/worker/next")
+def claim_worker_task(worker_id: str = "windows-rx580",
+                      authorization: str | None = Header(default=None)):
+    _require_worker_token(authorization)
+    WORKER_LAST_SEEN[worker_id] = time.time()
+    try:
+        task_id = WORKER_QUEUE.get(timeout=20)
+    except queue.Empty:
+        return {"task": None, "heartbeat": True}
+    task = WORKER_TASKS.get(task_id)
+    if not task or task.get("status") != "queued":
+        return {"task": None, "heartbeat": True}
+    task["status"] = "running"
+    task["worker_id"] = worker_id
+    task["started_at"] = datetime.now(timezone.utc).isoformat()
+    return {"task": {"id": task_id, "config": task["config"]}}
+
+@app.post("/api/worker/tasks/{task_id}/complete")
+async def complete_worker_task(task_id: str, request: Request,
+                               authorization: str | None = Header(default=None)):
+    _require_worker_token(authorization)
+    task = WORKER_TASKS.get(task_id)
+    if not task or task.get("status") != "running":
+        raise HTTPException(404, "Trabalho remoto não encontrado ou não está ativo.")
+    archive = await request.body()
+    if not archive or len(archive) > 2_000_000_000:
+        raise HTTPException(400, "Pacote de quadros vazio ou maior que 2 GB.")
+    folder = STORAGE / "remote-worker"
+    folder.mkdir(parents=True, exist_ok=True)
+    result_path = folder / f"{task_id}.zip"
+    result_path.write_bytes(archive)
+    task.update(status="done", result_path=str(result_path),
+                completed_at=datetime.now(timezone.utc).isoformat())
+    return {"status": "done", "bytes": len(archive)}
+
+@app.post("/api/worker/tasks/{task_id}/fail")
+async def fail_worker_task(task_id: str, request: Request,
+                           authorization: str | None = Header(default=None)):
+    _require_worker_token(authorization)
+    task = WORKER_TASKS.get(task_id)
+    if not task:
+        raise HTTPException(404, "Trabalho remoto não encontrado.")
+    payload = await request.json()
+    task.update(status="failed", error=str(payload.get("error", "Falha no worker"))[:2000])
+    return {"status": "failed"}
+
+@app.get("/api/worker/tasks/{task_id}")
+def worker_task_status(task_id: str, authorization: str | None = Header(default=None)):
+    _require_worker_token(authorization)
+    task = WORKER_TASKS.get(task_id)
+    if not task:
+        raise HTTPException(404, "Trabalho remoto não encontrado.")
+    return {"status": task.get("status"), "result_path": task.get("result_path"),
+            "error": task.get("error")}
+
 SETTINGS_FILE = STORAGE / "studio-settings.json"
 DEFAULT_STUDIO_SETTINGS = {"auto_generate_formats": ["16:9", "9:16"], "require_review_before_publish": True, "auto_publish_enabled": False, "auto_production_enabled": False, "production_days": ["Tuesday", "Thursday", "Saturday"], "production_time": "10:00", "publish_days": ["Tuesday", "Thursday", "Saturday"], "publish_time": "18:00"}
 
@@ -268,6 +370,14 @@ def render_story(job_id: str, payload: RenderRequest):
             503,
             f"Arquivo 3D ausente: {blender_script}. Recompile a aplicação incluindo backend/app/blender_scene.py."
         )
+    remote_enabled = os.getenv("ANIMA_REMOTE_WORKER_ENABLED", "false").lower() in {"1", "true", "yes"}
+    if remote_enabled:
+        if not os.getenv("ANIMA_WORKER_TOKEN", "").strip():
+            raise HTTPException(503, "Render RX 580 ativado, mas o token do trabalhador não foi configurado na VPS.")
+        now = time.time()
+        connected_workers = [name for name, seen in WORKER_LAST_SEEN.items() if now - seen < 75]
+        if not connected_workers:
+            raise HTTPException(503, "Computador RX 580 desconectado. Abra iniciar-worker.ps1 no Windows e tente novamente.")
     _update(job_id, status="queued", stage="render_queued", progress=8,
             message="Roteiro aprovado. Preparando cenas e narração.", formats=formats,
             review_status="pending_review", outputs={}, error=None)

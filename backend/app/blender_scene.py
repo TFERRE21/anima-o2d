@@ -10,6 +10,7 @@ import json
 import math
 import os
 import sys
+import time
 from pathlib import Path
 
 import bpy
@@ -839,22 +840,41 @@ def render(config: dict):
         world_bg.inputs["Color"].default_value = (0.025, 0.045, 0.10, 1)
         world_bg.inputs["Strength"].default_value = 0.24
 
+    setup_started = time.perf_counter()
+    stage_timings = []
     stage_models = []
     stage_total = max(1, len(scenes))
     for i, shot in enumerate(scenes):
         source_index = int(source_indices[i])
         report(6 + int((i / stage_total) * 6),
                f"Montando cenário 3D {i + 1}/{stage_total}: {shot.get('title', 'cena')}")
+        stage_started = time.perf_counter()
         models = make_stage(source_index, plan, shot, portrait)
+        stage_seconds = time.perf_counter() - stage_started
+        stage_timings.append({"stage": i + 1, "source_index": source_index, "seconds": round(stage_seconds, 3)})
+        print("ANIMA_STAGE_TIMING:" + json.dumps(stage_timings[-1]), flush=True)
         models["source_index"] = source_index
         stage_models.append(models)
         report(6 + int(((i + 1) / stage_total) * 6),
                f"Cenário 3D {i + 1}/{stage_total} concluído.")
 
     report(12, "Montando iluminação e câmeras dos cenários.")
+    lighting_started = time.perf_counter()
     add_stage_lighting([model["center"] for model in stage_models])
+    lighting_seconds = time.perf_counter() - lighting_started
+    camera_started = time.perf_counter()
     camera = create_camera(portrait, 0)
+    camera_seconds = time.perf_counter() - camera_started
+    setup_seconds = time.perf_counter() - setup_started
+    print("ANIMA_SETUP_TIMING:" + json.dumps({
+        "setup_seconds": round(setup_seconds, 3),
+        "stage_seconds": round(sum(item["seconds"] for item in stage_timings), 3),
+        "lighting_seconds": round(lighting_seconds, 3),
+        "camera_seconds": round(camera_seconds, 3),
+        "stages": stage_timings,
+    }), flush=True)
     report(18, "Personagens 3D, cenário e câmera preparados.")
+    render_started = time.perf_counter()
 
     # Scene cuts follow the actual storyboard; actors move and interact inside each shot.
     action_by_scene = {
@@ -942,8 +962,17 @@ def render(config: dict):
             pct = 18 + int((frame + 1) / total_frames * 76)
             report(pct, f"Renderizando cena 3D {scene_slot + 1}/{len(scenes)} · quadro {frame + 1}/{total_frames}")
 
+    render_seconds = time.perf_counter() - render_started
+    timing = {
+        "setup_seconds": round(setup_seconds, 3),
+        "render_seconds": round(render_seconds, 3),
+        "seconds_per_frame": round(render_seconds / max(1, total_frames), 4),
+        "total_seconds": round(setup_seconds + render_seconds, 3),
+        "frames": total_frames,
+    }
+    print("ANIMA_RENDER_TIMING:" + json.dumps(timing), flush=True)
     report(96, "Render 3D concluído.")
-    return {"frames": total_frames, "scene_count": len(scenes), "engine": scene.render.engine}
+    return {"frames": total_frames, "scene_count": len(scenes), "engine": scene.render.engine, "timing": timing}
 
 
 def main():
