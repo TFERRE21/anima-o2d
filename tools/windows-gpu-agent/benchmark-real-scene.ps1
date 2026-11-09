@@ -74,10 +74,24 @@ Write-Host "GPU detectada no teste anterior: AMD Radeon RX 580 2048SP"
 Write-Host "Este teste usa o arquivo blender_scene.py real do projeto."
 Write-Host ""
 
+$BlenderLog = Join-Path $Reports "rx580-real-scene-blender.log"
 $timer = [System.Diagnostics.Stopwatch]::StartNew()
-& $BlenderPath --background --factory-startup --python-exit-code 1 --python $SceneScript -- --config $ConfigPath
-$code = $LASTEXITCODE
-$timer.Stop()
+
+# Windows PowerShell 5.1 can turn Blender's harmless stderr warnings into
+# terminating NativeCommandError records when ErrorActionPreference is Stop.
+# Keep the native process output visible and logged, but let Blender finish;
+# the real success/failure decision is made from its exit code and frame count.
+$previousErrorActionPreference = $ErrorActionPreference
+$ErrorActionPreference = "Continue"
+try {
+    & $BlenderPath --background --factory-startup --python-exit-code 1 --python $SceneScript -- --config $ConfigPath 2>&1 |
+        Tee-Object -FilePath $BlenderLog
+    $code = $LASTEXITCODE
+}
+finally {
+    $ErrorActionPreference = $previousErrorActionPreference
+    $timer.Stop()
+}
 
 $pngCount = @(Get-ChildItem -Path $FramesDir -Filter "frame-*.png" -ErrorAction SilentlyContinue).Count
 $secondsPerFrame = if ($pngCount -gt 0) { [math]::Round($timer.Elapsed.TotalSeconds / $pngCount, 3) } else { $null }
@@ -96,6 +110,7 @@ $result = [ordered]@{
     estimated_minutes_for_771_frames = $estimate771
     exit_code = $code
     frames_directory = $FramesDir
+    blender_log = $BlenderLog
 }
 $result | ConvertTo-Json -Depth 5 | Set-Content -Path $ResultPath -Encoding UTF8
 Write-Host ""
