@@ -6,6 +6,7 @@ import queue
 import time
 import os
 import subprocess
+import shutil
 import sys
 import threading
 import uuid
