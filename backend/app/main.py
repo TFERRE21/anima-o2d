@@ -370,6 +370,14 @@ def render_story(job_id: str, payload: RenderRequest):
             503,
             f"Arquivo 3D ausente: {blender_script}. Recompile a aplicação incluindo backend/app/blender_scene.py."
         )
+    remote_enabled = os.getenv("ANIMA_REMOTE_WORKER_ENABLED", "false").lower() in {"1", "true", "yes"}
+    if remote_enabled:
+        if not os.getenv("ANIMA_WORKER_TOKEN", "").strip():
+            raise HTTPException(503, "Render RX 580 ativado, mas o token do trabalhador não foi configurado na VPS.")
+        now = time.time()
+        connected_workers = [name for name, seen in WORKER_LAST_SEEN.items() if now - seen < 75]
+        if not connected_workers:
+            raise HTTPException(503, "Computador RX 580 desconectado. Abra iniciar-worker.ps1 no Windows e tente novamente.")
     _update(job_id, status="queued", stage="render_queued", progress=8,
             message="Roteiro aprovado. Preparando cenas e narração.", formats=formats,
             review_status="pending_review", outputs={}, error=None)
