@@ -35,9 +35,17 @@ try:
     )
     try:
         import gpu
+        # Blender 5.2 supports explicit GPU module initialization in background mode.
+        # Without this call, platform queries can fail even when Eevee rendered successfully.
+        try:
+            gpu.init()
+            result["gpu_init"] = "ok"
+        except Exception as exc:
+            result["gpu_init"] = "failed: " + str(exc)
         platform = gpu.platform
         for key, fn in (
             ("gpu_backend", "backend_type_get"),
+            ("gpu_device_type", "device_type_get"),
             ("gpu_vendor", "vendor_get"),
             ("gpu_renderer", "renderer_get"),
             ("gpu_version", "version_get"),
