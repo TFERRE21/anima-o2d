@@ -32,7 +32,7 @@ def material(name: str, color: tuple[float, float, float, float]):
     principled = mat.node_tree.nodes.get("Principled BSDF")
     if principled:
         principled.inputs["Base Color"].default_value = color
-        principled.inputs["Roughness"].default_value = 0.62
+        principled.inputs["Roughness"].default_value = 0.42
         if "Metallic" in principled.inputs:
             principled.inputs["Metallic"].default_value = 0.02
     return mat
@@ -167,6 +167,39 @@ def make_pivot(parent, name, loc):
     return pivot
 
 
+def add_storybook_details(cx, biome):
+    """Layered storybook dressing; keeps the existing Blender/Eevee pipeline."""
+    for i in range(9):
+        x = cx - 7.2 + i * 1.8
+        y = -2.7 + (i % 3) * 0.22
+        sphere("Storybook foreground pebble", None, (x, y, -0.015),
+               (0.34, 0.22, 0.075), M["gold_light"], 12, 8)
+    for i in range(7):
+        x = cx - 6.5 + i * 2.15
+        stem_h = 0.42 + (i % 3) * 0.12
+        cylinder("Storybook flower stem", None, (x, -2.15, stem_h / 2),
+                 0.035, stem_h, M["leaf"], vertices=10)
+        flower_mat = M["pink_light"] if i % 2 else M["gold"]
+        sphere("Storybook flower", None, (x, -2.15, stem_h + 0.12),
+               (0.19, 0.15, 0.17), flower_mat)
+        sphere("Storybook flower center", None, (x, -2.29, stem_h + 0.12),
+               (0.07, 0.04, 0.07), M["gold_light"], 12, 8)
+    for i in range(4):
+        x = cx - 6.0 + i * 4.0
+        z = 5.2 + (i % 2) * 0.55
+        for j in range(3):
+            sphere("Storybook cloud puff", None,
+                   (x + (j - 1) * 0.48, 4.25, z + (0.12 if j == 1 else 0)),
+                   (0.72, 0.28, 0.38), M["white"], 16, 10)
+    for side in (-1, 1):
+        x = cx + side * 7.1
+        for j in range(3):
+            sphere("Storybook bush", None,
+                   (x + (j - 1) * 0.48, 1.45, 0.55 + (j % 2) * 0.12),
+                   (0.72, 0.62, 0.62),
+                   M["leaf"] if j % 2 else M["leaf_light"])
+
+
 def human_character(name, kind, origin, size=1.0):
     """Original rounded 3D child-hero design with expressive face and adventure suit."""
     root = empty(name + " root", origin)
@@ -200,7 +233,7 @@ def human_character(name, kind, origin, size=1.0):
     # Neck and independently animated head.
     cylinder(name + " neck", root, (0, 0, 1.94), 0.18, 0.24, skin, vertices=20)
     head = make_pivot(root, name + " head pivot", (0, -0.055, 2.34))
-    sphere(name + " soft face", head, (0, 0, 0), (0.66, 0.52, 0.69), skin, 32, 24)
+    sphere(name + " soft face", head, (0, 0, 0), (0.72, 0.53, 0.76), skin, 36, 28)
     sphere(name + " chin", head, (0, -0.28, -0.37), (0.35, 0.20, 0.19), skin, 20, 14)
     for side, xx in (("L", -0.60), ("R", 0.60)):
         sphere(name + " ear " + side, head, (xx, -0.035, -0.05), (0.14, 0.13, 0.22), skin, 18, 12)
@@ -217,9 +250,9 @@ def human_character(name, kind, origin, size=1.0):
         bpy.ops.mesh.primitive_torus_add(major_segments=40, minor_segments=12, major_radius=0.48, minor_radius=0.065, location=(0, 0, 0))
         band = bpy.context.object
         band.name = name + " pink inventor headband"
-        set_parent(band, head, (0, -0.435, 0.40), (1.12, 0.45, 0.78), (math.radians(90), 0, 0))
+        set_parent(band, head, (0, -0.405, 0.52), (1.12, 0.45, 0.68), (math.radians(90), 0, 0))
         band.data.materials.append(M["pink_light"])
-        sphere(name + " golden headband star", head, (0.50, -0.45, 0.36), (0.13, 0.09, 0.13), M["gold"])
+        sphere(name + " golden headband star", head, (0.50, -0.43, 0.49), (0.13, 0.09, 0.13), M["gold"])
         sphere(name + " tiny blue communicator", head, (-0.50, -0.20, 0.15), (0.10, 0.10, 0.13), M["blue_light"])
     else:
         # Swept hair locks give Tomi his own silhouette, not a crown/helmet copy.
@@ -235,9 +268,9 @@ def human_character(name, kind, origin, size=1.0):
     iris = M["blue"] if is_luna else M["hair"]
     for side, xx in (("L", -0.235), ("R", 0.235)):
         sphere(name + " eye socket " + side, head, (xx, -0.444, 0.035), (0.175, 0.085, 0.235), M["skin_light"], 20, 14)
-        sphere(name + " eye white " + side, head, (xx, -0.505, 0.045), (0.145, 0.075, 0.195), M["white"], 24, 16)
-        sphere(name + " iris " + side, head, (xx, -0.566, 0.035), (0.082, 0.038, 0.125), iris, 20, 14)
-        sphere(name + " pupil " + side, head, (xx, -0.595, 0.03), (0.044, 0.025, 0.086), M["black"], 16, 12)
+        sphere(name + " eye white " + side, head, (xx, -0.515, 0.045), (0.165, 0.078, 0.215), M["white"], 24, 16)
+        sphere(name + " iris " + side, head, (xx, -0.582, 0.035), (0.092, 0.042, 0.135), iris, 20, 14)
+        sphere(name + " pupil " + side, head, (xx, -0.612, 0.03), (0.050, 0.027, 0.092), M["black"], 16, 12)
         sphere(name + " eye sparkle large " + side, head, (xx - 0.026, -0.619, 0.083), (0.031, 0.018, 0.040), M["white"], 12, 8)
         sphere(name + " eye sparkle small " + side, head, (xx + 0.030, -0.616, -0.005), (0.014, 0.012, 0.018), M["white"], 10, 8)
         brow = sphere(name + " expressive brow " + side, head, (xx, -0.47, 0.30), (0.17, 0.055, 0.045), hair, 16, 10)
@@ -448,6 +481,7 @@ def make_stage(stage_index, plan, scene, portrait):
     ground_mat = M["water"] if any(k in biome for k in ("oceano", "mar", "água", "agua")) else M["sand"] if any(k in biome for k in ("deserto", "areia", "vulc")) else M["ice"] if any(k in biome for k in ("gelo", "neve", "polar", "montanha")) else M["leaf"] if any(k in biome for k in ("floresta", "jardim", "flor")) else M["stone"]
     cube("Stage ground", None, (cx, 1.0, -0.35), (17, 16, 0.55), ground_mat, 0.3)
     cube("Stage backdrop", None, (cx, 5.2, 3.6), (18, 0.35, 11), M["sky"], 0.25)
+    add_storybook_details(cx, biome)
     # Distant terrain silhouettes, using true 3D meshes with depth.
     for j in range(7):
         mx = cx - 8 + j * 2.6
@@ -674,6 +708,9 @@ def animate_actor(actor, global_time, local_time, action, speaking=False, side=0
         actor["root"].rotation_euler[2] = -0.10 if action in {"talk", "converse"} else -math.sin(global_time * .9) * .025
     # Dialogue-driven mouth: each saved voice interval activates only its speaker.
     mouth = actor["mouth"]
+    if speaking:
+        actor["head"].rotation_euler[0] = math.sin(global_time * 5.2) * 0.035
+        actor["root"].location.z = actor["base_z"] + abs(math.sin(global_time * 4.8)) * 0.035
     if speaking and math.sin(global_time * 18.0) > -0.25:
         mouth.scale.z = 0.125
         if actor.get("tongue"):
