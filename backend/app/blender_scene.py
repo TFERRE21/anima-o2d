@@ -792,6 +792,8 @@ def render(config: dict):
     scene.render.image_settings.color_mode = "RGB"
     scene.render.film_transparent = False
     scene.render.image_settings.color_depth = "8"
+    # Faster PNG writes reduce CPU overhead while keeping lossless frame intermediates.
+    scene.render.image_settings.compression = 5
     scene.display.shading.light = "STUDIO"
     scene.display.shading.studio_light = "paint.sl"
     scene.display.shading.color_type = "MATERIAL"
@@ -803,7 +805,13 @@ def render(config: dict):
     scene.display.shading.curvature_valley_factor = 1.15
     scene.display.shading.show_specular_highlight = True
     if hasattr(scene, "eevee"):
-        scene.eevee.taa_render_samples = 8
+        # Six temporal samples are a quality/speed compromise for the 3D Shorts.
+        # Keep this configurable so a higher-quality render can be requested later.
+        sample_count = max(2, min(16, int(os.getenv("ANIMA_EEVEE_SAMPLES", "6"))))
+        if hasattr(scene.eevee, "taa_render_samples"):
+            scene.eevee.taa_render_samples = sample_count
+        elif hasattr(scene.eevee, "taa_samples"):
+            scene.eevee.taa_samples = sample_count
         if hasattr(scene.eevee, "use_gtao"):
             scene.eevee.use_gtao = True
             scene.eevee.gtao_distance = 3.0
@@ -814,9 +822,14 @@ def render(config: dict):
     scene.view_settings.view_transform = "Standard"
     scene.render.image_settings.color_mode = "RGB"
     scene.render.threads_mode = "FIXED"
-    scene.render.threads = max(1, min(4, os.cpu_count() or 2))
+    cpu_count = os.cpu_count() or 2
+    requested_threads = int(os.getenv("ANIMA_BLENDER_THREADS", str(min(6, cpu_count))))
+    scene.render.threads = max(1, min(cpu_count, requested_threads))
     scene.render.fps = 24
-    scene.render.resolution_percentage = 100
+    # Render slightly below the already-small working resolution, then upscale
+    # to 1080p in FFmpeg. The final output dimensions and aspect ratio do not change.
+    render_scale = max(70, min(100, int(os.getenv("ANIMA_RENDER_SCALE", "85"))))
+    scene.render.resolution_percentage = render_scale
     # Eevee renders the original 3D models with studio lighting, material response and depth;
     # Workbench remains a compatibility fallback on Blender builds without Eevee.
     scene.world.color = (0.018, 0.04, 0.11)
@@ -922,8 +935,8 @@ def render(config: dict):
                 ship.rotation_euler[1] = math.sin(local_progress * math.pi) * 0.10
 
         scene.render.filepath = str(out_dir / f"frame-{frame + 1:06d}.png")
-        scene.frame_set(1)
-        bpy.context.view_layer.update()
+        # render() evaluates the dependency graph itself; forcing frame_set(1)
+        # and view_layer.update() on every frame caused redundant scene updates.
         bpy.ops.render.render(write_still=True)
         if frame % max(1, total_frames // 35) == 0 or frame == total_frames - 1:
             pct = 18 + int((frame + 1) / total_frames * 76)
