@@ -7,6 +7,9 @@ import math
 import os
 import queue
 import threading
+import urllib.request
+import urllib.error
+import zipfile
 import time
 import shutil
 import subprocess
@@ -310,11 +313,56 @@ def _fit_narration(source: Path, output: Path, target_seconds: float) -> float:
           "-filter:a", f"atempo={factor:.5f}", "-ar", "44100", str(output)])
     return _probe_duration(output)
 
+def _render_blender_frames_remote(frames: Path, config: dict, progress_callback=None) -> None:
+    """Send the real Blender scene to an authenticated pull worker and collect PNGs."""
+    base = os.getenv("ANIMA_WORKER_API_URL", "http://127.0.0.1:5000").rstrip("/")
+    token = os.getenv("ANIMA_WORKER_TOKEN", "").strip()
+    if not token:
+        raise RuntimeError("Render remoto selecionado, mas ANIMA_WORKER_TOKEN não está configurado na VPS.")
+    def call(route: str, method="GET", payload=None, timeout=30):
+        data = json.dumps(payload).encode("utf-8") if payload is not None else None
+        request = urllib.request.Request(base + route, data=data, method=method,
+            headers={"Authorization": "Bearer " + token, "Content-Type": "application/json"})
+        with urllib.request.urlopen(request, timeout=timeout) as response:
+            raw = response.read()
+            return json.loads(raw.decode("utf-8")) if raw else {}
+    created = call("/api/worker/tasks", "POST", {"config": config})
+    task_id = created["task_id"]
+    if progress_callback:
+        progress_callback(18, "Trabalho enviado ao computador RX 580. Aguardando renderização.")
+    started = time.monotonic()
+    timeout_seconds = int(os.getenv("ANIMA_REMOTE_WORKER_TIMEOUT", "10800"))
+    while time.monotonic() - started < timeout_seconds:
+        status = call("/api/worker/tasks/" + task_id, timeout=30)
+        if status.get("status") == "failed":
+            raise RuntimeError("Worker RX 580 falhou: " + str(status.get("error", "erro sem detalhes")))
+        if status.get("status") == "done":
+            archive_path = Path(status["result_path"])
+            if not archive_path.is_file():
+                raise RuntimeError("Pacote de quadros não encontrado na VPS.")
+            frames.mkdir(parents=True, exist_ok=True)
+            with zipfile.ZipFile(archive_path, "r") as archive:
+                names = archive.namelist()
+                expected = int(config["total_frames"])
+                valid = [name for name in names if Path(name).name == name and
+                         name.startswith("frame-") and name.endswith(".png")]
+                if len(valid) != expected:
+                    raise RuntimeError(f"Pacote RX 580 contém {len(valid)} de {expected} quadros.")
+                for name in valid:
+                    (frames / Path(name).name).write_bytes(archive.read(name))
+            if progress_callback:
+                progress_callback(92, "Quadros recebidos do computador RX 580. Preparando o vídeo.")
+            return
+        time.sleep(3)
+    raise RuntimeError(f"Tempo limite aguardando o worker RX 580 ({timeout_seconds}s).")
+
+
 def _render_blender_frames(frames: Path, fmt: str, width: int, height: int,
                           total_frames: int, scene_list: list, scene_source_indices: list,
                           plan: dict, voice_timeline: list, progress_callback=None) -> None:
+    remote_worker = os.getenv("ANIMA_REMOTE_WORKER_ENABLED", "false").lower() in {"1", "true", "yes"}
     runtime = find_blender_runtime()
-    if not runtime:
+    if not runtime and not remote_worker:
         raise RuntimeError(
             "Motor Blender 3D ausente. Instale bpy==5.2.3 para Python 3.13 "
             "ou disponibilize o executável Blender; não existe renderizador alternativo."
@@ -355,6 +403,9 @@ def _render_blender_frames(frames: Path, fmt: str, width: int, height: int,
         "voice_timeline": voice_timeline,
     }
     config_path.write_text(json.dumps(config, ensure_ascii=False), encoding="utf-8")
+    if remote_worker:
+        _render_blender_frames_remote(frames, config, progress_callback)
+        return
     if runtime["backend"] == "binary":
         command = [
             runtime["executable"], "--background", "--factory-startup",
