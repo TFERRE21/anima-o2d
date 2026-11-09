@@ -10,6 +10,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ffmpeg espeak-ng fonts-dejavu-core \
     && ldconfig \
     && ldconfig -p | grep -q 'libXfixes.so.3' \
+    && python -c "import ctypes; ctypes.CDLL('libXfixes.so.3'); print('ANIMA_LIBXFIXES_OK')" \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app

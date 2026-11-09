@@ -41,25 +41,43 @@ app = FastAPI(title=settings.app_name, version="0.2.2")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=False, allow_methods=["*"], allow_headers=["*"])
 
 
-@app.on_event("startup")
-def schedule_blender_native_dependency_repair():
-    """Repair missing OS libraries regardless of the ICP/Uvicorn launch command."""
-    def repair():
-        try:
-            status = ensure_blender_native_libraries()
-            print("ANIMA_NATIVE_LIBRARIES:", status, flush=True)
-            reset_bpy_import_state()
-        except Exception as exc:
-            print(
-                f"ANIMA_NATIVE_LIBRARIES_BOOTSTRAP_ERROR: {type(exc).__name__}: {exc}",
-                flush=True,
-            )
+NATIVE_LIBRARY_BOOTSTRAP: dict[str, Any] = {
+    "ok": False,
+    "installed": False,
+    "missing": [],
+    "error": "Aguardando verificação de dependências nativas.",
+}
 
-    threading.Thread(
-        target=repair,
-        name="anima-blender-native-deps",
-        daemon=True,
-    ).start()
+
+@app.on_event("startup")
+def repair_blender_native_dependencies_before_serving():
+    """
+    Ensure Blender's shared libraries are ready before the API accepts jobs.
+    This must be synchronous: a background repair allowed /api/diagnostics and
+    render requests to race the bpy import and report a false missing engine.
+    """
+    global NATIVE_LIBRARY_BOOTSTRAP
+    try:
+        NATIVE_LIBRARY_BOOTSTRAP = ensure_blender_native_libraries()
+        reset_bpy_import_state()
+        # Force a real import after the OS packages and linker cache are ready.
+        bpy_ready = has_bpy_module()
+        NATIVE_LIBRARY_BOOTSTRAP = {
+            **NATIVE_LIBRARY_BOOTSTRAP,
+            "bpy_available": bpy_ready,
+        }
+        if not bpy_ready:
+            from backend.app.runtime import inspect_bpy_module
+            NATIVE_LIBRARY_BOOTSTRAP["bpy_import_error"] = inspect_bpy_module()["error"]
+        print("ANIMA_NATIVE_LIBRARIES:", NATIVE_LIBRARY_BOOTSTRAP, flush=True)
+    except Exception as exc:
+        NATIVE_LIBRARY_BOOTSTRAP = {
+            "ok": False,
+            "installed": False,
+            "missing": native_library_status().get("missing", []),
+            "error": f"{type(exc).__name__}: {exc}",
+        }
+        print("ANIMA_NATIVE_LIBRARIES_BOOTSTRAP_ERROR:", NATIVE_LIBRARY_BOOTSTRAP, flush=True)
 
 class GenerateRequest(BaseModel):
     title: str = Field(min_length=2, max_length=140)
@@ -327,6 +345,7 @@ def diagnostics():
         "bpy_version": bpy_info["version"],
         "bpy_import_error": bpy_info["error"],
         "native_libraries": native_library_status(),
+        "native_library_bootstrap": NATIVE_LIBRARY_BOOTSTRAP,
         "blender_scene_path": str(blender_script.resolve()),
         "blender_scene_exists": blender_script.is_file(),
         "render_engine": "blender-3d-only",
