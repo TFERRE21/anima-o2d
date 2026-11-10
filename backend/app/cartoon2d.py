@@ -144,39 +144,67 @@ def _character(d, x, floor, scale, palette, name, phase, pointing=False, dog=Fal
             oval((x+q(dx),floor-q(342+dy)+bob,x+q(dx+3),floor-q(339+dy)+bob),"#d9787f",None,0)
 
 
-def _draw_frame(t: float, planet: str):
+def _draw_frame(t: float, planet: str, portrait: bool = False):
+    """Rich layered storybook world with parallax-like motion and an expressive hero group."""
     im=Image.new("RGB",(W,H))
     d=ImageDraw.Draw(im)
-    _gradient(d,(30,65,135),(255,177,127))
-    # distant planets and star field
-    for i in range(48):
-        x=(i*197+31)%W; y=(i*83+24)%390
-        r=2+(i%3)
-        d.ellipse((x-r,y-r,x+r,y+r),fill="#fff0bd")
-    d.ellipse((930,45,1100,215),fill="#f6c56b",outline="#fff0c9",width=5)
-    # distant layered hills
-    d.polygon([(0,440),(130,300),(270,420),(420,270),(590,430),(770,290),(980,430),(1120,315),(1280,430),(1280,720),(0,720)],fill="#496b87")
-    d.polygon([(0,500),(180,385),(330,500),(520,365),(720,510),(920,375),(1110,500),(1280,410),(1280,720),(0,720)],fill="#327f70")
-    # river / landing path
-    d.polygon([(420,720),(570,470),(740,470),(930,720)],fill="#49b8d0")
-    d.polygon([(0,600),(1280,600),(1280,720),(0,720)],fill="#63a95f")
-    # flowers and alien foliage
-    for i in range(30):
-        x=(i*173+30)%W; y=560+(i%4)*38
-        d.ellipse((x-8,y-20,x+8,y+20),fill=("#ffdc68" if i%2 else "#f78cbd"))
-        d.ellipse((x-5,y-5,x+5,y+5),fill="#ffe9a3")
-    # planet sign
-    d.rounded_rectangle((955,310,1220,455),radius=22,fill="#f3d49a",outline="#573d43",width=7)
-    d.text((980,330),planet[:20],font=_font(27,True),fill="#4a3941")
-    d.text((980,380),"MISSÃO: AJUDAR!",font=_font(20,True),fill="#9a4a4c")
-    # three friends enter frame and animate
-    bob=math.sin(t*3)*7
-    _character(d,390+int(math.sin(t*1.1)*35),650,1.0,("#e94e9b","#8f4e9a","#ffd04d"),"LUNA",t,pointing=(t%5<2.5))
-    _character(d,620+int(math.sin(t*1.1+1)*30),650,1.0,("#287cc6","#554d9a","#f2a34d"),"TOMI",t+1,pointing=False)
-    _character(d,790+int(math.sin(t*1.1+2)*24),650,0.9,("#d58a48","#fff","#287cc6"),"PIPO",t, dog=True)
-    # title plate
-    d.rounded_rectangle((38,35,440,105),radius=18,fill="#203a66",outline="#ffffff",width=3)
-    d.text((62,54),"PEQUENOS GUARDIÕES",font=_font(27,True),fill="#ffffff")
+    _gradient(d,(52,91,171),(255,190,143))
+    # soft glowing sun and drifting clouds
+    d.ellipse((970,52,1128,210),fill="#ffe7a1")
+    d.ellipse((1000,82,1098,180),fill="#fff2bd")
+    for i in range(5):
+        cx=(i*295+int(t*13))%(W+220)-100
+        cy=95+(i%3)*52
+        for ox,oy,rx,ry in [(0,12,64,25),(42,0,54,34),(82,15,58,24)]:
+            d.ellipse((cx+ox-rx,cy+oy-ry,cx+ox+rx,cy+oy+ry),fill="#fff1e5")
+    # distant floating islands and mountains
+    d.polygon([(0,438),(115,300),(245,425),(390,278),(570,435),(760,290),(945,425),(1110,302),(1280,430),(1280,720),(0,720)],fill="#687eaa")
+    d.polygon([(0,493),(160,370),(310,500),(490,355),(690,500),(875,370),(1070,495),(1280,385),(1280,720),(0,720)],fill="#397f83")
+    # little glowing windows / trees in distant village
+    for i in range(8):
+        x=70+i*165
+        y=432+(i%3)*17
+        d.rounded_rectangle((x,y-58,x+48,y+8),radius=9,fill="#f5d69d",outline="#5c5876",width=3)
+        d.polygon([(x-8,y-58),(x+24,y-91),(x+56,y-58)],fill="#c96d77",outline="#5c5876")
+        d.rectangle((x+18,y-25,x+31,y+8),fill="#80604e")
+    # waterfall, river and banks
+    d.polygon([(525,420),(750,420),(930,720),(360,720)],fill="#69cde0")
+    d.polygon([(590,430),(675,430),(760,720),(505,720)],fill="#a2edf0")
+    for k in range(7):
+        yy=470+k*34+int((t*38)%34)
+        d.arc((500-k*18,yy,780+k*20,yy+50),5,175,fill="#e4ffff",width=4)
+    d.polygon([(0,555),(250,510),(430,570),(640,535),(870,570),(1080,505),(1280,550),(1280,720),(0,720)],fill="#68ad63")
+    # lush foreground trees
+    for x,base,sz in [(45,590,1.2),(1200,585,1.25),(255,610,.8),(1040,615,.85)]:
+        d.rectangle((x-13*sz,base-150*sz,x+13*sz,base+35),fill="#80503b")
+        for ox,oy,r in [(-35,-165,58),(20,-190,66),(58,-145,54),(-5,-115,58)]:
+            d.ellipse((x+(ox-r)*sz,base+(oy-r)*sz,x+(ox+r)*sz,base+(oy+r)*sz),fill="#378b61",outline="#276849",width=4)
+    # foreground flowers and stones
+    for i in range(34):
+        x=(i*173+int(t*9))%W
+        y=600+(i%4)*28
+        col=("#ffdc67","#f58db9","#fff0d0")[i%3]
+        for k in range(5):
+            ang=k*math.pi*2/5
+            px=x+math.cos(ang)*10; py=y+math.sin(ang)*10
+            d.ellipse((px-7,py-7,px+7,py+7),fill=col)
+        d.ellipse((x-5,y-5,x+5,y+5),fill="#ffbd45")
+    for x,y,r in [(165,665,38),(1110,674,47),(980,630,24)]:
+        d.ellipse((x-r,y-r*.45,x+r,y+r*.45),fill="#9b9b9a",outline="#66717a",width=4)
+        d.arc((x-r+8,y-r*.3,x+r-8,y+r*.3),180,350,fill="#d6d2c7",width=4)
+    # planet title plaque
+    d.rounded_rectangle((34,28,465,111),radius=22,fill="#203a66",outline="#fff4d7",width=4)
+    d.text((58,43),"PEQUENOS GUARDIÕES",font=_font(27,True),fill="#ffffff")
+    d.text((60,78),f"AVENTURA EM {planet[:18]}",font=_font(15,True),fill="#ffdf8c")
+    if portrait:
+        # compact centered group so all three friends fit the vertical crop
+        _character(d,475+int(math.sin(t*1.1)*12),665,.67,("#e94e9b","#8f4e9a","#ffd04d"),"LUNA",t,pointing=(t%5<2.5))
+        _character(d,650+int(math.sin(t*1.1+1)*10),665,.67,("#287cc6","#554d9a","#f2a34d"),"TOMI",t+1,pointing=(t%6>3))
+        _character(d,825+int(math.sin(t*1.1+2)*9),665,.62,("#d58a48","#fff","#287cc6"),"PIPO",t,dog=True)
+        return im.crop((438,0,843,720)).resize((720,1280),Image.Resampling.LANCZOS)
+    _character(d,350+int(math.sin(t*1.1)*22),665,.91,("#e94e9b","#8f4e9a","#ffd04d"),"LUNA",t,pointing=(t%5<2.5))
+    _character(d,640+int(math.sin(t*1.1+1)*18),665,.91,("#287cc6","#554d9a","#f2a34d"),"TOMI",t+1,pointing=(t%6>3))
+    _character(d,910+int(math.sin(t*1.1+2)*15),665,.83,("#d58a48","#fff","#287cc6"),"PIPO",t,dog=True)
     return im
 
 
