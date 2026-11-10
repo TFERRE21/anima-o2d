@@ -21,6 +21,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from backend.app.worlds import WORLDS, build_episode_plan
+from backend.app.cartoon2d import render_preview as render_2d_preview
 from backend.app.runtime import find_blender_binary, find_blender_runtime, has_bpy_module, inspect_bpy_module, blender_available, reset_bpy_import_state
 from backend.app.system_deps import native_library_status, ensure_blender_native_libraries
 
@@ -278,6 +279,31 @@ def _studio_settings():
         return {**DEFAULT_STUDIO_SETTINGS, **json.loads(SETTINGS_FILE.read_text(encoding="utf-8"))}
     except (OSError, json.JSONDecodeError):
         return DEFAULT_STUDIO_SETTINGS.copy()
+
+@app.post("/api/2d/preview")
+def create_2d_preview(planet: str = "AURORA-7"):
+    """Render an isolated 8-second 2D cartoon proof-of-concept without Blender."""
+    safe_planet = "".join(ch for ch in planet if ch.isalnum() or ch in " -_")[:28].strip() or "AURORA-7"
+    filename = f"2d-preview-{uuid.uuid4().hex[:10]}.mp4"
+    output = STORAGE / filename
+    try:
+        result = render_2d_preview(output, safe_planet.upper())
+    except Exception as exc:
+        raise HTTPException(500, f"Falha na prévia 2D: {type(exc).__name__}: {exc}")
+    return {"status": "done", "engine": result["engine"], "seconds": result["seconds"],
+            "frames": result["frames"], "planet": result["planet"],
+            "video_url": f"/api/2d/preview/{filename}"}
+
+
+@app.get("/api/2d/preview/{filename}")
+def get_2d_preview(filename: str):
+    if not filename.startswith("2d-preview-") or not filename.endswith(".mp4") or Path(filename).name != filename:
+        raise HTTPException(400, "Nome de arquivo inválido.")
+    target = STORAGE / filename
+    if not target.is_file():
+        raise HTTPException(404, "Prévia 2D não encontrada.")
+    return FileResponse(target, media_type="video/mp4", filename=filename)
+
 
 @app.get("/api/health")
 def health():
