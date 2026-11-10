@@ -561,7 +561,11 @@ def _render_cartoon2d_frames(frames: Path, fmt: str, width: int, height: int,
         t = frame / fps
         scene_index = min(count - 1, int(t / max(.001, duration) * count))
         scene_title, caption, action = scene_list[scene_index]
-        image = _draw_story_scene(t, planet, str(plan.get("biome", "")),\n                                  str(plan.get("palette", "aurora")), scene_index,\n                                  str(action or ""), portrait=portrait)
+        image = _draw_story_scene(
+            t, planet, str(plan.get("biome", "")),
+            str(plan.get("palette", "aurora")), scene_index,
+            str(action or ""), portrait=portrait
+        )
         draw = ImageDraw.Draw(image)
         # Readable, restrained lower-third captions preserve the artwork.
         if portrait:
