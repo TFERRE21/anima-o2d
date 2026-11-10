@@ -16,6 +16,14 @@ from pathlib import Path
 import bpy
 from mathutils import Vector
 
+# Shared character bible is optional for older local RX580 checkouts; the scene
+# remains backward-compatible until the Windows worker syncs the repository.
+try:
+    from character_profiles import CHARACTER_PROFILES
+except Exception:
+    CHARACTER_PROFILES = {}
+
+
 STAGE_GAP = 24.0
 
 
@@ -171,6 +179,10 @@ def human_character(name, kind, origin, size=1.0):
     """Original rounded 3D child-hero design with expressive face and adventure suit."""
     root = empty(name + " root", origin)
     root.scale = (size, size, size)
+    profile = CHARACTER_PROFILES.get(kind, {})
+    root["character_profile_id"] = profile.get("id", kind.lower() + "-legacy")
+    root["rig_controls"] = json.dumps(profile.get("rig", []))
+    root["visemes"] = json.dumps(profile.get("visemes", []))
     is_luna = kind == "Luna"
     suit = M["pink"] if is_luna else M["blue"]
     trim = M["pink_light"] if is_luna else M["blue_light"]
@@ -285,6 +297,10 @@ def dog_character(origin, size=0.92):
     """Friendly quadruped puppy with soft proportions and a custom explorer vest."""
     root = empty("Pipo quadruped root", origin)
     root.scale = (size, size, size)
+    profile = CHARACTER_PROFILES.get("Pipo", {})
+    root["character_profile_id"] = profile.get("id", "pipo-legacy")
+    root["rig_controls"] = json.dumps(profile.get("rig", []))
+    root["visemes"] = json.dumps(profile.get("visemes", []))
     sphere("Pipo soft puppy body", root, (0, 0.06, 0.94), (0.48, 0.77, 0.43), M["dog"], 28, 18)
     sphere("Pipo cream chest bib", root, (0, -0.45, 0.90), (0.35, 0.22, 0.34), M["dog_light"], 22, 14)
     sphere("Pipo explorer vest", root, (0, -0.02, 1.02), (0.51, 0.69, 0.31), M["blue"], 24, 16)
