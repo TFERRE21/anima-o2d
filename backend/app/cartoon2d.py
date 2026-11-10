@@ -35,7 +35,7 @@ def _gradient(draw, top, bottom):
         draw.line((0, y, W, y), fill=color)
 
 
-def _character(d, x, floor, scale, palette, name, phase, pointing=False, dog=False):
+def _character(d, x, floor, scale, palette, name, phase, pointing=False, dog=False, speaking=False, walking=False):
     """Polished original 2D storybook mascot: layered shapes, expressive face and acting."""
     ink = "#573747"
     def q(v): return int(v * scale)
@@ -45,7 +45,7 @@ def _character(d, x, floor, scale, palette, name, phase, pointing=False, dog=Fal
     def stroke(points, fill, width=12):
         d.line([(int(a),int(b)) for a,b in points], fill=fill, width=max(2,q(width)), joint="curve")
     bob = math.sin(phase*3.0)*q(4)
-    walk = math.sin(phase*5.2)*q(18)
+    walk = math.sin(phase*5.2)*q(18 if walking else 1.5)
     if dog:
         wag = math.sin(phase*7)*q(24)
         # Tail behind body, animated wag
@@ -67,7 +67,11 @@ def _character(d, x, floor, scale, palette, name, phase, pointing=False, dog=Fal
             oval((x+q(dx-5),floor-q(250)+bob,x+q(dx+6),floor-q(226)+bob),"#493747",None,0)
             oval((x+q(dx-2),floor-q(248)+bob,x+q(dx+2),floor-q(240)+bob),"#ffffff",None,0)
         oval((x-q(19),floor-q(206)+bob,x+q(19),floor-q(185)+bob),"#392b35",None,0)
-        d.arc(box(x-q(27),floor-q(194)+bob,x+q(28),floor-q(153)+bob),5,170,fill="#a64d5b",width=q(5))
+        if speaking and math.sin(phase*13.0) > -0.15:
+            d.ellipse(box(x-q(22),floor-q(194)+bob,x+q(22),floor-q(151)+bob),fill="#4a2638",outline="#7e3c48",width=q(3))
+            d.ellipse(box(x-q(12),floor-q(161)+bob,x+q(12),floor-q(153)+bob),fill="#f08a98")
+        else:
+            d.arc(box(x-q(27),floor-q(194)+bob,x+q(28),floor-q(153)+bob),5,170,fill="#a64d5b",width=q(5))
         # collar and tag
         stroke([(x-q(48),floor-q(145)),(x,floor-q(132)),(x+q(48),floor-q(145))],"#df465b",q(13))
         oval((x-q(17),floor-q(143),x+q(17),floor-q(108)),"#ffcf54","#fff2c8",3)
@@ -132,10 +136,14 @@ def _character(d, x, floor, scale, palette, name, phase, pointing=False, dog=Fal
     d.arc(box(x-q(67),floor-q(456)+bob,x-q(10),floor-q(420)+bob),195,330,fill=hair,width=q(7))
     d.arc(box(x+q(10),floor-q(456)+bob,x+q(67),floor-q(420)+bob),210,345,fill=hair,width=q(7))
     oval((x-q(9),floor-q(353)+bob,x+q(9),floor-q(339)+bob),"#df987a",None,0)
-    # Smile with mouth cavity and tongue
-    d.ellipse(box(x-q(26),floor-q(337)+bob,x+q(26),floor-q(296)+bob),fill="#6b354b")
-    d.arc(box(x-q(22),floor-q(323)+bob,x+q(22),floor-q(299)+bob),5,175,fill="#fff4e8",width=q(4))
-    d.arc(box(x-q(10),floor-q(313)+bob,x+q(10),floor-q(297)+bob),5,170,fill="#ef7c91",width=q(5))
+    # Mouth changes shape in sync with the active voice segment.
+    if speaking and math.sin(phase*13.0) > -0.15:
+        d.ellipse(box(x-q(29),floor-q(342)+bob,x+q(29),floor-q(285)+bob),fill="#54283d",outline="#7a4052",width=q(3))
+        d.ellipse(box(x-q(14),floor-q(300)+bob,x+q(14),floor-q(289)+bob),fill="#f18a9a")
+    else:
+        d.ellipse(box(x-q(26),floor-q(337)+bob,x+q(26),floor-q(296)+bob),fill="#6b354b")
+        d.arc(box(x-q(22),floor-q(323)+bob,x+q(22),floor-q(299)+bob),5,175,fill="#fff4e8",width=q(4))
+        d.arc(box(x-q(10),floor-q(313)+bob,x+q(10),floor-q(297)+bob),5,170,fill="#ef7c91",width=q(5))
     # Blush cheeks and small freckles
     oval((x-q(82),floor-q(353)+bob,x-q(48),floor-q(325)+bob),"#ef9294",None,0)
     oval((x+q(48),floor-q(353)+bob,x+q(82),floor-q(325)+bob),"#ef9294",None,0)
@@ -200,7 +208,7 @@ def _draw_frame(t: float, planet: str, portrait: bool = False):
         # compact centered group so all three friends fit the vertical crop
         _character(d,475+int(math.sin(t*1.1)*12),665,.67,("#e94e9b","#8f4e9a","#ffd04d"),"LUNA",t,pointing=(t%5<2.5))
         _character(d,650+int(math.sin(t*1.1+1)*10),665,.67,("#287cc6","#554d9a","#f2a34d"),"TOMI",t+1,pointing=(t%6>3))
-        _character(d,825+int(math.sin(t*1.1+2)*9),665,.62,("#d58a48","#fff","#287cc6"),"PIPO",t,dog=True)
+        _character(d,825+int(math.sin(t*1.1+2)*9),665,.62,("#d58a48","#fff","#287cc6"),"PIPO",t,dog=True,speaking=active_speaker == "Pipo",walking=action in ("walk","explore","run"))
         return im.crop((438,0,843,720)).resize((720,1280),Image.Resampling.LANCZOS)
     _character(d,350+int(math.sin(t*1.1)*22),665,.91,("#e94e9b","#8f4e9a","#ffd04d"),"LUNA",t,pointing=(t%5<2.5))
     _character(d,640+int(math.sin(t*1.1+1)*18),665,.91,("#287cc6","#554d9a","#f2a34d"),"TOMI",t+1,pointing=(t%6>3))
@@ -209,7 +217,8 @@ def _draw_frame(t: float, planet: str, portrait: bool = False):
 
 
 def _draw_story_scene(t: float, planet: str, biome: str, palette: str,
-                      scene_index: int, action: str = "", portrait: bool = False):
+                      scene_index: int, action: str = "", portrait: bool = False,
+                      active_speaker: str = ""):
     """Purpose-built storyboard backgrounds: every beat cuts to a visibly new location."""
     im = Image.new("RGB", (W, H))
     d = ImageDraw.Draw(im)
@@ -339,9 +348,9 @@ def _draw_story_scene(t: float, planet: str, biome: str, palette: str,
     if idx == 7:
         positions = [(x,y+5,sc) for x,y,sc in positions]
     _character(d,positions[0][0]+int(math.sin(t*1.4)*22),positions[0][1],positions[0][2],
-               ("#e94e9b","#8f4e9a","#ffd04d"),"LUNA",t,pointing=idx in (1,4,9))
+               ("#e94e9b","#8f4e9a","#ffd04d"),"LUNA",t,pointing=idx in (1,4,9),speaking=active_speaker == "Luna",walking=action in ("walk","explore","run"))
     _character(d,positions[1][0]+int(math.sin(t*1.3+1)*18),positions[1][1],positions[1][2],
-               ("#287cc6","#554d9a","#f2a34d"),"TOMI",t+1,pointing=idx in (5,8,9))
+               ("#287cc6","#554d9a","#f2a34d"),"TOMI",t+1,pointing=idx in (5,8,9),speaking=active_speaker == "Tomi",walking=action in ("walk","explore","run"))
     _character(d,positions[2][0]+int(math.sin(t*1.7+2)*14),positions[2][1],positions[2][2],
                ("#d58a48","#fff","#287cc6"),"PIPO",t,dog=True)
     if portrait:
