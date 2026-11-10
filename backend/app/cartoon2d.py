@@ -71,7 +71,7 @@ def _character(d, x, floor, scale, palette, name, phase, pointing=False, dog=Fal
         # collar and tag
         stroke([(x-q(48),floor-q(145)),(x,floor-q(132)),(x+q(48),floor-q(145))],"#df465b",q(13))
         oval((x-q(17),floor-q(143),x+q(17),floor-q(108)),"#ffcf54","#fff2c8",3)
-        d.text((x-q(10),floor-q(139),"♥"),font=_font(q(17),True),fill="#a63f56")
+        d.text((x-q(10),floor-q(139)),"♥",font=_font(q(17),True),fill="#a63f56")
         return
 
     skin="#f6c49e"; hair="#70412e" if name=="LUNA" else "#75472e"
