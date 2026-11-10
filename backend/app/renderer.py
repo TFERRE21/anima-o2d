@@ -545,6 +545,48 @@ def _render_blender_frames(frames: Path, fmt: str, width: int, height: int,
         progress_callback(92, "Cenas 3D renderizadas. Preparando o vídeo.")
 
 
+def _render_cartoon2d_frames(frames: Path, fmt: str, width: int, height: int,
+                              total_frames: int, scene_list: list,
+                              plan: dict, progress_callback=None) -> None:
+    """Render the production episode as 2D illustrated animation, never Blender."""
+    from PIL import Image, ImageDraw
+    from backend.app.cartoon2d import _draw_frame, _font, FPS as CARTOON_FPS
+    frames.mkdir(parents=True, exist_ok=True)
+    portrait = fmt == "9:16"
+    fps = FPS
+    duration = total_frames / fps
+    count = max(1, len(scene_list))
+    planet = str(plan.get("planet", "AURORA-7")).upper()
+    palette = ["#244b83", "#347d79", "#7d5795", "#b36b55", "#387f9a", "#846b42"]
+    for frame in range(total_frames):
+        t = frame / fps
+        scene_index = min(count - 1, int(t / max(.001, duration) * count))
+        scene_title, caption, action = scene_list[scene_index]
+        image = _draw_frame(t, planet)
+        if portrait:
+            image = Image.Image.crop(image, (437, 0, 842, 720)).resize((360, 640), Image.Resampling.LANCZOS)
+        else:
+            image = image.resize((640, 360), Image.Resampling.LANCZOS)
+        draw = ImageDraw.Draw(image)
+        # Strong 2D title/caption treatment; readable on phone and TV.
+        draw.rounded_rectangle((12, 10, image.width-12, 45), radius=10,
+                               fill="#182e55", outline="#fff1c7", width=2)
+        draw.text((22, 17), str(scene_title)[:48], font=_font(18 if not portrait else 16, True), fill="#ffffff")
+        subtitle = str(caption or action or "").strip()
+        if subtitle:
+            max_chars = 72 if not portrait else 34
+            subtitle = subtitle[:max_chars]
+            box_h = 52 if not portrait else 72
+            draw.rounded_rectangle((10, image.height-box_h-8, image.width-10, image.height-8),
+                                   radius=10, fill="#17243c", outline="#ffffff", width=2)
+            draw.text((18, image.height-box_h+5), subtitle,
+                      font=_font(15 if not portrait else 14, True), fill="#fff8df")
+        image.save(frames / f"frame-{frame+1:06d}.png", compress_level=1)
+        if progress_callback and (frame % max(1, fps * 5) == 0 or frame == total_frames-1):
+            progress_callback(14 + int((frame+1) / total_frames * 77),
+                              f"Animação 2D: cena {scene_index+1}/{count} · quadro {frame+1}/{total_frames}")
+
+
 def render_episode(title: str, story: str, fmt: str, output: Path, workdir: Path,
                    planet_name: str = "Aurora-7", story_plan: dict | None = None,
                    progress_callback: Callable[[int, str], None] | None = None):
@@ -633,10 +675,17 @@ def render_episode(title: str, story: str, fmt: str, output: Path, workdir: Path
 
     scene_count = len(render_scenes)
     total_frames = max(1, int(math.ceil(duration_seconds * FPS)))
-    _render_blender_frames(
-        frames, fmt, width, height, total_frames,
-        render_scenes, scene_source_indices, plan, voice_timeline, progress_callback
-    )
+    engine = os.getenv("ANIMA_RENDER_ENGINE", "2d").strip().lower()
+    if engine == "3d":
+        _render_blender_frames(
+            frames, fmt, width, height, total_frames,
+            render_scenes, scene_source_indices, plan, voice_timeline, progress_callback
+        )
+    else:
+        _render_cartoon2d_frames(
+            frames, fmt, width, height, total_frames,
+            render_scenes, plan, progress_callback
+        )
     frame_pattern = frames / "frame-%06d.png"
 
     low_video = workdir / f"silent-{fmt.replace(':','x')}.mp4"
@@ -674,7 +723,7 @@ def render_episode(title: str, story: str, fmt: str, output: Path, workdir: Path
         "narration_seconds": round(fitted_duration, 2),
         "resolution": "1080x1920" if portrait else "1920x1080",
         "scene_count": scene_count,
-        "render_engine": "Blender 3D",
+        "render_engine": "2D cartoon" if os.getenv("ANIMA_RENDER_ENGINE", "2d").strip().lower() != "3d" else "Blender 3D",
         "narration_word_count": sum(len(str(item.get("text", "")).split()) for item in audio_segments),
         "speakers": sorted({str(item.get("speaker", "Narrador")) for item in audio_segments}),
         "voice_profiles_file": str(VOICE_PROFILE_FILE),

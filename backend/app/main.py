@@ -325,7 +325,7 @@ def health():
         "blender_path": blender_runtime["executable"] if blender_runtime else None,
         "bpy_module_available": has_bpy_module(),
         "blender_scene_file": blender_script.is_file(),
-        "render_engine": "blender-3d-only",
+        "render_engine": "2d-cartoon-default",
     }
 
 
@@ -374,7 +374,7 @@ def diagnostics():
         "native_library_bootstrap": NATIVE_LIBRARY_BOOTSTRAP,
         "blender_scene_path": str(blender_script.resolve()),
         "blender_scene_exists": blender_script.is_file(),
-        "render_engine": "blender-3d-only",
+        "render_engine": "2d-cartoon-default",
         "ffmpeg_available": _has("ffmpeg"),
         "tts_available": _has("tts"),
         "storage_path": str(STORAGE.resolve()),
@@ -389,9 +389,9 @@ def config():
             {"id": "9:16", "width": 1080, "height": 1920, "label": "YouTube Shorts"},
         ],
         "youtube_oauth_configured": bool(settings.youtube_client_id and settings.youtube_client_secret),
-        "generation_enabled": _has("ffmpeg") and _has("tts") and blender_available(),
+        "generation_enabled": _has("ffmpeg") and _has("tts"),
         "media": {"ffmpeg": _has("ffmpeg"), "tts": _has("tts"), "blender_3d": blender_available()},
-        "engine": "Anima Studio — Blender 3D exclusivo" if blender_available() else "Motor 3D ausente — instale bpy para Python 3.13",
+        "engine": "Anima Studio — animação 2D vetorial" if os.getenv("ANIMA_RENDER_ENGINE", "2d").lower() != "3d" else "Anima Studio — Blender 3D",
     }
 
 @app.post("/api/stories/generate", status_code=201)
@@ -466,27 +466,21 @@ def render_story(job_id: str, payload: RenderRequest):
         raise HTTPException(400, "Formatos inválidos.")
     if not _has("ffmpeg") or not _has("tts"):
         raise HTTPException(503, "Motor de mídia incompleto. É necessário FFmpeg e voz (espeak-ng ou edge-tts).")
-    blender_runtime = find_blender_runtime()
-    blender_script = Path(__file__).with_name("blender_scene.py")
-    if not blender_runtime:
-        raise HTTPException(
-            503,
-            "Motor 3D ausente neste Python. Instale bpy==5.2.3 (Python 3.13) "
-            "ou disponibilize o executável Blender. Consulte /api/diagnostics."
-        )
-    if not blender_script.is_file():
-        raise HTTPException(
-            503,
-            f"Arquivo 3D ausente: {blender_script}. Recompile a aplicação incluindo backend/app/blender_scene.py."
-        )
-    remote_enabled = os.getenv("ANIMA_REMOTE_WORKER_ENABLED", "false").lower() in {"1", "true", "yes"}
-    if remote_enabled:
-        if not os.getenv("ANIMA_WORKER_TOKEN", "").strip():
-            raise HTTPException(503, "Render RX 580 ativado, mas o token do trabalhador não foi configurado na VPS.")
-        now = time.time()
-        connected_workers = [name for name, seen in WORKER_LAST_SEEN.items() if now - seen < 75]
-        if not connected_workers:
-            raise HTTPException(503, "Computador RX 580 desconectado. Abra iniciar-worker.ps1 no Windows e tente novamente.")
+    # A produção padrão é 2D vetorial. Blender/RX580 continuam disponíveis
+    # somente quando ANIMA_RENDER_ENGINE=3d for explicitamente selecionado.
+    if os.getenv("ANIMA_RENDER_ENGINE", "2d").strip().lower() == "3d":
+        blender_runtime = find_blender_runtime()
+        blender_script = Path(__file__).with_name("blender_scene.py")
+        if not blender_runtime or not blender_script.is_file():
+            raise HTTPException(503, "Motor 3D não está disponível. Verifique /api/diagnostics.")
+        remote_enabled = os.getenv("ANIMA_REMOTE_WORKER_ENABLED", "false").lower() in {"1", "true", "yes"}
+        if remote_enabled:
+            if not os.getenv("ANIMA_WORKER_TOKEN", "").strip():
+                raise HTTPException(503, "Render RX 580 ativado, mas ANIMA_WORKER_TOKEN não foi configurado.")
+            now = time.time()
+            connected_workers = [name for name, seen in WORKER_LAST_SEEN.items() if now - seen < 75]
+            if not connected_workers:
+                raise HTTPException(503, "Computador RX 580 desconectado. Abra iniciar-worker.ps1 no Windows e tente novamente.")
     _update(job_id, status="queued", stage="render_queued", progress=8,
             message="Roteiro aprovado. Preparando cenas e narração.", formats=formats,
             review_status="pending_review", outputs={}, error=None)
