@@ -176,7 +176,6 @@ async function loadDashboard(){
   const missing=[];
   if(!health.ffmpeg)missing.push('FFmpeg');
   if(!health.tts)missing.push('voz');
-  if(!health.blender)missing.push('Blender 3D (use runtime Docker)');
   if(!health.storage_writable)missing.push('armazenamento');
   $('systemStatus').textContent=missing.length?'● API online · falta '+missing.join(', '):'● Animação 2D conectada · vozes e mídia prontas';
   $('systemStatus').style.color=missing.length?'#f5d28d':'#9ce8cb';
