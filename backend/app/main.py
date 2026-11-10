@@ -847,3 +847,17 @@ def _run_job(job_id: str, payload: GenerateRequest):
 
 if WEB.exists():
     app.mount("/", StaticFiles(directory=WEB, html=True), name="web")
+
+
+@app.get("/api/engines/status")
+def animation_engines_status():
+    """Expose independent engine readiness without starting a render job."""
+    from backend.app.engines.orchestrator import EpisodeOrchestrator
+    return EpisodeOrchestrator().health()
+
+
+@app.get("/api/characters")
+def animation_character_library():
+    """Return the canonical identity and rig manifest for Luna, Tomi and Pipo."""
+    from backend.app.character_profiles import CHARACTER_PROFILES
+    return {"characters": CHARACTER_PROFILES}
