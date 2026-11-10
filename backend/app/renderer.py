@@ -547,7 +547,7 @@ def _render_blender_frames(frames: Path, fmt: str, width: int, height: int,
 
 def _render_cartoon2d_frames(frames: Path, fmt: str, width: int, height: int,
                               total_frames: int, scene_list: list,
-                              plan: dict, progress_callback=None, scene_source_indices=None) -> None:
+                              plan: dict, progress_callback=None, scene_source_indices=None, voice_timeline=None) -> None:
     """Render full-resolution 2D storybook frames; no Blender or RX580 dependency."""
     from PIL import ImageDraw
     from backend.app.cartoon2d import _draw_story_scene, _font
@@ -564,10 +564,12 @@ def _render_cartoon2d_frames(frames: Path, fmt: str, width: int, height: int,
         story_scene_index = (scene_source_indices[scene_index]
                              if scene_source_indices and scene_index < len(scene_source_indices)
                              else scene_index)
+        active_speaker = next((str(item.get("speaker", "")) for item in (voice_timeline or [])
+                               if float(item.get("start", 0)) <= t < float(item.get("end", 0))), "")
         image = _draw_story_scene(
             t, planet, str(plan.get("biome", "")),
             str(plan.get("palette", "aurora")), story_scene_index,
-            str(action or ""), portrait=portrait
+            str(action or ""), portrait=portrait, active_speaker=active_speaker
         )
         draw = ImageDraw.Draw(image)
         # Readable, restrained lower-third captions preserve the artwork.
@@ -692,7 +694,7 @@ def render_episode(title: str, story: str, fmt: str, output: Path, workdir: Path
     else:
         _render_cartoon2d_frames(
             frames, fmt, width, height, total_frames,
-            render_scenes, plan, progress_callback, scene_source_indices
+            render_scenes, plan, progress_callback, scene_source_indices, voice_timeline
         )
     frame_pattern = frames / "frame-%06d.png"
 
