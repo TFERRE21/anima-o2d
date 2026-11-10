@@ -208,6 +208,147 @@ def _draw_frame(t: float, planet: str, portrait: bool = False):
     return im
 
 
+def _draw_story_scene(t: float, planet: str, biome: str, palette: str,
+                      scene_index: int, action: str = "", portrait: bool = False):
+    """Purpose-built storyboard backgrounds: every beat cuts to a visibly new location."""
+    im = Image.new("RGB", (W, H))
+    d = ImageDraw.Draw(im)
+    idx = max(0, int(scene_index))
+    # Distinct art direction per planet biome.
+    biome_colors = {
+        "aurora": ((28,45,112),(128,104,190),"#43c8b6","#315b70"),
+        "red": ((101,42,35),(246,153,75),"#e6ae51","#9d513d"),
+        "ocean": ((8,70,119),(75,194,215),"#42c9db","#176c91"),
+        "flora": ((50,91,65),(213,158,190),"#ef83b6","#4b9b68"),
+        "cloud": ((92,119,190),(255,208,167),"#d9c5ff","#7897ce"),
+        "ice": ((26,73,119),(167,222,241),"#b4efff","#477eaa"),
+        "volcano": ((75,45,57),(230,139,84),"#e6b35e","#4c7655"),
+        "sapphire": ((30,43,104),(111,125,204),"#72d5e8","#5368a5"),
+        "petal": ((100,79,125),(255,188,199),"#f38ab4","#69a96a"),
+        "moon": ((35,40,77),(154,154,183),"#a7a9cb","#596078"),
+    }
+    top, bottom, accent, ground = biome_colors.get(palette, biome_colors["aurora"])
+    _gradient(d, top, bottom)
+    # Stars, drifting particles and distant planet/moon
+    for i in range(34):
+        x=(i*197+int(t*(5+i%3)))%W
+        y=(i*83+19)%390
+        r=1+(i%3)
+        d.ellipse((x-r,y-r,x+r,y+r),fill="#fff4d0")
+    d.ellipse((1010,55,1150,195),fill="#fff0bc",outline="#fff9dc",width=4)
+    # Establish a unique location for each beat.
+    if idx == 0:  # spaceship interior
+        d.rectangle((0,510,W,H),fill="#26364e")
+        d.rounded_rectangle((70,90,1210,555),radius=65,fill="#263b62",outline="#9bd9ed",width=12)
+        d.rounded_rectangle((160,145,1120,440),radius=40,fill="#102b4d",outline="#77d7ec",width=8)
+        for i in range(9):
+            x=205+i*105
+            d.ellipse((x,220+(i%3)*35,x+18,238+(i%3)*35),fill="#fff1ad")
+        d.polygon([(0,620),(1280,620),(1280,720),(0,720)],fill="#19283d")
+        d.text((470,110),"NAVE ESTRELINHA",font=_font(35,True),fill="#fff4c9")
+    elif idx == 1:  # aerial approach / planet reveal
+        d.ellipse((300,155,980,835),fill=ground,outline=accent,width=14)
+        for i in range(7):
+            x=390+i*82
+            d.arc((x,300,x+180,570),190,340,fill=accent,width=9)
+        d.polygon([(0,570),(260,470),(470,565),(700,420),(960,560),(1280,440),(1280,720),(0,720)],fill=ground)
+    elif idx == 2:  # settlement
+        d.rectangle((0,500,W,H),fill=ground)
+        for i in range(6):
+            x=50+i*210
+            d.rectangle((x,320,x+140,560),fill="#f5d49a",outline="#493b56",width=7)
+            d.polygon([(x-18,320),(x+70,235),(x+158,320)],fill=accent,outline="#493b56")
+            d.rectangle((x+50,420,x+90,560),fill="#865b4b")
+            for wx in (x+20,x+100):
+                d.rectangle((wx,360,wx+24,400),fill="#78d5ed",outline="#493b56",width=3)
+    elif idx in (3,4,5):  # forest / investigation / planning
+        d.rectangle((0,510,W,H),fill=ground)
+        for i in range(7):
+            x=i*205-40
+            d.rectangle((x+45,250,x+85,625),fill="#79513c")
+            for ox,oy,rad in [(0,220,100),(55,175,95),(-55,280,85)]:
+                d.ellipse((x+ox-rad,oy-rad,x+ox+rad,oy+rad),fill=accent,outline="#244e50",width=5)
+        if idx == 4:
+            for i in range(5):
+                x=250+i*170
+                d.polygon([(x,510),(x+35,370),(x+70,510)],fill="#a9f4e6",outline="#e9fff4")
+                d.ellipse((x+20,405,x+50,435),fill="#fff2a1")
+        if idx == 5:
+            d.rounded_rectangle((390,420,890,590),radius=28,fill="#f1d29a",outline="#634a4a",width=6)
+            d.line((440,500,830,500),fill="#a06d4d",width=8)
+            for x in (510,650,780):
+                d.ellipse((x-20,470,x+20,510),fill=accent,outline="#fff4d5",width=4)
+    elif idx in (6,7,8):  # river, cave, bridge
+        d.rectangle((0,500,W,H),fill=ground)
+        if idx == 6:
+            d.polygon([(0,460),(300,480),(500,720),(0,720)],fill="#52c9e3")
+            d.polygon([(800,470),(1280,420),(1280,720),(1000,720)],fill="#52c9e3")
+            for i in range(6):
+                x=120+i*180
+                d.ellipse((x,545+(i%2)*45,x+75,585+(i%2)*45),fill="#a8e7ef")
+        elif idx == 7:
+            d.rectangle((0,0,W,H),fill="#182c4c")
+            d.ellipse((180,90,1100,880),fill=ground,outline=accent,width=18)
+            for i in range(6):
+                x=260+i*145
+                d.polygon([(x,525),(x+40,350),(x+80,525)],fill=accent,outline="#e6f9ff")
+        else:
+            d.polygon([(0,500),(1280,500),(1280,720),(0,720)],fill="#317b9a")
+            d.polygon([(150,470),(1130,470),(1050,540),(230,540)],fill="#e7b86c",outline="#5c3e4d")
+            for x in range(220,1100,110):
+                d.rectangle((x,430,x+18,540),fill="#a46e4b")
+    elif idx in (9,10):  # worksite then celebration
+        d.rectangle((0,500,W,H),fill=ground)
+        for i in range(5):
+            x=170+i*230
+            d.rounded_rectangle((x,370,x+120,520),radius=22,fill=accent,outline="#fff0c8",width=6)
+            d.ellipse((x+38,410,x+82,454),fill="#fff0a8")
+        if idx == 10:
+            for i in range(24):
+                x=(i*83+int(t*28))%W
+                y=(i*47+int(t*45))%500
+                d.ellipse((x,y,x+9,y+14),fill=("#fff0a8","#ff8fc1","#8be5ed")[i%3])
+    elif idx in (11,14):  # moral / closing tableau
+        d.rectangle((0,500,W,H),fill="#315b52")
+        d.ellipse((430,300,850,720),fill="#fff0bb",outline="#fff8dc",width=10)
+        for i in range(8):
+            x=120+i*145
+            d.ellipse((x,560,x+35,595),fill=accent)
+        if idx == 14:
+            d.rounded_rectangle((250,100,1030,285),radius=38,fill="#203a66",outline="#fff4d7",width=8)
+            d.text((360,145),"A MORAL DA HISTÓRIA",font=_font(42,True),fill="#fff4d7")
+    elif idx == 12:  # mission journal
+        d.rectangle((0,500,W,H),fill="#263c55")
+        d.rounded_rectangle((300,190,980,590),radius=28,fill="#f7e7bf",outline="#8b644c",width=12)
+        for i in range(4):
+            d.line((380,275+i*65,890,275+i*65),fill="#b8a27e",width=4)
+        d.text((450,215),"DIÁRIO DA MISSÃO",font=_font(30,True),fill="#75503e")
+    else:  # departure / spaceship window
+        d.rectangle((0,500,W,H),fill="#1d2b48")
+        d.rounded_rectangle((180,70,1100,610),radius=210,fill="#243b60",outline="#b8e8f4",width=15)
+        d.ellipse((450,190,830,570),fill=ground,outline=accent,width=12)
+    # scene-specific camera framing and foreground
+    if idx not in (0,7,11,12,14):
+        d.polygon([(0,620),(280,570),(500,635),(790,565),(1040,630),(1280,570),(1280,720),(0,720)],fill=ground)
+    # Distinct cast staging: characters move and react in each scene.
+    portrait_positions = [(440,650,.62),(640,650,.62),(840,660,.57)]
+    landscape_positions = [(350,665,.86),(640,665,.86),(930,665,.78)]
+    positions = portrait_positions if portrait else landscape_positions
+    if idx in (0,1,12,13):
+        positions = [(x,y-45,sc) for x,y,sc in positions]
+    if idx == 7:
+        positions = [(x,y+5,sc) for x,y,sc in positions]
+    _character(d,positions[0][0]+int(math.sin(t*1.4)*22),positions[0][1],positions[0][2],
+               ("#e94e9b","#8f4e9a","#ffd04d"),"LUNA",t,pointing=idx in (1,4,9))
+    _character(d,positions[1][0]+int(math.sin(t*1.3+1)*18),positions[1][1],positions[1][2],
+               ("#287cc6","#554d9a","#f2a34d"),"TOMI",t+1,pointing=idx in (5,8,9))
+    _character(d,positions[2][0]+int(math.sin(t*1.7+2)*14),positions[2][1],positions[2][2],
+               ("#d58a48","#fff","#287cc6"),"PIPO",t,dog=True)
+    if portrait:
+        im=im.crop((360,0,920,720)).resize((720,1280),Image.Resampling.LANCZOS)
+    return im
+
+
 def render_preview(output: str | Path, planet: str = "AURORA-7"):
     ffmpeg=shutil.which("ffmpeg")
     if not ffmpeg:
