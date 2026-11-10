@@ -564,11 +564,10 @@ def _render_cartoon2d_frames(frames: Path, fmt: str, width: int, height: int,
         scene_title, caption, action = scene_list[scene_index]
         image = _draw_frame(t, planet)
         if portrait:
-            image = Image.Image.crop(image, (280, 0, 1000, 720)).resize((360, 640), Image.Resampling.LANCZOS)
+            image = Image.Image.crop(image, (437, 0, 842, 720)).resize((360, 640), Image.Resampling.LANCZOS)
         else:
             image = image.resize((640, 360), Image.Resampling.LANCZOS)
         draw = ImageDraw.Draw(image)
-        scale = 0.5 if not portrait else 0.48
         # Strong 2D title/caption treatment; readable on phone and TV.
         draw.rounded_rectangle((12, 10, image.width-12, 45), radius=10,
                                fill="#182e55", outline="#fff1c7", width=2)
