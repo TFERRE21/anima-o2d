@@ -550,7 +550,7 @@ def _render_cartoon2d_frames(frames: Path, fmt: str, width: int, height: int,
                               plan: dict, progress_callback=None) -> None:
     """Render full-resolution 2D storybook frames; no Blender or RX580 dependency."""
     from PIL import ImageDraw
-    from backend.app.cartoon2d import _draw_frame, _font
+    from backend.app.cartoon2d import _draw_story_scene, _font
     frames.mkdir(parents=True, exist_ok=True)
     portrait = fmt == "9:16"
     fps = FPS
@@ -561,7 +561,7 @@ def _render_cartoon2d_frames(frames: Path, fmt: str, width: int, height: int,
         t = frame / fps
         scene_index = min(count - 1, int(t / max(.001, duration) * count))
         scene_title, caption, action = scene_list[scene_index]
-        image = _draw_frame(t, planet, portrait=portrait)
+        image = _draw_story_scene(t, planet, str(plan.get("biome", "")),\n                                  str(plan.get("palette", "aurora")), scene_index,\n                                  str(action or ""), portrait=portrait)
         draw = ImageDraw.Draw(image)
         # Readable, restrained lower-third captions preserve the artwork.
         if portrait:
