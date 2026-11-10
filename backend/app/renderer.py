@@ -548,39 +548,40 @@ def _render_blender_frames(frames: Path, fmt: str, width: int, height: int,
 def _render_cartoon2d_frames(frames: Path, fmt: str, width: int, height: int,
                               total_frames: int, scene_list: list,
                               plan: dict, progress_callback=None) -> None:
-    """Render the production episode as 2D illustrated animation, never Blender."""
-    from PIL import Image, ImageDraw
-    from backend.app.cartoon2d import _draw_frame, _font, FPS as CARTOON_FPS
+    """Render full-resolution 2D storybook frames; no Blender or RX580 dependency."""
+    from PIL import ImageDraw
+    from backend.app.cartoon2d import _draw_frame, _font
     frames.mkdir(parents=True, exist_ok=True)
     portrait = fmt == "9:16"
     fps = FPS
     duration = total_frames / fps
     count = max(1, len(scene_list))
     planet = str(plan.get("planet", "AURORA-7")).upper()
-    palette = ["#244b83", "#347d79", "#7d5795", "#b36b55", "#387f9a", "#846b42"]
     for frame in range(total_frames):
         t = frame / fps
         scene_index = min(count - 1, int(t / max(.001, duration) * count))
         scene_title, caption, action = scene_list[scene_index]
-        image = _draw_frame(t, planet)
-        if portrait:
-            image = Image.Image.crop(image, (437, 0, 842, 720)).resize((360, 640), Image.Resampling.LANCZOS)
-        else:
-            image = image.resize((640, 360), Image.Resampling.LANCZOS)
+        image = _draw_frame(t, planet, portrait=portrait)
         draw = ImageDraw.Draw(image)
-        # Strong 2D title/caption treatment; readable on phone and TV.
-        draw.rounded_rectangle((12, 10, image.width-12, 45), radius=10,
-                               fill="#182e55", outline="#fff1c7", width=2)
-        draw.text((22, 17), str(scene_title)[:48], font=_font(18 if not portrait else 16, True), fill="#ffffff")
-        subtitle = str(caption or action or "").strip()
-        if subtitle:
-            max_chars = 72 if not portrait else 34
-            subtitle = subtitle[:max_chars]
-            box_h = 52 if not portrait else 72
-            draw.rounded_rectangle((10, image.height-box_h-8, image.width-10, image.height-8),
-                                   radius=10, fill="#17243c", outline="#ffffff", width=2)
-            draw.text((18, image.height-box_h+5), subtitle,
-                      font=_font(15 if not portrait else 14, True), fill="#fff8df")
+        # Readable, restrained lower-third captions preserve the artwork.
+        if portrait:
+            draw.rounded_rectangle((22, 24, image.width-22, 82), radius=18,
+                                   fill="#203a66", outline="#fff1c7", width=3)
+            draw.text((42, 39), str(scene_title)[:36], font=_font(26, True), fill="#ffffff")
+            subtitle = str(caption or action or "").strip()[:54]
+            if subtitle:
+                draw.rounded_rectangle((20, image.height-142, image.width-20, image.height-28),
+                                       radius=18, fill="#17243c", outline="#ffffff", width=3)
+                draw.text((38, image.height-116), subtitle, font=_font(22, True), fill="#fff8df")
+        else:
+            draw.rounded_rectangle((24, 18, image.width-24, 68), radius=16,
+                                   fill="#203a66", outline="#fff1c7", width=3)
+            draw.text((44, 28), str(scene_title)[:52], font=_font(24, True), fill="#ffffff")
+            subtitle = str(caption or action or "").strip()[:96]
+            if subtitle:
+                draw.rounded_rectangle((24, image.height-84, image.width-24, image.height-18),
+                                       radius=16, fill="#17243c", outline="#ffffff", width=3)
+                draw.text((42, image.height-68), subtitle, font=_font(21, True), fill="#fff8df")
         image.save(frames / f"frame-{frame+1:06d}.png", compress_level=1)
         if progress_callback and (frame % max(1, fps * 5) == 0 or frame == total_frames-1):
             progress_callback(14 + int((frame+1) / total_frames * 77),
