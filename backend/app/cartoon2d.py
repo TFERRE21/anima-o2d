@@ -35,7 +35,7 @@ def _gradient(draw, top, bottom):
         draw.line((0, y, W, y), fill=color)
 
 
-def _character(d, x, floor, scale, palette, name, phase, pointing=False, dog=False, speaking=False):
+def _character(d, x, floor, scale, palette, name, phase, pointing=False, dog=False, speaking=False, walking=False):
     """Polished original 2D storybook mascot: layered shapes, expressive face and acting."""
     ink = "#573747"
     def q(v): return int(v * scale)
@@ -45,7 +45,7 @@ def _character(d, x, floor, scale, palette, name, phase, pointing=False, dog=Fal
     def stroke(points, fill, width=12):
         d.line([(int(a),int(b)) for a,b in points], fill=fill, width=max(2,q(width)), joint="curve")
     bob = math.sin(phase*3.0)*q(4)
-    walk = math.sin(phase*5.2)*q(18)
+    walk = math.sin(phase*5.2)*q(18 if walking else 1.5)
     if dog:
         wag = math.sin(phase*7)*q(24)
         # Tail behind body, animated wag
@@ -208,7 +208,7 @@ def _draw_frame(t: float, planet: str, portrait: bool = False):
         # compact centered group so all three friends fit the vertical crop
         _character(d,475+int(math.sin(t*1.1)*12),665,.67,("#e94e9b","#8f4e9a","#ffd04d"),"LUNA",t,pointing=(t%5<2.5))
         _character(d,650+int(math.sin(t*1.1+1)*10),665,.67,("#287cc6","#554d9a","#f2a34d"),"TOMI",t+1,pointing=(t%6>3))
-        _character(d,825+int(math.sin(t*1.1+2)*9),665,.62,("#d58a48","#fff","#287cc6"),"PIPO",t,dog=True,speaking=active_speaker == "Pipo")
+        _character(d,825+int(math.sin(t*1.1+2)*9),665,.62,("#d58a48","#fff","#287cc6"),"PIPO",t,dog=True,speaking=active_speaker == "Pipo",walking=action in ("walk","explore","run"))
         return im.crop((438,0,843,720)).resize((720,1280),Image.Resampling.LANCZOS)
     _character(d,350+int(math.sin(t*1.1)*22),665,.91,("#e94e9b","#8f4e9a","#ffd04d"),"LUNA",t,pointing=(t%5<2.5))
     _character(d,640+int(math.sin(t*1.1+1)*18),665,.91,("#287cc6","#554d9a","#f2a34d"),"TOMI",t+1,pointing=(t%6>3))
@@ -348,9 +348,9 @@ def _draw_story_scene(t: float, planet: str, biome: str, palette: str,
     if idx == 7:
         positions = [(x,y+5,sc) for x,y,sc in positions]
     _character(d,positions[0][0]+int(math.sin(t*1.4)*22),positions[0][1],positions[0][2],
-               ("#e94e9b","#8f4e9a","#ffd04d"),"LUNA",t,pointing=idx in (1,4,9),speaking=active_speaker == "Luna")
+               ("#e94e9b","#8f4e9a","#ffd04d"),"LUNA",t,pointing=idx in (1,4,9),speaking=active_speaker == "Luna",walking=action in ("walk","explore","run"))
     _character(d,positions[1][0]+int(math.sin(t*1.3+1)*18),positions[1][1],positions[1][2],
-               ("#287cc6","#554d9a","#f2a34d"),"TOMI",t+1,pointing=idx in (5,8,9),speaking=active_speaker == "Tomi")
+               ("#287cc6","#554d9a","#f2a34d"),"TOMI",t+1,pointing=idx in (5,8,9),speaking=active_speaker == "Tomi",walking=action in ("walk","explore","run"))
     _character(d,positions[2][0]+int(math.sin(t*1.7+2)*14),positions[2][1],positions[2][2],
                ("#d58a48","#fff","#287cc6"),"PIPO",t,dog=True)
     if portrait:
