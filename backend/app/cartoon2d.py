@@ -11,7 +11,7 @@ from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFont
 
-W, H, FPS, SECONDS = 1280, 720, 24, 8
+W, H, FPS, SECONDS = 1280, 720, 24, 10
 
 
 def _font(size: int, bold: bool = False):
