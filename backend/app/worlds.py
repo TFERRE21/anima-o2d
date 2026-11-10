@@ -131,14 +131,30 @@ def build_episode_plan(episode_number: int, used_planets: set[str] | None = None
         dialogue_by_scene.setdefault(line["scene"], []).append(line)
     # Each narration paragraph owns one storyboard scene. This explicit mapping
     # lets the 3D animator cut to the exact action while that sentence is spoken.
+    # During the adventure, the story is told by the characters themselves.
+    # The off-screen narrator is reserved for the final moral only.
     audio_segments_long = []
-    for scene_index, narrator_text in enumerate(long_script):
+    adventure_speakers = ["Luna", "Tomi", "Moradora", "Luna", "Tomi", "Tomi",
+                          "Luna", "Tomi", "Moradora", "Luna", "Tomi", "Luna",
+                          "Tomi", "Luna", "Narrador"]
+    for scene_index, story_text in enumerate(long_script):
+        speaker = adventure_speakers[min(scene_index, len(adventure_speakers)-1)]
+        if scene_index == 11:
+            speaker = "Luna"
+        if scene_index == 14:
+            speaker = "Narrador"
+            story_text = (
+                f"Moral da história: {value}. Aprendemos que ouvir, respeitar e cooperar "
+                "ajuda a resolver problemas. Antes de agir, pense com cuidado e peça ajuda "
+                "a um adulto quando necessário."
+            )
         audio_segments_long.append({
-            "speaker": "Narrador",
-            "text": narrator_text,
+            "speaker": speaker,
+            "text": story_text,
             "scene": min(scene_index, len(scenes) - 1),
         })
-        audio_segments_long.extend(dialogue_by_scene.get(scene_index, []))
+        if scene_index < 14:
+            audio_segments_long.extend(dialogue_by_scene.get(scene_index, []))
 
     # Shorts use the most emotional section: the unexpected clue, the failed
     # first attempt, the team's decision to listen, and the successful solution.
