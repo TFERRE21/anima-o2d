@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1.7
 FROM python:3.13-slim
 
 # Blender runs as its official bpy Python module; Mesa/Xvfb provide headless OpenGL
@@ -15,7 +16,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /app
 COPY backend/requirements.txt ./requirements.txt
-RUN pip install --no-cache-dir -r requirements.txt \
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip install -r requirements.txt \
     && python -c "import bpy; print('ANIMA_BLENDER_MODULE_OK', bpy.app.version_string)"
 
 COPY backend ./backend
