@@ -466,14 +466,16 @@ def render_story(job_id: str, payload: RenderRequest):
         raise HTTPException(400, "Formatos inválidos.")
     if not _has("ffmpeg") or not _has("tts"):
         raise HTTPException(503, "Motor de mídia incompleto. É necessário FFmpeg e voz (espeak-ng ou edge-tts).")
-    # A produção padrão é 2D vetorial. Blender/RX580 continuam disponíveis
-    # somente quando ANIMA_RENDER_ENGINE=3d for explicitamente selecionado.
-    if os.getenv("ANIMA_RENDER_ENGINE", "2d").strip().lower() == "3d":
-        blender_runtime = find_blender_runtime()
+    # O motor 3D remoto executa Blender diretamente no Windows/RX580.
+    # Nesse modo, a VPS não precisa ter Blender/bpy instalado localmente.
+    selected_engine = os.getenv("ANIMA_RENDER_ENGINE", "2d").strip().lower()
+    if selected_engine not in {"2d", "3d"}:
+        raise HTTPException(503, "ANIMA_RENDER_ENGINE inválido. Configure 2d ou 3d.")
+    if selected_engine == "3d":
         blender_script = Path(__file__).with_name("blender_scene.py")
-        if not blender_runtime or not blender_script.is_file():
-            raise HTTPException(503, "Motor 3D não está disponível. Verifique /api/diagnostics.")
-        remote_enabled = os.getenv("ANIMA_REMOTE_WORKER_ENABLED", "false").lower() in {"1", "true", "yes"}
+        if not blender_script.is_file():
+            raise HTTPException(503, "Arquivo da cena Blender não encontrado na VPS.")
+        remote_enabled = os.getenv("ANIMA_REMOTE_WORKER_ENABLED", "false").strip().lower() in {"1", "true", "yes"}
         if remote_enabled:
             if not os.getenv("ANIMA_WORKER_TOKEN", "").strip():
                 raise HTTPException(503, "Render RX 580 ativado, mas ANIMA_WORKER_TOKEN não foi configurado.")
@@ -481,6 +483,8 @@ def render_story(job_id: str, payload: RenderRequest):
             connected_workers = [name for name, seen in WORKER_LAST_SEEN.items() if now - seen < 75]
             if not connected_workers:
                 raise HTTPException(503, "Computador RX 580 desconectado. Abra iniciar-worker.ps1 no Windows e tente novamente.")
+        elif not find_blender_runtime():
+            raise HTTPException(503, "Blender local indisponível e worker remoto desativado. Ative ANIMA_REMOTE_WORKER_ENABLED=true para usar a RX 580.")
     _update(job_id, status="queued", stage="render_queued", progress=8,
             message="Roteiro aprovado. Preparando cenas e narração.", formats=formats,
             review_status="pending_review", outputs={}, error=None)
