@@ -36,120 +36,166 @@ def _gradient(draw, top, bottom):
 
 
 def _character(d, x, floor, scale, palette, name, phase, pointing=False, dog=False, speaking=False, walking=False):
-    """Polished original 2D storybook mascot: layered shapes, expressive face and acting."""
-    ink = "#573747"
+    """Organic, hand-illustrated 2D mascot artwork with smooth silhouette curves."""
+    ink = "#493044"
     def q(v): return int(v * scale)
-    def box(x1,y1,x2,y2): return (int(x1),int(y1),int(x2),int(y2))
-    def oval(b, fill, outline=ink, width=5):
-        d.ellipse(box(*b), fill=fill, outline=outline, width=max(2,q(width)) if outline else 1)
-    def stroke(points, fill, width=12):
-        d.line([(int(a),int(b)) for a,b in points], fill=fill, width=max(2,q(width)), joint="curve")
-    bob = math.sin(phase*3.0)*q(4)
-    walk = math.sin(phase*5.2)*q(18 if walking else 1.5)
+    def bezier(p0, p1, p2, p3, steps=18):
+        pts=[]
+        for i in range(steps+1):
+            t=i/steps; u=1-t
+            px=u*u*u*p0[0]+3*u*u*t*p1[0]+3*u*t*t*p2[0]+t*t*t*p3[0]
+            py=u*u*u*p0[1]+3*u*u*t*p1[1]+3*u*t*t*p2[1]+t*t*t*p3[1]
+            pts.append((int(x+q(px)),int(floor+q(py))))
+        return pts
+    def shape(segments, fill, outline=ink, width=5):
+        pts=[]
+        for seg in segments:
+            part=bezier(*seg)
+            pts.extend(part if not pts else part[1:])
+        if len(pts)>2 and pts[-1]!=pts[0]: pts.append(pts[0])
+        d.polygon(pts,fill=fill)
+        if outline: d.line(pts,fill=outline,width=max(2,q(width)),joint="curve")
+    def line(segments, fill, width=12):
+        pts=[]
+        for seg in segments:
+            part=bezier(*seg)
+            pts.extend(part if not pts else part[1:])
+        d.line(pts,fill=fill,width=max(2,q(width)),joint="curve")
+        rad=max(2,q(width)//2)
+        for px,py in (pts[0],pts[-1]):
+            d.ellipse((px-rad,py-rad,px+rad,py+rad),fill=fill)
+    def oval(cx,cy,rx,ry,fill,outline=None,width=2):
+        b=(int(x+q(cx-rx)),int(floor+q(cy-ry)),int(x+q(cx+rx)),int(floor+q(cy+ry)))
+        d.ellipse(b,fill=fill,outline=outline,width=max(2,q(width)) if outline else 1)
+    bob=math.sin(phase*3.0)*q(3.5)
+    walk=math.sin(phase*5.2)*q(13 if walking else 1.2)
     if dog:
-        wag = math.sin(phase*7)*q(24)
-        # Tail behind body, animated wag
-        stroke([(x-q(40),floor-q(95)),(x-q(78),floor-q(130)+wag),(x-q(88),floor-q(112)+wag)],"#a95f39",q(17))
-        oval((x-q(70),floor-q(228),x+q(70),floor-q(68)),"#c77b45",ink,5)
-        # legs and paws
-        for dx,off in [(-34,-walk*.35),(34,walk*.35)]:
-            stroke([(x+q(dx),floor-q(100)),(x+q(dx)+off,floor-q(20))],"#a95f39",17)
-            oval((x+q(dx)+off-q(23),floor-q(30),x+q(dx)+off+q(25),floor+q(2)),"#f3d6b4",ink,3)
-        # floppy ears and head
-        oval((x-q(75),floor-q(270)+bob,x-q(20),floor-q(155)+bob),"#98552f",ink,5)
-        oval((x+q(20),floor-q(270)+bob,x+q(75),floor-q(155)+bob),"#98552f",ink,5)
-        oval((x-q(66),floor-q(300)+bob,x+q(66),floor-q(160)+bob),"#d99557",ink,6)
-        # forehead patch and muzzle
-        oval((x-q(24),floor-q(292)+bob,x+q(24),floor-q(228)+bob),"#f4d6ad",None,0)
-        oval((x-q(48),floor-q(218)+bob,x+q(48),floor-q(158)+bob),"#f8e4c6",ink,3)
-        for dx in (-25,25):
-            oval((x+q(dx-10),floor-q(255)+bob,x+q(dx+10),floor-q(224)+bob),"#fffdf8",None,0)
-            oval((x+q(dx-5),floor-q(250)+bob,x+q(dx+6),floor-q(226)+bob),"#493747",None,0)
-            oval((x+q(dx-2),floor-q(248)+bob,x+q(dx+2),floor-q(240)+bob),"#ffffff",None,0)
-        oval((x-q(19),floor-q(206)+bob,x+q(19),floor-q(185)+bob),"#392b35",None,0)
-        if speaking and math.sin(phase*13.0) > -0.15:
-            d.ellipse(box(x-q(22),floor-q(194)+bob,x+q(22),floor-q(151)+bob),fill="#4a2638",outline="#7e3c48",width=q(3))
-            d.ellipse(box(x-q(12),floor-q(161)+bob,x+q(12),floor-q(153)+bob),fill="#f08a98")
-        else:
-            d.arc(box(x-q(27),floor-q(194)+bob,x+q(28),floor-q(153)+bob),5,170,fill="#a64d5b",width=q(5))
-        # collar and tag
-        stroke([(x-q(48),floor-q(145)),(x,floor-q(132)),(x+q(48),floor-q(145))],"#df465b",q(13))
-        oval((x-q(17),floor-q(143),x+q(17),floor-q(108)),"#ffcf54","#fff2c8",3)
-        d.text((x-q(10),floor-q(139)),"♥",font=_font(q(17),True),fill="#a63f56")
+        wag=math.sin(phase*7)*q(18)
+        line([((-42,-103),(-62,-117),(-79,-137+wag),(-91,-128+wag)),
+              ((-91,-128+wag),(-96,-121+wag),(-89,-111+wag),(-80,-111+wag))],"#a85e38",17)
+        # Soft pear-shaped body and short articulated legs
+        shape([((-48,-177),(-76,-166),(-76,-111),(-57,-80)),
+               ((-57,-80),(-31,-57),(31,-57),(57,-80)),
+               ((57,-80),(76,-111),(76,-166),(48,-177)),
+               ((48,-177),(22,-194),(-22,-194),(-48,-177))],"#b97643",ink,5)
+        for dx,off in [(-30,-walk*.25),(30,walk*.25)]:
+            line([((dx,-94),(dx+off*.3,-69),(dx+off,-43),(dx+off,-27))],"#965333",17)
+            oval(dx+off,-25,19,10,"#f4d6b7",ink,3)
+        # Drooping ears with asymmetrical curved silhouettes
+        shape([((-43,-253),(-81,-268),(-83,-202),(-57,-174)),
+               ((-57,-174),(-39,-165),(-31,-196),(-35,-220)),
+               ((-35,-220),(-36,-237),(-39,-249),(-43,-253))],"#87492f",ink,4)
+        shape([((43,-253),(81,-268),(83,-202),(57,-174)),
+               ((57,-174),(39,-165),(31,-196),(35,-220)),
+               ((35,-220),(36,-237),(39,-249),(43,-253))],"#87492f",ink,4)
+        shape([((-56,-258),(-59,-302),(-23,-318),(0,-314)),
+               ((0,-314),(42,-319),(61,-286),(55,-250)),
+               ((55,-250),(51,-207),(37,-178),(0,-176)),
+               ((0,-176),(-38,-177),(-53,-207),(-56,-258))],"#d18a53",ink,5)
+        shape([((-31,-207),(-28,-230),(-11,-239),(0,-236)),
+               ((0,-236),(20,-241),(33,-225),(31,-205)),
+               ((31,-205),(26,-187),(11,-181),(0,-182)),
+               ((0,-182),(-17,-181),(-28,-190),(-31,-207))],"#f7dfbd",ink,3)
+        for dx in (-20,20):
+            oval(dx,-264,10,17,"#fffaf2",ink,2); oval(dx+2,-262,5,11,"#403044")
+            oval(dx+3,-268,2.5,4,"#ffffff")
+        oval(0,-218,8,5,"#403044")
+        oval(0,-195,16,9,"#6d3946")
+        line([((-35,-145),(-15,-132),(15,-132),(35,-145))],"#d94b62",11)
+        oval(0,-143,10,13,"#ffd15c","#fff0b4",2)
         return
-
-    skin="#f6c49e"; hair="#70412e" if name=="LUNA" else "#75472e"
     shirt, shorts, accent=palette
-    # Backpack visible behind the torso
-    d.rounded_rectangle(box(x-q(55),floor-q(258),x+q(73),floor-q(110)),radius=q(25),fill=accent,outline=ink,width=q(5))
-    # Legs, socks and chunky sneakers
+    skin="#f5c49f"; hair="#70412e" if name=="LUNA" else "#75472e"
+    # Legs are separate curved limbs with soft shoes and visible ankle cuffs
     for side,offset in [(-1,-walk),(1,walk)]:
-        sx=x+q(side*27)
-        stroke([(sx,floor-q(128)),(sx+offset,floor-q(35))],shorts,22)
-        d.rounded_rectangle(box(sx+offset-q(24),floor-q(51),sx+offset+q(23),floor-q(22)),radius=q(10),fill="#ffdf8a",outline=ink,width=q(3))
-        d.rounded_rectangle(box(sx+offset-q(39),floor-q(35),sx+offset+q(34),floor+q(2)),radius=q(14),fill="#704b53",outline=ink,width=q(5))
-        stroke([(sx+offset-q(22),floor-q(23)),(sx+offset+q(18),floor-q(23))],"#fff1cf",q(5))
-    # Arms behind body, with a clear wave / point gesture
-    arm=math.sin(phase*4.5)*q(13)
+        sx=side*25+offset
+        line([((side*25,-119),(side*27,-91),(sx,-62),(sx,-34))],shorts,23)
+        shape([((sx-22,-38),(sx-29,-30),(sx-34,-17),(sx-28,-12)),
+               ((sx-28,-12),(sx-9,-5),(sx+22,-8),(sx+29,-17)),
+               ((sx+29,-17),(sx+32,-26),(sx+24,-35),(sx+18,-38)),
+               ((sx+18,-38),(sx+1,-41),(sx-12,-41),(sx-22,-38))],"#73505a",ink,4)
+        line([((sx-17,-20),(sx-5,-17),(sx+9,-17),(sx+17,-20))],"#fff0cf",4)
+    # Arms are curved, tapered illustrations; gestures change with the action
+    arm=math.sin(phase*4.5)*8
     if pointing:
-        stroke([(x+q(43),floor-q(235)),(x+q(86),floor-q(290)+arm),(x+q(129),floor-q(303)+arm)],skin,25)
-        oval((x+q(116),floor-q(323)+arm,x+q(151),floor-q(287)+arm),skin,ink,4)
-        for k in range(3):
-            stroke([(x+q(140+k*2),floor-q(302)+arm),(x+q(154+k*2),floor-q(312)+arm)],skin,5)
+        line([((43,-225),(65,-243),(83,-274),(112,-285+arm)),
+              ((112,-285+arm),(124,-290+arm),(136,-291+arm),(144,-286+arm))],skin,23)
+        oval(145,-286+arm,12,13,skin,ink,3)
     else:
-        stroke([(x-q(45),floor-q(235)),(x-q(90),floor-q(177)+arm)],skin,24)
-        oval((x-q(106),floor-q(192)+arm,x-q(73),floor-q(158)+arm),skin,ink,4)
-        stroke([(x+q(45),floor-q(235)),(x+q(90),floor-q(180)-arm)],skin,24)
-        oval((x+q(74),floor-q(196)-arm,x+q(108),floor-q(160)-arm),skin,ink,4)
-    # Torso with layered shirt and emblem
-    d.rounded_rectangle(box(x-q(68),floor-q(274),x+q(68),floor-q(104)),radius=q(42),fill=shirt,outline=ink,width=q(6))
-    d.rounded_rectangle(box(x-q(54),floor-q(257),x+q(54),floor-q(116)),radius=q(30),fill=shirt,outline=None)
-    # central golden explorer badge
-    oval((x-q(34),floor-q(214),x+q(34),floor-q(146)),"#ffd34e","#fff0b0",4)
-    d.polygon([(x,floor-q(204)),(x+q(8),floor-q(185)),(x+q(27),floor-q(183)),(x+q(12),floor-q(169)),(x+q(17),floor-q(151)),(x,floor-q(161)),(x-q(17),floor-q(151)),(x-q(12),floor-q(169)),(x-q(27),floor-q(183)),(x-q(8),floor-q(185))],fill="#fff7d7")
-    # Neck and oversized head
-    d.rounded_rectangle(box(x-q(22),floor-q(318),x+q(22),floor-q(255)),radius=q(14),fill=skin,outline=ink,width=q(3))
-    head_top=floor-q(490)+bob
-    oval((x-q(91),head_top,x+q(91),floor-q(265)+bob),skin,ink,6)
-    # Hair silhouette, side locks and fringe
-    oval((x-q(96),floor-q(503)+bob,x+q(96),floor-q(365)+bob),hair,ink,5)
-    d.polygon([(x-q(92),floor-q(442)+bob),(x-q(70),floor-q(475)+bob),(x-q(40),floor-q(449)+bob),(x-q(10),floor-q(479)+bob),(x+q(18),floor-q(449)+bob),(x+q(48),floor-q(476)+bob),(x+q(91),floor-q(439)+bob),(x+q(84),floor-q(380)+bob),(x-q(86),floor-q(380)+bob)],fill=hair)
-    d.rounded_rectangle(box(x-q(92),floor-q(432)+bob,x-q(66),floor-q(300)+bob),radius=q(13),fill=hair)
-    d.rounded_rectangle(box(x+q(66),floor-q(432)+bob,x+q(92),floor-q(300)+bob),radius=q(13),fill=hair)
+        for side in (-1,1):
+            line([((side*47,-220),(side*73,-206+arm*side),(side*86,-180+arm*side),(side*91,-164+arm*side))],skin,22)
+            oval(side*92,-161+arm*side,12,14,skin,ink,3)
+    # Torso: one tailored silhouette, with collar, folds and fabric accents
+    shape([((-49,-254),(-68,-246),(-70,-220),(-65,-194)),
+           ((-65,-194),(-64,-159),(-57,-111),(-40,-103)),
+           ((-40,-103),(-17,-91),(18,-92),(41,-104)),
+           ((41,-104),(61,-116),(65,-158),(66,-194)),
+           ((66,-194),(71,-224),(64,-247),(47,-254)),
+           ((47,-254),(18,-266),(-19,-266),(-49,-254))],shirt,ink,6)
+    line([((-40,-240),(-25,-249),(25,-249),(40,-240))],"#ffffff",3)
+    # Backpack peeks naturally over the shoulders
+    shape([((-48,-245),(-70,-238),(-73,-207),(-61,-179)),
+           ((-61,-179),(-53,-170),(-46,-179),(-44,-198)),
+           ((-44,-198),(-42,-217),(-43,-234),(-48,-245))],accent,ink,4)
+    # Neck and oversized soft face silhouette
+    shape([((-18,-281),(-19,-263),(-15,-248),(0,-246)),
+           ((0,-246),(16,-246),(20,-263),(18,-281)),
+           ((18,-281),(8,-291),(-8,-291),(-18,-281))],skin,ink,3)
+    shape([((-88,-387),(-94,-446),(-57,-501),(0,-502)),
+           ((0,-502),(61,-502),(96,-452),(88,-387)),
+           ((88,-387),(85,-320),(55,-274),(0,-270)),
+           ((0,-270),(-58,-272),(-86,-320),(-88,-387))],skin,ink,6)
+    # Hair cap with flowing fringe and side locks, not separate geometric blocks
+    shape([((-91,-397),(-102,-445),(-75,-498),(-30,-510)),
+           ((-30,-510),(-5,-518),(23,-510),(39,-501)),
+           ((39,-501),(80,-495),(103,-451),(91,-400)),
+           ((91,-400),(83,-413),(79,-432),(72,-442)),
+           ((72,-442),(49,-426),(32,-431),(17,-451)),
+           ((17,-451),(0,-429),(-20,-428),(-35,-449)),
+           ((-35,-449),(-52,-426),(-70,-430),(-78,-408)),
+           ((-78,-408),(-82,-400),(-85,-395),(-91,-397))],hair,ink,5)
+    # Hair framing cheeks with curved side tufts
+    for side in (-1,1):
+        shape([((side*83,-427),(side*100,-411),(side*91,-351),(side*72,-336)),
+               ((side*72,-336),(side*61,-329),(side*59,-355),(side*63,-383)),
+               ((side*63,-383),(side*65,-406),(side*72,-420),(side*83,-427))],hair,ink,4)
     if name=="LUNA":
-        d.arc(box(x-q(89),floor-q(500)+bob,x+q(89),floor-q(350)+bob),190,350,fill="#ff75b5",width=q(15))
-        oval((x+q(49),floor-q(478)+bob,x+q(88),floor-q(439)+bob),"#ffcf4e","#fff4c8",3)
-        oval((x+q(59),floor-q(469)+bob,x+q(78),floor-q(450)+bob),"#f28bb3",None,0)
+        line([((-80,-469),(-62,-505),(-22,-510),(18,-493))],"#ff78b6",13)
+        oval(78,-475,16,17,"#ffce55","#fff2c6",3)
     else:
-        # soft curls along the top
-        for dx in (-58,-20,20,58):
-            oval((x+q(dx-23),floor-q(509)+bob,x+q(dx+23),floor-q(457)+bob),hair,ink,3)
-    # Big expressive eyes with irises, pupils and highlights
-    eye_y=floor-q(397)+bob
-    for dx in (-36,36):
-        oval((x+q(dx-24),eye_y-q(34),x+q(dx+24),eye_y+q(35)),"#fffdf8",ink,3)
-        oval((x+q(dx-13),eye_y-q(18),x+q(dx+13),eye_y+q(23)),"#5a91c8",None,0)
-        oval((x+q(dx-8),eye_y-q(13),x+q(dx+9),eye_y+q(22)),"#352b3c",None,0)
-        oval((x+q(dx-7),eye_y-q(12),x+q(dx-1),eye_y-q(4)),"#ffffff",None,0)
-        d.arc(box(x+q(dx-25),eye_y-q(47),x+q(dx+24),eye_y-q(18)),190,345,fill=hair,width=q(5))
-    # eyebrows and nose
-    d.arc(box(x-q(67),floor-q(456)+bob,x-q(10),floor-q(420)+bob),195,330,fill=hair,width=q(7))
-    d.arc(box(x+q(10),floor-q(456)+bob,x+q(67),floor-q(420)+bob),210,345,fill=hair,width=q(7))
-    oval((x-q(9),floor-q(353)+bob,x+q(9),floor-q(339)+bob),"#df987a",None,0)
-    # Mouth changes shape in sync with the active voice segment.
-    if speaking and math.sin(phase*13.0) > -0.15:
-        d.ellipse(box(x-q(29),floor-q(342)+bob,x+q(29),floor-q(285)+bob),fill="#54283d",outline="#7a4052",width=q(3))
-        d.ellipse(box(x-q(14),floor-q(300)+bob,x+q(14),floor-q(289)+bob),fill="#f18a9a")
+        # Individual curved locks, integrated into the hairline
+        for dx,dy in [(-53,-490),(-20,-510),(18,-512),(52,-490)]:
+            oval(dx,dy,17,22,hair,ink,2)
+    # Eyes: shaped whites, iris gradients simulated with layered highlights
+    for dx in (-34,34):
+        shape([((dx-21,-410),(dx-27,-430),(dx-18,-450),(dx,-451)),
+               ((dx,-451),(dx+20,-451),(dx+27,-429),(dx+21,-410)),
+               ((dx+21,-410),(dx+14,-397),(dx-14,-397),(dx-21,-410))],"#fffdf8",ink,2)
+        oval(dx+1,-424,11,18,"#5594c8",None)
+        oval(dx+1,-421,6,12,"#302b3d",None)
+        oval(dx-2,-432,4,6,"#ffffff",None)
+        line([((dx-23,-456),(dx-11,-464),(dx+5,-464),(dx+18,-456))],hair,4)
+    # Eyebrows, nose, cheek blush and freckles
+    line([((-59,-465),(-48,-474),(-31,-475),(-22,-468))],hair,5)
+    line([((22,-468),(34,-476),(50,-475),(60,-465))],hair,5)
+    oval(0,-365,7,5,"#df987a",None)
+    oval(-68,-361,15,12,"#ef9297",None); oval(68,-361,15,12,"#ef9297",None)
+    # Mouth swaps between closed smile and open phoneme pose
+    if speaking and math.sin(phase*13)>-0.15:
+        shape([((-23,-348),(-22,-365),(-9,-375),(0,-375)),
+               ((0,-375),(12,-375),(23,-364),(23,-348)),
+               ((23,-348),(18,-328),(-17,-328),(-23,-348))],"#552b42",ink,2)
+        line([((-12,-340),(-4,-336),(5,-336),(12,-340))],"#f18b9c",4)
     else:
-        d.ellipse(box(x-q(26),floor-q(337)+bob,x+q(26),floor-q(296)+bob),fill="#6b354b")
-        d.arc(box(x-q(22),floor-q(323)+bob,x+q(22),floor-q(299)+bob),5,175,fill="#fff4e8",width=q(4))
-        d.arc(box(x-q(10),floor-q(313)+bob,x+q(10),floor-q(297)+bob),5,170,fill="#ef7c91",width=q(5))
-    # Blush cheeks and small freckles
-    oval((x-q(82),floor-q(353)+bob,x-q(48),floor-q(325)+bob),"#ef9294",None,0)
-    oval((x+q(48),floor-q(353)+bob,x+q(82),floor-q(325)+bob),"#ef9294",None,0)
-    for dx in (-60,60):
-        for dy in (-3,8):
-            oval((x+q(dx),floor-q(342+dy)+bob,x+q(dx+3),floor-q(339+dy)+bob),"#d9787f",None,0)
+        line([((-22,-348),(-13,-331),(13,-331),(22,-348))],"#8c4357",5)
+        line([((-13,-341),(-5,-337),(5,-337),(13,-341))],"#fff1e8",3)
+    # Soft cheek highlights and small clothing details
+    line([((-48,-124),(-31,-115),(-18,-113),(-9,-117))],"#ffffff",3)
+    oval(0,-185,31,32,"#ffd34e","#fff0b0",3)
+    # Custom star emblem, gently rounded with curved rays
+    line([((0,-207),(6,-191),(20,-188),(7,-177))],"#fff8dc",4)
+    line([((7,-177),(10,-162),(0,-169),(-10,-162))],"#fff8dc",4)
+    line([((-10,-162),(-7,-177),(-20,-188),(-6,-191))],"#fff8dc",4)
 
 
 def _draw_frame(t: float, planet: str, portrait: bool = False):
