@@ -85,6 +85,17 @@ def main():
         parser.error("Blender não encontrado: " + str(blender))
     if not script.is_file():
         parser.error("blender_scene.py não encontrado: " + str(script))
+    # Verify that the requested AMD card is present before accepting GPU jobs.
+    gpu_probe = subprocess.run(
+        ["powershell", "-NoProfile", "-Command",
+         "(Get-CimInstance Win32_VideoController | Select-Object -ExpandProperty Name) -join ';'"],
+        capture_output=True, text=True, timeout=20
+    )
+    gpu_names = gpu_probe.stdout.strip()
+    print("ANIMA_GPU_ADAPTERS " + (gpu_names or "não identificado"), flush=True)
+    if "RX 580" not in gpu_names.upper():
+        raise SystemExit("RX 580 não detectada pelo Windows. Renderização interrompida para não usar outra placa/CPU.")
+    print("ANIMA_GPU_TARGET AMD Radeon RX 580 | Blender Eevee (GPU)", flush=True)
     print("ANIMA_WORKER_ONLINE " + args.worker_id, flush=True)
     def heartbeat_loop():
         while True:
