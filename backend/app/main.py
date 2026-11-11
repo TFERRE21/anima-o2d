@@ -325,7 +325,7 @@ def health():
         "blender_path": blender_runtime["executable"] if blender_runtime else None,
         "bpy_module_available": has_bpy_module(),
         "blender_scene_file": blender_script.is_file(),
-        "render_engine": "2d-cartoon-default",
+        "render_engine": os.getenv("ANIMA_RENDER_ENGINE", "2d").strip().lower(),
     }
 
 
@@ -391,7 +391,7 @@ def config():
         "youtube_oauth_configured": bool(settings.youtube_client_id and settings.youtube_client_secret),
         "generation_enabled": _has("ffmpeg") and _has("tts"),
         "media": {"ffmpeg": _has("ffmpeg"), "tts": _has("tts"), "blender_3d": blender_available()},
-        "engine": "Anima Studio — animação 2D vetorial" if os.getenv("ANIMA_RENDER_ENGINE", "2d").lower() != "3d" else "Anima Studio — Blender 3D",
+        "engine": "Anima Studio — Blender 3D / RX580" if os.getenv("ANIMA_RENDER_ENGINE", "2d").strip().lower() == "3d" else "Anima Studio — animação 2D vetorial",
     }
 
 @app.post("/api/stories/generate", status_code=201)
@@ -847,6 +847,15 @@ def _run_job(job_id: str, payload: GenerateRequest):
 
 if WEB.exists():
     app.mount("/", StaticFiles(directory=WEB, html=True), name="web")
+
+
+@app.get("/api/engines/catalog")
+def animation_engines_catalog():
+    """List independent render engines and supporting production modules."""
+    from backend.app.engines.registry import engine_catalog
+    now = time.time()
+    connected = any(now - seen < 75 for seen in WORKER_LAST_SEEN.values())
+    return engine_catalog(worker_connected=connected)
 
 
 @app.get("/api/engines/status")
