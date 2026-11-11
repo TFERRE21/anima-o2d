@@ -758,6 +758,19 @@ def get_job(job_id: str):
     job = _get_job(job_id)
     return job
 
+@app.get("/api/jobs/{job_id}/preview/{fmt}")
+def job_preview(job_id: str, fmt: str):
+    """Return the latest rendered frame for the live studio preview."""
+    job = _get_job(job_id)
+    if fmt not in {"16:9", "9:16"}:
+        raise HTTPException(400, "Formato de prévia inválido.")
+    preview = STORAGE / job_id / f"preview-{fmt.replace(':', 'x')}.jpg"
+    if not preview.is_file():
+        raise HTTPException(404, "Aguardando o primeiro quadro da animação.")
+    return FileResponse(preview, media_type="image/jpeg",
+                        headers={"Cache-Control": "no-store, max-age=0"})
+
+
 @app.get("/api/jobs/{job_id}/download/{fmt}")
 def download(job_id: str, fmt: str):
     job = _get_job(job_id)
