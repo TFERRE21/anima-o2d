@@ -475,7 +475,7 @@ def render_story(job_id: str, payload: RenderRequest):
         blender_script = Path(__file__).with_name("blender_scene.py")
         if not blender_script.is_file():
             raise HTTPException(503, "Arquivo da cena Blender não encontrado na VPS.")
-        remote_enabled = os.getenv("ANIMA_REMOTE_WORKER_ENABLED", "true").strip().lower() in {"1", "true", "yes"}
+        remote_enabled = True  # Episódios usam exclusivamente o worker Windows/RX580.
         if remote_enabled:
             if not os.getenv("ANIMA_WORKER_TOKEN", "").strip():
                 raise HTTPException(503, "Render RX 580 ativado, mas ANIMA_WORKER_TOKEN não foi configurado.")
