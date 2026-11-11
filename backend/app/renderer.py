@@ -360,7 +360,7 @@ def _render_blender_frames_remote(frames: Path, config: dict, progress_callback=
 def _render_blender_frames(frames: Path, fmt: str, width: int, height: int,
                           total_frames: int, scene_list: list, scene_source_indices: list,
                           plan: dict, voice_timeline: list, progress_callback=None) -> None:
-    remote_worker = os.getenv("ANIMA_REMOTE_WORKER_ENABLED", "false").lower() in {"1", "true", "yes"}
+    remote_worker = os.getenv("ANIMA_REMOTE_WORKER_ENABLED", "true").lower() in {"1", "true", "yes"}
     runtime = find_blender_runtime()
     if not runtime and not remote_worker:
         raise RuntimeError(
@@ -685,7 +685,7 @@ def render_episode(title: str, story: str, fmt: str, output: Path, workdir: Path
 
     scene_count = len(render_scenes)
     total_frames = max(1, int(math.ceil(duration_seconds * FPS)))
-    engine = os.getenv("ANIMA_RENDER_ENGINE", "2d").strip().lower()
+    engine = "3d"
     if engine == "3d":
         _render_blender_frames(
             frames, fmt, width, height, total_frames,
