@@ -802,6 +802,8 @@ def render(config: dict):
         scene.render.engine = "BLENDER_EEVEE"
     else:
         scene.render.engine = "BLENDER_WORKBENCH"
+    report(7, "Motor Blender Eevee selecionado para renderização acelerada pela GPU.")
+    print("ANIMA_RENDER_DEVICE: EEVEE_GPU", flush=True)
     scene.render.resolution_x = int(width)
     scene.render.resolution_y = int(height)
     scene.render.resolution_percentage = 100
