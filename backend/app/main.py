@@ -325,7 +325,7 @@ def health():
         "blender_path": blender_runtime["executable"] if blender_runtime else None,
         "bpy_module_available": has_bpy_module(),
         "blender_scene_file": blender_script.is_file(),
-        "render_engine": "3d",
+        "render_engine": "2d",
     }
 
 
@@ -391,7 +391,7 @@ def config():
         "youtube_oauth_configured": bool(settings.youtube_client_id and settings.youtube_client_secret),
         "generation_enabled": _has("ffmpeg") and _has("tts"),
         "media": {"ffmpeg": _has("ffmpeg"), "tts": _has("tts"), "blender_3d": blender_available()},
-        "engine": "Anima Studio — Blender 3D / RX580" if os.getenv("ANIMA_RENDER_ENGINE", "2d").strip().lower() == "3d" else "Anima Studio — animação 2D vetorial",
+        "engine": "Anima Studio — Cartoon 2D vetorial",
     }
 
 @app.post("/api/stories/generate", status_code=201)
@@ -468,7 +468,7 @@ def render_story(job_id: str, payload: RenderRequest):
         raise HTTPException(503, "Motor de mídia incompleto. É necessário FFmpeg e voz (espeak-ng ou edge-tts).")
     # O motor 3D remoto executa Blender diretamente no Windows/RX580.
     # Nesse modo, a VPS não precisa ter Blender/bpy instalado localmente.
-    selected_engine = os.getenv("ANIMA_RENDER_ENGINE", "2d").strip().lower()
+    selected_engine = "2d"
     if selected_engine not in {"2d", "3d"}:
         raise HTTPException(503, "ANIMA_RENDER_ENGINE inválido. Configure 2d ou 3d.")
     if selected_engine == "3d":
