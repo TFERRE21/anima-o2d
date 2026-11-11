@@ -325,7 +325,7 @@ def health():
         "blender_path": blender_runtime["executable"] if blender_runtime else None,
         "bpy_module_available": has_bpy_module(),
         "blender_scene_file": blender_script.is_file(),
-        "render_engine": "3d",
+        "render_engine": "2d",
     }
 
 
