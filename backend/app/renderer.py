@@ -18,7 +18,7 @@ from pathlib import Path
 from typing import Callable
 from backend.app.runtime import find_blender_runtime
 
-FPS = 12
+FPS = 24
 def _ffmpeg_executable() -> str:
     system_ffmpeg = shutil.which("ffmpeg")
     if system_ffmpeg:
@@ -685,7 +685,7 @@ def render_episode(title: str, story: str, fmt: str, output: Path, workdir: Path
 
     scene_count = len(render_scenes)
     total_frames = max(1, int(math.ceil(duration_seconds * FPS)))
-    engine = "3d"
+    engine = "2d"
     if engine == "3d":
         _render_blender_frames(
             frames, fmt, width, height, total_frames,
@@ -733,7 +733,7 @@ def render_episode(title: str, story: str, fmt: str, output: Path, workdir: Path
         "narration_seconds": round(fitted_duration, 2),
         "resolution": "1080x1920" if portrait else "1920x1080",
         "scene_count": scene_count,
-        "render_engine": "2D cartoon" if os.getenv("ANIMA_RENDER_ENGINE", "2d").strip().lower() != "3d" else "Blender 3D",
+        "render_engine": "Cartoon 2D vetorial",
         "narration_word_count": sum(len(str(item.get("text", "")).split()) for item in audio_segments),
         "speakers": sorted({str(item.get("speaker", "Narrador")) for item in audio_segments}),
         "voice_profiles_file": str(VOICE_PROFILE_FILE),
