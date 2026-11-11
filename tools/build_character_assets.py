@@ -56,7 +56,15 @@ def human(name,luna):
  uv(name+" nose",(0,-.54,2.29),(.06,.045,.055),skin);uv(name+" mouth",(0,-.51,2.12),(.105,.045,.065),M["mouth"])
  for s,x in (("L",-.62),("R",.62)):
   uv(name+" shoulder "+s,(x*.82,0,1.67),(.2,.22,.2),trim);attach(uv(name+" arm "+s,(x,-.005,1.34),(.15,.17,.36),suit),a,"arm."+s);attach(uv(name+" glove "+s,(x,-.045,1.02),(.15,.15,.15),skin),a,"hand."+s);attach(uv(name+" leg "+s,(x*.38,0,.52),(.18,.2,.34),suit),a,"leg."+s);attach(uv(name+" boot "+s,(x*.38,-.09,.19),(.22,.29,.16),trim),a,"foot."+s)
- uv(name+" chest badge",(0,-.37,1.35),(.105,.045,.11),M["gold"]);return a
+ uv(name+" chest badge",(0,-.37,1.35),(.105,.045,.11),M["gold"])
+ # Attach face and torso assemblies to their controls, not just limbs.
+ for o in list(bpy.context.scene.objects):
+  if o.name.startswith(name+" ") and o.parent!=a:
+   if any(k in o.name for k in ("head","hair","fringe","eye","iris","pupil","glint","brow","nose","mouth","communicator","star")):attach(o,a,"head")
+   elif any(k in o.name for k in ("torso","chest","badge","shoulder","backpack")):attach(o,a,"spine")
+   elif "belt" in o.name:attach(o,a,"pelvis")
+   elif "neck" in o.name:attach(o,a,"neck")
+ return a
 def pipo():
  n="Pipo";a=rig(n,True);uv(n+" body",(0,.05,.94),(.47,.72,.42),M["dog"]);uv(n+" cream chest",(0,-.43,.92),(.33,.18,.30),M["dog2"]);uv(n+" blue rescue vest",(0,-.015,1.03),(.49,.59,.28),M["blue"]);cube(n+" gold collar",(0,-.48,1.3),(.65,.14,.15),M["gold"]);uv(n+" head",(0,-.57,1.52),(.52,.46,.50),M["dog"]);uv(n+" forehead patch",(0,-.91,1.72),(.19,.06,.14),M["dog2"])
  for s,x in (("L",-.45),("R",.45)):
@@ -64,7 +72,12 @@ def pipo():
  uv(n+" muzzle L",(-.13,-.93,1.34),(.2,.16,.15),M["dog2"]);uv(n+" muzzle R",(.13,-.93,1.34),(.2,.16,.15),M["dog2"]);uv(n+" nose",(0,-1.075,1.39),(.11,.055,.075),M["black"]);uv(n+" mouth",(0,-1.01,1.2),(.1,.04,.06),M["mouth"]);uv(n+" tongue",(0,-1.04,1.15),(.055,.025,.055),M["pink2"])
  for s,x in (("L",-.26),("R",.26)):
   for prefix,y,z in (("front",-.38,.62),("rear",.48,.58)):attach(uv(n+" "+prefix+" leg "+s,(x,y,z),(.15,.18,.34),M["dog"]),a,prefix+"_leg."+s)
- attach(uv(n+" fluffy tail",(0,.85,1.03),(.15,.38,.15),M["dog"]),a,"tail");uv(n+" gold star badge",(0,-.57,1.05),(.12,.05,.12),M["gold"]);return a
+ attach(uv(n+" fluffy tail",(0,.85,1.03),(.15,.38,.15),M["dog"]),a,"tail");uv(n+" gold star badge",(0,-.57,1.05),(.12,.05,.12),M["gold"])
+ for o in list(bpy.context.scene.objects):
+  if o.name.startswith("Pipo ") and o.parent!=a:
+   if any(k in o.name for k in ("head","forehead","eye","pupil","muzzle","nose","mouth","tongue")):attach(o,a,"head")
+   elif any(k in o.name for k in ("body","chest","vest","collar","badge")):attach(o,a,"spine")
+ return a
 def export(name,a):
  folder=OUT/name.lower();folder.mkdir(parents=True,exist_ok=True);bpy.ops.object.select_all(action="DESELECT")
  for o in bpy.context.scene.objects:
