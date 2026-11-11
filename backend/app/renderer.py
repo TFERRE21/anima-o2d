@@ -592,6 +592,10 @@ def _render_cartoon2d_frames(frames: Path, fmt: str, width: int, height: int,
                                        radius=16, fill="#17243c", outline="#ffffff", width=3)
                 draw.text((42, image.height-68), subtitle, font=_font(21, True), fill="#fff8df")
         image.save(frames / f"frame-{frame+1:06d}.png", compress_level=1)
+        # Publish a lightweight live JPEG preview every ~2 seconds for the studio monitor.
+        if frame % max(1, fps * 2) == 0 or frame == total_frames - 1:
+            preview_path = frames.parent / f"preview-{fmt.replace(':', 'x')}.jpg"
+            image.convert("RGB").save(preview_path, format="JPEG", quality=82, optimize=True)
         if progress_callback and (frame % max(1, fps * 5) == 0 or frame == total_frames-1):
             progress_callback(14 + int((frame+1) / total_frames * 77),
                               f"Animação 2D: cena {scene_index+1}/{count} · quadro {frame+1}/{total_frames}")
