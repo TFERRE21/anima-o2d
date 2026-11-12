@@ -1,59 +1,18 @@
-# Estação local RX 580 — ComfyUI e aceleração de mídia
+# Estação local RX 580 — ComfyUI
 
-## Architecture
+O motor de produção de episódios é o Cartoon 2D no servidor. O worker Blender/RX580 foi desativado e não participa mais da fila de episódios.
 
-O computador Windows pode executar o ComfyUI localmente para gerar elementos visuais com a Radeon RX 580. Ele inicia conexões de saída; não é necessário abrir portas de entrada nem configurar redirecionamento no roteador. A renderização dos episódios 2D permanece no servidor e não depende do Blender.
+## Uso da RX 580
 
-## VPS environment
+A placa pode ser aproveitada no computador Windows para geração de imagens e elementos visuais pelo ComfyUI. O agente disponível em `tools/windows-gpu-agent` conversa com a API `/api/comfy` e exige que o ComfyUI esteja instalado e iniciado localmente.
 
-Set these environment variables in the VPS/container deployment settings:
+Configure na VPS:
+- `ANIMA_COMFY_TOKEN`: segredo aleatório compartilhado com o agente local.
 
-- `ANIMA_REMOTE_WORKER_ENABLED=true`
-- `ANIMA_WORKER_TOKEN=<a long random secret>`
-- `ANIMA_WORKER_API_URL=http://127.0.0.1:5000`
+No Windows, configure a URL HTTPS do painel e o mesmo token no agente ComfyUI. Mantenha o ComfyUI acessível apenas em localhost; o agente faz as conexões de saída para a VPS.
 
-Generate a token on a trusted machine with:
+## Limite atual de integração
 
-```powershell
-python -c "import secrets; print(secrets.token_urlsafe(48))"
-```
+A geração ComfyUI é um serviço auxiliar de criação de imagens. Ela ainda não substitui nem acelera o desenho de cada quadro do renderizador Cartoon 2D. A renderização de quadros permanece no servidor, e o encoder usa H.264 por software. A aceleração AMD AMF só deve ser ativada quando uma instalação local do FFmpeg confirmar suporte a `h264_amf`.
 
-Use the same token on the VPS and Windows worker. Never commit it to Git or paste it into issues/logs.
-Restart/redeploy the VPS after setting the variables. If the token is absent, remote rendering is rejected.
-
-## Windows worker
-
-1. Download and extract the latest `gpu-rx580-experimental` branch ZIP.
-2. Keep the folder on the Windows PC with Blender 5.2 installed.
-3. Open PowerShell in `tools\windows-gpu-agent`.
-4. Run:
-
-```powershell
-Set-ExecutionPolicy -Scope Process Bypass -Force
-.\iniciar-worker.ps1
-```
-
-5. Enter the public HTTPS panel URL and the same secret token configured on the VPS.
-6. Leave the PowerShell window open. The worker sends heartbeats and waits for render jobs.
-
-O agente ComfyUI é um serviço opcional de criação de ativos visuais, não o renderizador de episódios. Não inicie o worker Blender legado para produção 2D. Para codificação AMD, use FFmpeg local que liste `h264_amf` em `ffmpeg -encoders`; caso contrário, a codificação H.264 por software continua disponível.
-
-## API checks
-
-Authenticated worker status:
-
-```
-GET /api/worker/status
-Authorization: Bearer <token>
-```
-
-A connected worker should appear in `workers`. The worker must remain running while a job is rendered.
-
-## Safety and rollback
-
-- The worker API requires a shared bearer token.
-- Windows initiates outbound connections only; do not open inbound firewall/router ports.
-- Keep the token private and rotate it if exposed.
-- To return to VPS CPU rendering, set `ANIMA_REMOTE_WORKER_ENABLED=false` and redeploy.
-- Do not enable remote mode until the worker is running and the token matches on both sides.
-- This first implementation keeps task state in the API process memory; run a single API replica/worker process for this setup. A VPS restart interrupts in-flight remote jobs, which can be retried from the panel.
+Não inicie `iniciar-worker.ps1`: esse é o agente legado de Blender 3D e não é utilizado pelo motor atual.
