@@ -39,6 +39,8 @@ class Settings(BaseSettings):
 
 settings = Settings()
 app = FastAPI(title=settings.app_name, version="0.2.2")
+from backend.app.comfy_worker import router as comfy_router
+app.include_router(comfy_router)
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=False, allow_methods=["*"], allow_headers=["*"])
 
 
