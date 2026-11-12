@@ -39,7 +39,26 @@ def _character(d, x, floor, scale, palette, name, phase, pointing=False, dog=Fal
     """Organic, hand-illustrated 2D mascot artwork with smooth silhouette curves."""
     ink = "#493044"
     def q(v): return int(v * scale)
-    def bezier(p0, p1, p2, p3, steps=18):
+    def bezier(p0, p1, p2=None, p3=None, steps=18):
+        # Accept cubic (4 points), quadratic (3 points), and straight (2 points)
+        # segments. Artwork uses all three forms; normalize to cubic so one
+        # short decorative curve can never abort the entire render job.
+        if p3 is None and p2 is not None:
+            # Quadratic Bezier -> equivalent cubic Bezier.
+            control, end = p1, p2
+            p1 = (p0[0] + (2.0/3.0)*(control[0]-p0[0]),
+                  p0[1] + (2.0/3.0)*(control[1]-p0[1]))
+            p2 = (end[0] + (2.0/3.0)*(control[0]-end[0]),
+                  end[1] + (2.0/3.0)*(control[1]-end[1]))
+            p3 = end
+        elif p3 is None and p2 is None:
+            # Straight segment -> cubic with controls on the line.
+            end = p1
+            p1 = (p0[0] + (end[0]-p0[0])/3.0,
+                  p0[1] + (end[1]-p0[1])/3.0)
+            p2 = (p0[0] + 2.0*(end[0]-p0[0])/3.0,
+                  p0[1] + 2.0*(end[1]-p0[1])/3.0)
+            p3 = end
         pts=[]
         for i in range(steps+1):
             t=i/steps; u=1-t
@@ -103,6 +122,19 @@ def _character(d, x, floor, scale, palette, name, phase, pointing=False, dog=Fal
         oval(0,-195,16,9,"#6d3946")
         line([((-35,-145),(-15,-132),(15,-132),(35,-145))],"#d94b62",11)
         oval(0,-143,10,13,"#ffd15c","#fff0b4",2)
+        # Premium TV-cartoon finish: layered fur tufts, eye sparkle and soft muzzle.
+        for fx,fy,rx,ry in [(-34,-301,9,13),(-17,-318,8,11),(17,-318,8,11),(34,-301,9,13)]:
+            oval(fx,fy,rx,ry,"#e0a36a",None)
+        for ex in (-20,20):
+            oval(ex-3,-270,2,3,"#ffffff",None)
+            line([((ex-9,-285),(ex,-289),(ex+9,-285))],"#6f402f",3)
+        oval(-9,-205,4,3,"#fff5e7",None)
+        oval(9,-205,4,3,"#fff5e7",None)
+        line([((-42,-158),(-20,-150),(0,-151),(22,-158))],"#f0b46e",4)
+        line([((-49,-176),(-42,-168),(-34,-165))],"#f0c08b",4)
+        line([((49,-176),(42,-168),(34,-165))],"#f0c08b",4)
+        # Collar tag and chest fur highlight.
+        oval(0,-151,7,9,"#ffdf76","#fff2c8",2)
         return
     shirt, shorts, accent=palette
     skin="#f5c49f"; hair="#70412e" if name=="LUNA" else "#75472e"
@@ -196,6 +228,40 @@ def _character(d, x, floor, scale, palette, name, phase, pointing=False, dog=Fal
     line([((0,-207),(6,-191),(20,-188),(7,-177))],"#fff8dc",4)
     line([((7,-177),(10,-162),(0,-169),(-10,-162))],"#fff8dc",4)
     line([((-10,-162),(-7,-177),(-20,-188),(-6,-191))],"#fff8dc",4)
+    # Expressive modern children's-TV character polish.
+    # Hair sheen and individual curved strands add volume without changing identity.
+    line([((-66,-476),(-45,-496),(-17,-499),(3,-490))],"#9a6547",5)
+    line([((10,-493),(31,-499),(55,-485),(66,-464))],"#9a6547",4)
+    line([((-72,-411),(-68,-390),(-62,-371),(-55,-358))],"#9a6547",3)
+    # Large glossy eye catchlights and iris rim.
+    for ex in (-34,34):
+        oval(ex+5,-423,3,7,"#a9d9f5",None)
+        oval(ex-4,-428,3,4,"#ffffff",None)
+        oval(ex+7,-416,2,3,"#ffffff",None)
+        line([((ex-18,-447),(ex,-453),(ex+17,-447))],"#302b3d",3)
+    # Face contour warmth and a tiny chin highlight.
+    line([((-73,-337),(-62,-313),(-43,-293),(-22,-286))],"#f8d4b6",4)
+    line([((22,-286),(43,-293),(62,-313),(73,-337))],"#f8d4b6",4)
+    oval(0,-293,13,3,"#ffe0c8",None)
+    # Tailored clothing: collar, seams, cuffs and pocket stitching.
+    shape([((-18,-251),(-10,-239),(0,-235),(10,-239)),
+           ((10,-239),(18,-246),(21,-252),(20,-258)),
+           ((20,-258),(7,-253),(-7,-253),(-18,-251))],"#fff0cf",ink,2)
+    line([((-52,-208),(-48,-183),(-46,-153),(-42,-128))],"#ffffff",3)
+    line([((52,-208),(48,-183),(46,-153),(42,-128))],"#ffffff",3)
+    line([((-59,-185),(-48,-181),(-39,-184))],"#fff0cf",4)
+    line([((59,-185),(48,-181),(39,-184))],"#fff0cf",4)
+    line([((-30,-109),(-12,-104),(12,-104),(30,-109))],"#ffffff",3)
+    # Soft directional highlights on sleeves and forearms.
+    line([((-76,-206),(-83,-190),(-84,-178))],"#ffdfc9",4)
+    line([((76,-206),(83,-190),(84,-178))],"#ffdfc9",4)
+    # Small hair accessories and cheek glints make the silhouettes feel authored.
+    if name=="LUNA":
+        oval(77,-474,7,8,"#fff0a8",None)
+        line([((-82,-460),(-79,-467),(-72,-477),(-64,-482))],"#ffd0e7",4)
+    else:
+        for hx in (-49,-16,17,49):
+            line([((hx-7,-495),(hx,-502),(hx+7,-496))],"#a36b4b",3)
 
 
 def _draw_frame(t: float, planet: str, portrait: bool = False):
@@ -282,9 +348,23 @@ def _draw_story_scene(t: float, planet: str, biome: str, palette: str,
     }
     top,bottom,accent,ground=palettes.get(palette,palettes["aurora"])
     _gradient(d,top,bottom)
+    # Cinematic atmosphere: soft radial light, distant haze and subtle stars.
+    glow=Image.new("RGBA",(W,H),(0,0,0,0))
+    gd=ImageDraw.Draw(glow)
+    for radius,alpha in [(230,18),(175,22),(120,30),(72,38)]:
+        gd.ellipse((1010-radius,118-radius,1010+radius,118+radius),
+                   fill=(255,231,177,alpha))
+    im=Image.alpha_composite(im.convert("RGBA"),glow).convert("RGB")
+    d=ImageDraw.Draw(im)
+    for k in range(42):
+        sx=(k*197+scene_index*43)%W
+        sy=(k*83+29)%360
+        r=2+(k%3)
+        d.ellipse((sx-r,sy-r,sx+r,sy+r),fill=(255,247,218))
     # Distant planets, soft clouds and drifting lights
     d.ellipse((1010,45,1170,205),fill="#fff0bd")
     d.ellipse((1040,75,1140,175),fill="#fff7d9")
+    d.ellipse((1061,96,1119,154),fill="#fffbe8")
     for i in range(5):
         cx=(i*310+int(t*9))%(W+250)-120; cy=92+(i%3)*45
         d.ellipse((cx,cy+18,cx+100,cy+62),fill="#fff4ed")
@@ -371,6 +451,15 @@ def _draw_story_scene(t: float, planet: str, biome: str, palette: str,
             if idx==14:
                 d.rounded_rectangle((250,100,1030,270),radius=38,fill="#203a66",outline="#fff4d7",width=8)
                 d.text((365,145),"A MORAL DA HISTÓRIA",font=_font(40,True),fill="#fff4d7")
+    # Cinematic layered set dressing: foreground leaves, light shafts and depth.
+    haze=Image.new("RGBA",(W,H),(0,0,0,0))
+    hd=ImageDraw.Draw(haze)
+    for i in range(7):
+        x=90+i*185
+        hd.polygon([(x,0),(x+32,0),(x+210,470),(x+155,470)],
+                   fill=(255,239,194,10))
+    im=Image.alpha_composite(im.convert("RGBA"),haze).convert("RGB")
+    d=ImageDraw.Draw(im)
     # Layered foreground meadow, flowers and soft stones
     curve([((0,625),(220,565),(390,640),(600,615)),
            ((600,615),(850,585),(1030,660),(1280,600)),
@@ -383,9 +472,17 @@ def _draw_story_scene(t: float, planet: str, biome: str, palette: str,
             px=fx+math.cos(ang)*7; py=fy+math.sin(ang)*7
             d.ellipse((px-5,py-5,px+5,py+5),fill=col)
         d.ellipse((fx-3,fy-3,fx+3,fy+3),fill="#ffbd45")
-    # Cast staging; organic illustrated characters remain consistent between scenes.
+    # Cinematic cast staging: stronger character scale and clear silhouettes.
+    # Ground contact shadows add depth and prevent the cast from floating.
     positions=[(350,665,.91),(640,665,.91),(930,665,.83)]
-    if portrait: positions=[(445,665,.68),(640,665,.68),(835,665,.63)]
+    if portrait:
+        # Tighter vertical camera framing: heroes occupy the frame, not a tiny strip.
+        positions=[(405,682,.86),(640,682,.86),(875,682,.78)]
+    for px,py,sc in positions:
+        shadow_w=int(92*sc)
+        shadow_y=int(py-5)
+        d.ellipse((px-shadow_w,shadow_y-13,px+shadow_w,shadow_y+13),
+                  fill="#26354b")
     if idx in (0,1,12,13): positions=[(px,py-42,sc) for px,py,sc in positions]
     if idx==7: positions=[(px,py+5,sc) for px,py,sc in positions]
     _character(d,positions[0][0]+int(math.sin(t*1.4)*18),positions[0][1],positions[0][2],
@@ -396,7 +493,16 @@ def _draw_story_scene(t: float, planet: str, biome: str, palette: str,
                speaking=active_speaker=="Tomi",walking=action in ("walk","explore","run"))
     _character(d,positions[2][0]+int(math.sin(t*1.7+2)*12),positions[2][1],positions[2][2],
                ("#d58a48","#fff","#287cc6"),"PIPO",t,dog=True,walking=action in ("walk","explore","run"))
-    if portrait: im=im.crop((360,0,920,720)).resize((720,1280),Image.Resampling.LANCZOS)
+    if portrait:
+        # Portrait crop is deliberately closer and composed around the full cast.
+        # Keep headroom for the episode title and safe margins for mobile UI.
+        im=im.crop((300,0,980,720)).resize((720,1280),Image.Resampling.LANCZOS)
+        # Gentle vignette and warm lower bounce light for a finished storybook look.
+        overlay=Image.new("RGBA",im.size,(0,0,0,0))
+        od=ImageDraw.Draw(overlay)
+        od.rectangle((0,0,720,1280),fill=(8,17,39,12))
+        od.ellipse((70,690,650,1420),fill=(255,211,143,18))
+        im=Image.alpha_composite(im.convert("RGBA"),overlay).convert("RGB")
     return im
 
 

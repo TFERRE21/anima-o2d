@@ -31,6 +31,7 @@
 <button class="active" data-page="dashboard"><span class="ico">▦</span><span class="txt">Visão geral</span></button>
 <button data-page="episodes"><span class="ico">▤</span><span class="txt">Episódios</span></button>
 <button data-page="create"><span class="ico">✦</span><span class="txt">Criar episódio</span></button>
+<button data-page="opentoonz"><span class="ico">🎞</span><span class="txt">OpenToonz</span></button>
 <button data-page="automation"><span class="ico">◷</span><span class="txt">Automação</span></button>
 </nav>
 <div class="navlabel">PUBLICAÇÃO</div>
@@ -77,6 +78,22 @@
 
 <section class="page" id="page-create">
 <div class="sectionintro"><h2>História primeiro. Animação depois.</h2><p>O motor cria uma aventura original em um planeta inédito. Você revisa o roteiro antes de mandar desenhar e narrar.</p></div>
+<div class="card" style="margin-bottom:16px;border:1px solid #27a879">
+<div class="cardhead"><h3>Produção com IA online — FLUX + Kling 3.0</h3><span class="badge ready">GERAÇÃO REAL NA NUVEM</span></div>
+<p class="muted">Gera uma imagem cinematográfica dos Pequenos Guardiões e anima essa imagem em um clipe MP4 real usando modelos de IA online. Este teste não usa o desenho procedural antigo.</p>
+<div class="formgrid">
+<div class="field full"><label for="aiVideoTopic">Cena para gerar</label><input id="aiVideoTopic" maxlength="1200" value="Luna, Tomi e Pipo correm por uma floresta mágica e encontram uma pequena ponte brilhante."></div>
+<div class="field"><label for="aiVideoRatio">Formato</label><select id="aiVideoRatio"><option value="9:16">Vertical 9:16</option><option value="16:9">Horizontal 16:9</option></select></div>
+<div class="field"><label for="aiVideoDuration">Duração do clipe</label><select id="aiVideoDuration"><option value="5">5 segundos</option><option value="10">10 segundos</option><option value="15">15 segundos</option></select></div>
+</div>
+<div class="toolbar"><button class="btn" type="button" id="startCloudAiVideo">✨ Gerar cena profissional com IA online</button><span class="muted" id="cloudAiVideoStatus">Requer FAL_KEY configurada no servidor. A chave nunca aparece no navegador.</span></div>
+<div id="cloudAiVideoResult" style="display:none;margin-top:14px"><img id="cloudAiVideoImage" alt="Imagem gerada pela IA" style="max-width:240px;width:100%;border-radius:12px;display:block;margin-bottom:12px"><video id="cloudAiVideoPlayer" controls playsinline style="width:100%;max-width:640px;border-radius:12px"></video><p><a id="cloudAiVideoDownload" class="btn" download>Baixar MP4 gerado pela IA</a></p></div>
+</div>
+<div class="card" style="margin-bottom:16px;border:1px solid #4d80c9">
+<div class="cardhead"><h3>Teste automático de produção</h3><span class="badge ready">SEM DESENHO MANUAL</span></div>
+<p class="muted">Cria uma história inédita dos Pequenos Guardiões, monta as cenas ilustradas, gera as vozes e renderiza um vídeo vertical de teste com 60 a 90 segundos.</p>
+<div class="toolbar"><button class="btn" type="button" id="quickAutoTest">🚀 Criar meu primeiro vídeo automaticamente</button><span class="muted" id="quickAutoMessage">Um clique inicia roteiro, vozes, animação 2D e MP4. Não publica no YouTube.</span></div>
+</div>
 <div class="card"><form id="createForm"><div class="formgrid">
 <div class="field full"><label for="topic">Tema ou valor educativo (opcional)</label><input id="topic" maxlength="120" placeholder="Ex.: amizade, respeito, cuidado com a natureza. Deixe em branco para uma aventura surpresa."></div>
 <div class="field full"><label>Formatos que serão produzidos</label><div class="checks"><label class="check"><input type="checkbox" name="format" value="16:9" checked> Episódio 16:9 · mínimo 5:01 · 1920×1080</label><label class="check"><input type="checkbox" name="format" value="9:16" checked> Shorts 9:16 · 1:00 a 1:30 · 1080×1920</label></div></div>
@@ -147,13 +164,44 @@
 </div>
 <div class="card" style="margin-top:16px"><div class="cardhead"><h3>Checklist antes de publicar</h3></div><div class="pipeline"><div class="pipe"><span class="pipen">✓</span><div><b>Vídeo renderizado</b><small>Verificar imagem, áudio e duração.</small></div></div><div class="pipe"><span class="pipen">✓</span><div><b>Revisão de conteúdo infantil</b><small>Conferir linguagem, segurança e mensagem educativa.</small></div></div><div class="pipe"><span class="pipen">3</span><div><b>Metadados e miniatura</b><small>Título, descrição, classificação de público infantil e thumbnail.</small></div></div><div class="pipe"><span class="pipen">4</span><div><b>Upload autorizado</b><small>Enviar e acompanhar o processamento no YouTube Studio.</small></div></div></div></div>
 </section>
+<section class="page" id="page-opentoonz">
+<div class="sectionintro"><h2>Renderização OpenToonz</h2><p>Envie uma cena .tnz para o agente Windows com OpenToonz instalado e receba o vídeo MP4 renderizado.</p></div>
+<div class="layout">
+<div class="card">
+ <div class="cardhead"><h3>Conexão do agente Windows</h3><span class="badge pending" id="otWorkerBadge">VERIFICAR CONEXÃO</span></div>
+ <p class="muted">O agente Windows inicia a conexão com a VPS. Mantenha o programa aberto durante a renderização.</p>
+ <div class="field"><label for="otToken">Token OpenToonz (não é salvo no navegador)</label><input id="otToken" type="password" autocomplete="off" placeholder="Cole o token ANIMA_OPENTOONZ_TOKEN"></div>
+ <div class="toolbar"><button class="btn secondary" id="otCheck">Verificar conexão</button><span class="muted" id="otWorkerInfo">Aguardando verificação.</span></div>
+ <div class="notice info"><b>Como iniciar no Windows</b><br>Baixe a pasta tools/windows-gpu-agent do repositório, abra o PowerShell nessa pasta e execute:<br><code>powershell -ExecutionPolicy Bypass -File .\iniciar-opentoonz-worker.ps1</code><br>Informe a URL do painel e o mesmo token configurado na VPS. Deixe a janela aberta.</div>
+</div>
+<div class="card">
+ <div class="cardhead"><h3>Nova renderização</h3><span class="badge">.TNZ → MP4</span></div>
+ <form id="otForm">
+  <div class="field"><label for="otScene">Caminho da cena .tnz no computador Windows do agente</label><input id="otScene" required placeholder="C:\\CAnimaStudio\\minha-cena.tnz"></div>
+  <div class="formgrid">
+   <div class="field"><label for="otStart">Quadro inicial</label><input id="otStart" type="number" min="1" value="1" required></div>
+   <div class="field"><label for="otEnd">Quadro final</label><input id="otEnd" type="number" min="1" value="120" required></div>
+   <div class="field"><label for="otFps">FPS</label><select id="otFps"><option>24</option><option>30</option><option>25</option></select></div>
+  </div>
+  <button class="btn" id="otSubmit" type="submit">🎬 Enviar para renderização</button>
+  <p class="muted" id="otMessage">A cena e os arquivos vinculados precisam existir no computador Windows do agente.</p>
+ </form>
+</div>
+</div>
+<div class="card" style="margin-top:16px">
+ <div class="cardhead"><h3>Renderização atual</h3><span class="badge pending" id="otTaskBadge">SEM TAREFA</span></div>
+ <div id="otTaskInfo" class="muted">Nenhuma tarefa enviada nesta sessão.</div>
+ <div class="progress"><span id="otProgress" style="width:0%"></span></div>
+ <div class="toolbar"><button class="btn secondary small" id="otDownload" style="display:none">Baixar MP4</button><button class="btn ghost small" id="otRefresh">Atualizar status</button></div>
+</div>
+</section>
 <div class="footer">ANIMA STUDIO 3D · Pequenos Guardiões — A Liga do Bem · Painel em evolução</div>
 </main>
 </div>
 <script>
 const $=id=>document.getElementById(id);
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-let jobs=[],poll=null,youtubeConnected=false,pendingStoryId=null,pendingFormats=[];
+let jobs=[],poll=null,youtubeConnected=false,pendingStoryId=null,pendingFormats=[],otTaskId=null,otPoll=null,otDownloadUrl=null;
 document.addEventListener('click',event=>{
  const button=event.target.closest('[data-action]');
  if(!button)return;
@@ -163,7 +211,7 @@ document.addEventListener('click',event=>{
  else if(button.dataset.action==='review')reviewEpisode(id,'approved');
  else if(button.dataset.action==='publish')publishEpisode(id,button.dataset.format);
 });
-const labels={dashboard:'Visão geral',episodes:'Episódios',create:'Criar episódio',automation:'Automação',publishing:'YouTube & postagens'};
+const labels={dashboard:'Visão geral',episodes:'Episódios',create:'Criar episódio',opentoonz:'Renderização OpenToonz',automation:'Automação',publishing:'YouTube & postagens'};
 function go(page){document.querySelectorAll('.page').forEach(x=>x.classList.remove('active'));$('page-'+page).classList.add('active');document.querySelectorAll('.nav button').forEach(x=>x.classList.toggle('active',x.dataset.page===page));$('pageTitle').textContent=labels[page];if(page==='episodes'||page==='publishing')renderEpisodes();if(page==='automation')loadSettings();window.scrollTo({top:0,behavior:'smooth'});}
 document.querySelectorAll('.nav button').forEach(b=>b.addEventListener('click',()=>go(b.dataset.page)));
 function statusBadge(j){
@@ -233,6 +281,61 @@ async function openStory(id){
   go('create');
  }catch(e){alert(e.message);}
 }
+async function startCloudAiVideo(){
+ const btn=$('startCloudAiVideo'),status=$('cloudAiVideoStatus'),result=$('cloudAiVideoResult');
+ btn.disabled=true;btn.textContent='⏳ Enviando para IA online…';result.style.display='none';
+ try{
+  const response=await fetch('/api/ai-video/test',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({topic:$('aiVideoTopic').value,aspect_ratio:$('aiVideoRatio').value,duration:Number($('aiVideoDuration').value)})});
+  const data=await response.json();if(!response.ok)throw new Error(data.detail||'Falha ao iniciar geração online.');
+  status.textContent='Solicitação enviada. Gerando imagem e depois animando com Kling 3.0…';
+  const poll=async()=>{
+   const r=await fetch('/api/ai-video/jobs/'+encodeURIComponent(data.job_id));const j=await r.json();
+   status.textContent=(j.progress||0)+'% · '+(j.message||j.stage||j.status);
+   if(j.status==='completed'){
+    $('cloudAiVideoImage').src=j.image+'?t='+Date.now();
+    $('cloudAiVideoPlayer').src=j.video+'?t='+Date.now();
+    $('cloudAiVideoDownload').href=j.video;
+    result.style.display='block';btn.disabled=false;btn.textContent='✨ Gerar outra cena com IA online';return;
+   }
+   if(j.status==='failed'){throw new Error(j.message||'Falha na geração IA.');}
+   window.setTimeout(poll,4000);
+  };
+  await poll();
+ }catch(err){status.textContent='Erro: '+err.message;btn.disabled=false;btn.textContent='✨ Tentar novamente com IA online';}
+}
+$('startCloudAiVideo').addEventListener('click',startCloudAiVideo);
+async function runQuickAutoTest(){
+ const btn=$('quickAutoTest'),msg=$('quickAutoMessage');
+ btn.disabled=true;btn.textContent='⏳ Criando episódio…';
+ msg.textContent='Etapa 1/3: criando história original e storyboard…';
+ try{
+  const storyResponse=await fetch('/api/stories/generate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({formats:['9:16'],topic:$('topic').value.trim()||'amizade e cooperação'})});
+  const storyData=await storyResponse.json();
+  if(!storyResponse.ok)throw new Error(storyData.detail||'Não foi possível criar o roteiro.');
+  pendingStoryId=storyData.job_id;pendingFormats=['9:16'];
+  const story=storyData.story;
+  $('storyTitle').textContent=story.title;$('storyPlanet').textContent=story.planet;
+  $('storyBiome').textContent=story.biome;$('storyValue').textContent=story.value;
+  $('storyScenes').textContent=(story.scenes||[]).length;$('storySynopsis').textContent=story.synopsis;
+  $('longWordCount').textContent=(story.word_count_long||0)+' palavras';
+  $('shortWordCount').textContent=(story.word_count_short||0)+' palavras · vídeo vertical';
+  $('longStoryText').textContent=story.long_script;$('shortStoryText').textContent=story.short_script;
+  $('shortFocus').textContent=story.short_highlight||'Destaque da aventura';
+  $('dialogueList').innerHTML=(story.dialogues||[]).map(line=>'<div style="padding:9px 11px;border:1px solid #263c5c;border-radius:10px;background:#101e33"><b>'+esc(line.speaker)+'</b><div class="muted">'+esc(line.text)+'</div></div>').join('');
+  $('storyboardList').innerHTML=(story.scenes||[]).map((scene,i)=>'<div class="episode"><div class="thumb">'+String(i+1).padStart(2,'0')+'</div><div><div class="epname">'+esc(scene.title)+'</div><div class="epmeta">'+esc(scene.caption)+'</div><p class="muted">'+esc(scene.visual_action||'')+'</p></div></div>').join('');
+  $('storyPreview').style.display='block';$('activeJobCard').style.display='block';
+  msg.textContent='Etapa 2/3: roteiro pronto. Iniciando geração de vozes e animação…';
+  $('renderMessage').textContent='Teste automático iniciado; o roteiro foi aprovado para este teste.';
+  const renderResponse=await fetch('/api/jobs/'+encodeURIComponent(pendingStoryId)+'/render',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({formats:['9:16']})});
+  const renderData=await renderResponse.json();
+  if(!renderResponse.ok)throw new Error(renderData.detail||'O roteiro foi criado, mas a renderização não iniciou.');
+  msg.textContent='Etapa 3/3: vídeo em produção. Acompanhe o progresso abaixo.';
+  watchJob(renderData.job_id);
+  $('activeJobCard').scrollIntoView({behavior:'smooth',block:'start'});
+ }catch(err){msg.textContent='Não foi possível concluir: '+err.message;}
+ finally{btn.disabled=false;btn.textContent='🚀 Criar outro vídeo automaticamente';}
+}
+$('quickAutoTest').addEventListener('click',runQuickAutoTest);
 async function createEpisode(e){
  e.preventDefault();
  const formats=[...document.querySelectorAll('input[name="format"]:checked')].map(x=>x.value);
@@ -330,6 +433,41 @@ async function saveSettings(extra={}){
 }
 $('saveSettings').addEventListener('click',()=>saveSettings());
 $('saveSchedule').addEventListener('click',()=>saveSettings({production_days:[...document.querySelectorAll('.productionDay:checked')].map(x=>x.value),production_time:$('productionTime').value}));
+
+function otHeaders(){const token=$('otToken').value.trim();if(!token)throw new Error('Informe o token OpenToonz.');return {'Authorization':'Bearer '+token};}
+async function otCheck(){
+ try{const r=await fetch('/api/opentoonz/worker/status',{headers:otHeaders()});const d=await r.json();if(!r.ok)throw new Error(d.detail||'Falha ao consultar agente.');$('otWorkerBadge').textContent=d.connected?'AGENTE CONECTADO':'AGENTE OFFLINE';$('otWorkerBadge').className='badge '+(d.connected?'ready':'pending');$('otWorkerInfo').textContent=d.connected?'Conectado: '+(d.workers||[]).join(', ')+'. Na fila: '+d.queued+'. Em execução: '+d.active+'.':'Nenhum agente ativo. Abra o worker no Windows.';return d.connected;}catch(e){$('otWorkerBadge').textContent='ERRO DE CONEXÃO';$('otWorkerBadge').className='badge failed';$('otWorkerInfo').textContent=e.message;return false;}
+}
+$('otCheck').addEventListener('click',otCheck);
+$('otRefresh').addEventListener('click',()=>otTaskId?otPollTask():otCheck());
+$('otForm').addEventListener('submit',async e=>{
+ e.preventDefault();
+ try{
+  const headers={...otHeaders(),'Content-Type':'application/json'};
+  const scene=$('otScene').value.trim(),start=Number($('otStart').value),end=Number($('otEnd').value);
+  if(!scene.toLowerCase().endsWith('.tnz'))throw new Error('O caminho precisa terminar em .tnz.');
+  if(!Number.isInteger(start)||!Number.isInteger(end)||start<1||end<start||end-start>20000)throw new Error('Confira o intervalo de quadros.');
+  $('otSubmit').disabled=true;$('otMessage').textContent='Enviando tarefa para a fila…';
+  const r=await fetch('/api/opentoonz/tasks',{method:'POST',headers,body:JSON.stringify({config:{scene_path:scene,frame_start:start,frame_end:end,fps:Number($('otFps').value)}})});
+  const d=await r.json();if(!r.ok)throw new Error(d.detail||'Não foi possível criar a tarefa.');
+  otTaskId=d.task_id;$('otTaskBadge').textContent='NA FILA';$('otTaskBadge').className='badge pending';$('otTaskInfo').textContent='Tarefa '+otTaskId+' criada. Aguardando o agente Windows.';$('otProgress').style.width='5%';$('otMessage').textContent='Tarefa enviada. Acompanhe o status abaixo.';if(otPoll)clearInterval(otPoll);otPoll=setInterval(otPollTask,3000);otPollTask();
+ }catch(err){$('otMessage').textContent=err.message;}finally{$('otSubmit').disabled=false;}
+});
+async function otPollTask(){
+ if(!otTaskId)return;
+ try{
+  const headers=otHeaders(),r=await fetch('/api/opentoonz/tasks/'+encodeURIComponent(otTaskId),{headers}),d=await r.json();if(!r.ok)throw new Error(d.detail||'Falha ao consultar tarefa.');
+  const labels={queued:'NA FILA',running:'RENDERIZANDO',done:'CONCLUÍDO',failed:'FALHOU'};$('otTaskBadge').textContent=labels[d.status]||String(d.status).toUpperCase();$('otTaskBadge').className='badge '+(d.status==='done'?'ready':d.status==='failed'?'failed':'pending');
+  $('otTaskInfo').textContent=d.status==='queued'?'Aguardando o agente Windows aceitar a tarefa.':d.status==='running'?'OpenToonz está renderizando os quadros no computador Windows.':d.status==='done'?'Render concluído · '+(d.total_frames||'')+' quadros · '+Math.round((d.output_bytes||0)/1024/1024*10)/10+' MB.':'Falha: '+(d.error||'Erro não informado.');
+  $('otProgress').style.width=d.status==='done'?'100%':d.status==='running'?'65%':d.status==='queued'?'10%':'0%';
+  if(d.status==='done'){$('otDownload').style.display='inline-flex';if(otPoll)clearInterval(otPoll);otPoll=null;}
+  if(d.status==='failed'){if(otPoll)clearInterval(otPoll);otPoll=null;}
+ }catch(e){$('otTaskInfo').textContent=e.message;}
+}
+$('otDownload').addEventListener('click',async()=>{
+ try{const r=await fetch('/api/opentoonz/tasks/'+encodeURIComponent(otTaskId)+'/download',{headers:otHeaders()});if(!r.ok){const d=await r.json();throw new Error(d.detail||'Download indisponível.');}const blob=await r.blob();if(otDownloadUrl)URL.revokeObjectURL(otDownloadUrl);otDownloadUrl=URL.createObjectURL(blob);const a=document.createElement('a');a.href=otDownloadUrl;a.download='anima-opentoonz-'+otTaskId.slice(0,8)+'.mp4';a.click();}catch(e){$('otTaskInfo').textContent=e.message;}
+});
+
 loadDashboard();loadSettings();setInterval(loadDashboard,8000);
 </script>
 </body></html>

@@ -142,7 +142,8 @@ DEFAULT_VOICE_PROFILE = {
     "Pipo": {"voice": "pt-BR-AntonioNeural", "rate": "+8%", "pitch": "+22Hz", "espeak_pitch": 76},
     "Moradora": {"voice": "pt-BR-ThalitaMultilingualNeural", "rate": "+4%", "pitch": "+8Hz", "espeak_pitch": 66},
 }
-VOICE_PROFILE_FILE = Path(os.getenv("ANIMA_STORAGE", "/data/jobs")) / "voice-profiles.json"
+from backend.app.storage import storage_root
+VOICE_PROFILE_FILE = storage_root() / "voice-profiles.json"
 
 
 def load_voice_profiles() -> dict:

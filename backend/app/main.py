@@ -27,8 +27,8 @@ from backend.app.system_deps import native_library_status, ensure_blender_native
 
 ROOT = Path(__file__).resolve().parents[2]
 WEB = ROOT / "web"
-STORAGE = Path(os.getenv("ANIMA_STORAGE", "/data/jobs"))
-STORAGE.mkdir(parents=True, exist_ok=True)
+from backend.app.storage import storage_root
+STORAGE = storage_root()
 
 class Settings(BaseSettings):
     app_name: str = "Anima Studio 3D"
@@ -39,8 +39,12 @@ class Settings(BaseSettings):
 
 settings = Settings()
 app = FastAPI(title=settings.app_name, version="0.2.2")
+from backend.app.ai_video import router as ai_video_router
 from backend.app.comfy_worker import router as comfy_router
+from backend.app.opentoonz_worker import router as opentoonz_router
+app.include_router(ai_video_router)
 app.include_router(comfy_router)
+app.include_router(opentoonz_router)
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=False, allow_methods=["*"], allow_headers=["*"])
 
 
