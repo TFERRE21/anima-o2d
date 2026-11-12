@@ -119,6 +119,16 @@ def _character(d, x, floor, scale, palette, name, phase, pointing=False, dog=Fal
         oval(0,-195,16,9,"#6d3946")
         line([((-35,-145),(-15,-132),(15,-132),(35,-145))],"#d94b62",11)
         oval(0,-143,10,13,"#ffd15c","#fff0b4",2)
+        # Richer puppy face: forehead fur, eye shine, muzzle and ear highlights.
+        for fx,fy,rx,ry in [(-32,-300,8,12),(-15,-315,7,10),(15,-315,7,10),(32,-300,8,12)]:
+            oval(fx,fy,rx,ry,"#e2a36d",None)
+        for ex in (-20,20):
+            oval(ex-3,-268,3,5,"#ffffff",None)
+            line([((ex-9,-286),(ex,-291),(ex+9,-286))],"#58382f",3)
+        oval(-10,-203,5,4,"#fff0dc",None)
+        oval(10,-203,5,4,"#fff0dc",None)
+        line([((-43,-164),(-29,-153),(-12,-151),(0,-153))],"#e6a36c",4)
+        line([((0,-153),(16,-151),(31,-155),(43,-166))],"#e6a36c",4)
         return
     shirt, shorts, accent=palette
     skin="#f5c49f"; hair="#70412e" if name=="LUNA" else "#75472e"
@@ -207,6 +217,22 @@ def _character(d, x, floor, scale, palette, name, phase, pointing=False, dog=Fal
         line([((-13,-341),(-5,-337),(5,-337),(13,-341))],"#fff1e8",3)
     # Soft cheek highlights and small clothing details
     line([((-48,-124),(-31,-115),(-18,-113),(-9,-117))],"#ffffff",3)
+    # Premium cartoon finish: layered highlights, richer facial expression,
+    # fabric folds and specular accents (kept inside the original silhouette).
+    line([((-70,-395),(-63,-366),(-48,-345),(-30,-335))],"#ffd9c4",5)
+    line([((70,-395),(63,-366),(48,-345),(30,-335))],"#ffd9c4",5)
+    for ex in (-34,34):
+        oval(ex-5,-434,3,5,"#ffffff",None)
+        oval(ex+8,-417,2,4,"#bfeaff",None)
+        line([((ex-17,-455),(ex,-460),(ex+15,-455))],"#34283b",3)
+    # Layered hair strands give the cap a soft, hand-painted volume.
+    for hx in (-58,-28,5,37,62):
+        line([((hx,-489),(hx-8,-471),(hx-5,-451),(hx+5,-441))],
+             "#956247" if name=="TOMI" else "#986044",3)
+    # Subtle clothing seams, sleeve highlights and lower fabric folds.
+    line([((-48,-224),(-43,-195),(-40,-166),(-35,-145))],"#ffffff",3)
+    line([((48,-224),(43,-195),(40,-166),(35,-145))],"#ffffff",3)
+    line([((-29,-106),(-12,-101),(12,-101),(29,-106))],"#ffdfb0",3)
     oval(0,-185,31,32,"#ffd34e","#fff0b0",3)
     # Custom star emblem, gently rounded with curved rays
     line([((0,-207),(6,-191),(20,-188),(7,-177))],"#fff8dc",4)
@@ -267,11 +293,17 @@ def _draw_frame(t: float, planet: str, portrait: bool = False):
     d.text((58,43),"PEQUENOS GUARDIÕES",font=_font(27,True),fill="#ffffff")
     d.text((60,78),f"AVENTURA EM {planet[:18]}",font=_font(15,True),fill="#ffdf8c")
     if portrait:
-        # compact centered group so all three friends fit the vertical crop
-        _character(d,475+int(math.sin(t*1.1)*12),665,.67,("#e94e9b","#8f4e9a","#ffd04d"),"LUNA",t,pointing=(t%5<2.5))
-        _character(d,650+int(math.sin(t*1.1+1)*10),665,.67,("#287cc6","#554d9a","#f2a34d"),"TOMI",t+1,pointing=(t%6>3))
-        _character(d,825+int(math.sin(t*1.1+2)*9),665,.62,("#d58a48","#fff","#287cc6"),"PIPO",t,dog=True,speaking=active_speaker == "Pipo",walking=action in ("walk","explore","run"))
-        return im.crop((438,0,843,720)).resize((720,1280),Image.Resampling.LANCZOS)
+        # Reframed like a polished children's TV close-up: heroes are larger,
+        # evenly spaced and fully inside the safe portrait area.
+        _character(d,430+int(math.sin(t*1.1)*10),665,.78,("#e94e9b","#8f4e9a","#ffd04d"),"LUNA",t,pointing=(t%5<2.5))
+        _character(d,640+int(math.sin(t*1.1+1)*9),665,.78,("#287cc6","#554d9a","#f2a34d"),"TOMI",t+1,pointing=(t%6>3))
+        _character(d,850+int(math.sin(t*1.1+2)*8),665,.70,("#d58a48","#fff","#287cc6"),"PIPO",t,dog=True,speaking=False,walking=False)
+        # Ground shadows anchor each character in the scene.
+        for cx,rx in [(430,76),(640,76),(850,65)]:
+            d.ellipse((cx-rx,650,cx+rx,677),fill="#397d58")
+            d.arc((cx-rx+8,653,cx+rx-8,673),5,175,fill="#b7e78c",width=3)
+        # Portrait composition includes more of the environment and all heroes.
+        return im.crop((365,0,915,720)).resize((720,1280),Image.Resampling.LANCZOS)
     _character(d,350+int(math.sin(t*1.1)*22),665,.91,("#e94e9b","#8f4e9a","#ffd04d"),"LUNA",t,pointing=(t%5<2.5))
     _character(d,640+int(math.sin(t*1.1+1)*18),665,.91,("#287cc6","#554d9a","#f2a34d"),"TOMI",t+1,pointing=(t%6>3))
     _character(d,910+int(math.sin(t*1.1+2)*15),665,.83,("#d58a48","#fff","#287cc6"),"PIPO",t,dog=True)
