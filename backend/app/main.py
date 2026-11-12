@@ -22,8 +22,7 @@ from pydantic import BaseModel, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from backend.app.worlds import WORLDS, build_episode_plan
 from backend.app.cartoon2d import render_preview as render_2d_preview
-from backend.app.runtime import find_blender_binary, find_blender_runtime, has_bpy_module, inspect_bpy_module, blender_available, reset_bpy_import_state
-from backend.app.system_deps import native_library_status, ensure_blender_native_libraries
+from backend.app.engines.registry import selected_render_engine
 
 ROOT = Path(__file__).resolve().parents[2]
 WEB = ROOT / "web"
@@ -31,56 +30,20 @@ STORAGE = Path(os.getenv("ANIMA_STORAGE", "/data/jobs"))
 STORAGE.mkdir(parents=True, exist_ok=True)
 
 class Settings(BaseSettings):
-    app_name: str = "Anima Studio 3D"
+    app_name: str = "Anima Studio 2D"
     youtube_client_id: str = ""
     youtube_client_secret: str = ""
     youtube_redirect_uri: str = "https://animacao2d.vps11710.panel.icontainer.work/api/youtube/callback"
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
 settings = Settings()
-app = FastAPI(title=settings.app_name, version="0.2.2")
+app = FastAPI(title=settings.app_name, version="1.0.0")
 from backend.app.comfy_worker import router as comfy_router
 app.include_router(comfy_router)
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=False, allow_methods=["*"], allow_headers=["*"])
 
 
-NATIVE_LIBRARY_BOOTSTRAP: dict[str, Any] = {
-    "ok": False,
-    "installed": False,
-    "missing": [],
-    "error": "Aguardando verificação de dependências nativas.",
-}
-
-
-@app.on_event("startup")
-def repair_blender_native_dependencies_before_serving():
-    """
-    Ensure Blender's shared libraries are ready before the API accepts jobs.
-    This must be synchronous: a background repair allowed /api/diagnostics and
-    render requests to race the bpy import and report a false missing engine.
-    """
-    global NATIVE_LIBRARY_BOOTSTRAP
-    try:
-        NATIVE_LIBRARY_BOOTSTRAP = ensure_blender_native_libraries()
-        reset_bpy_import_state()
-        # Force a real import after the OS packages and linker cache are ready.
-        bpy_ready = has_bpy_module()
-        NATIVE_LIBRARY_BOOTSTRAP = {
-            **NATIVE_LIBRARY_BOOTSTRAP,
-            "bpy_available": bpy_ready,
-        }
-        if not bpy_ready:
-            from backend.app.runtime import inspect_bpy_module
-            NATIVE_LIBRARY_BOOTSTRAP["bpy_import_error"] = inspect_bpy_module()["error"]
-        print("ANIMA_NATIVE_LIBRARIES:", NATIVE_LIBRARY_BOOTSTRAP, flush=True)
-    except Exception as exc:
-        NATIVE_LIBRARY_BOOTSTRAP = {
-            "ok": False,
-            "installed": False,
-            "missing": native_library_status().get("missing", []),
-            "error": f"{type(exc).__name__}: {exc}",
-        }
-        print("ANIMA_NATIVE_LIBRARIES_BOOTSTRAP_ERROR:", NATIVE_LIBRARY_BOOTSTRAP, flush=True)
+# O runtime 2D não depende de Blender, bpy, OpenGL ou Xvfb.
 
 class GenerateRequest(BaseModel):
     title: str = Field(min_length=2, max_length=140)
@@ -309,79 +272,49 @@ def get_2d_preview(filename: str):
 
 @app.get("/api/health")
 def health():
-    blender_runtime = find_blender_runtime()
-    blender_script = Path(__file__).with_name("blender_scene.py")
     return {
-        "status": "ok",
-        "app": settings.app_name,
-        "version": "0.3.0",
-        "runtime": "docker-3d" if blender_runtime else "python-no-3d-engine",
+        "status": "ok", "app": settings.app_name, "version": "1.0.0",
+        "runtime": "cartoon-2d-production",
         "container_runtime": "docker" if Path("/.dockerenv").exists() else "unknown",
-        "python_version": sys.version.split()[0],
-        "port": int(os.getenv("PORT", "5000")),
-        "ffmpeg": _has("ffmpeg"),
-        "tts": _has("tts"),
+        "python_version": sys.version.split()[0], "port": int(os.getenv("PORT", "5000")),
+        "ffmpeg": _has("ffmpeg"), "tts": _has("tts"),
         "storage_writable": os.access(STORAGE, os.W_OK),
-        "blender": bool(blender_runtime),
-        "blender_backend": blender_runtime["backend"] if blender_runtime else None,
-        "blender_path": blender_runtime["executable"] if blender_runtime else None,
-        "bpy_module_available": has_bpy_module(),
-        "blender_scene_file": blender_script.is_file(),
-        "render_engine": "2d",
+        "render_engine": "anima-cartoon-2d",
     }
+
+
+@app.get("/api/health/2d")
+def health_2d():
+    if not _has("ffmpeg") or not _has("tts") or not os.access(STORAGE, os.W_OK):
+        raise HTTPException(503, "Motor 2D indisponível: confira FFmpeg, voz e armazenamento.")
+    return {"status": "ready", "engine": "anima-cartoon-2d", "fps": 24,
+            "formats": ["1920x1080", "1080x1920"], "audio": True}
 
 
 @app.get("/api/health/3d")
-def health_3d():
-    """Readiness probe: both Blender runtime and the 3D scene must be present."""
-    blender_runtime = find_blender_runtime()
-    blender_script = Path(__file__).with_name("blender_scene.py")
-    if not blender_runtime:
-        raise HTTPException(
-            503,
-            "Motor 3D indisponível: instale Blender ou bpy==5.2.3 para Python 3.13."
-        )
-    if not blender_script.is_file():
-        raise HTTPException(503, f"Arquivo ausente: {blender_script}")
-    return {
-        "status": "ready",
-        "engine": "blender-3d-only",
-        "backend": blender_runtime["backend"],
-        "blender_path": blender_runtime["executable"],
-        "scene_script": str(blender_script.resolve()),
-    }
+def legacy_health_3d():
+    raise HTTPException(410, "O motor 3D foi descontinuado. O estúdio agora utiliza o motor Cartoon 2D.")
 
 
 @app.get("/api/diagnostics")
 def diagnostics():
-    """Non-secret runtime diagnostics for Blender 3D binary/module and media assets."""
-    blender_runtime = find_blender_runtime()
-    bpy_info = inspect_bpy_module()
-    blender_script = Path(__file__).with_name("blender_scene.py")
-    blender_path = find_blender_binary()
+    from shutil import which
     return {
-        "ok": bool(blender_runtime and blender_script.is_file()),
+        "ok": bool(_has("ffmpeg") and _has("tts") and os.access(STORAGE, os.W_OK)),
         "container_runtime": "docker" if Path("/.dockerenv").exists() else "unknown",
         "python_version": sys.version.split()[0],
         "working_directory": str(Path.cwd()),
         "app_file": str(Path(__file__).resolve()),
-        "blender_backend": blender_runtime["backend"] if blender_runtime else None,
-        "blender_bin_setting": os.getenv("BLENDER_BIN") or "(not set)",
-        "blender_path": blender_path,
-        "blender_executable": bool(blender_path and os.access(blender_path, os.X_OK)),
-        "bpy_module_available": bpy_info["available"],
-        "bpy_version": bpy_info["version"],
-        "bpy_import_error": bpy_info["error"],
-        "native_libraries": native_library_status(),
-        "native_library_bootstrap": NATIVE_LIBRARY_BOOTSTRAP,
-        "blender_scene_path": str(blender_script.resolve()),
-        "blender_scene_exists": blender_script.is_file(),
-        "render_engine": "2d-cartoon-default",
-        "ffmpeg_available": _has("ffmpeg"),
+        "render_engine": "anima-cartoon-2d",
+        "selected_engine": selected_render_engine(),
+        "ffmpeg_available": _has("ffmpeg"), "ffmpeg_path": which("ffmpeg"),
         "tts_available": _has("tts"),
         "storage_path": str(STORAGE.resolve()),
         "storage_writable": os.access(STORAGE, os.W_OK),
+        "blender_required": False, "bpy_required": False,
+        "gpu_rendering": "ComfyUI para ativos visuais; AMD AMF quando suportado pelo FFmpeg local",
     }
+
 
 @app.get("/api/config")
 def config():
@@ -392,8 +325,8 @@ def config():
         ],
         "youtube_oauth_configured": bool(settings.youtube_client_id and settings.youtube_client_secret),
         "generation_enabled": _has("ffmpeg") and _has("tts"),
-        "media": {"ffmpeg": _has("ffmpeg"), "tts": _has("tts"), "blender_3d": blender_available()},
-        "engine": "Anima Studio — Cartoon 2D vetorial",
+        "media": {"ffmpeg": _has("ffmpeg"), "tts": _has("tts"), "blender_3d": False},
+        "engine": "Anima Studio — Motor Cartoon 2D de produção",
     }
 
 @app.post("/api/stories/generate", status_code=201)
@@ -470,23 +403,9 @@ def render_story(job_id: str, payload: RenderRequest):
         raise HTTPException(503, "Motor de mídia incompleto. É necessário FFmpeg e voz (espeak-ng ou edge-tts).")
     # O motor 3D remoto executa Blender diretamente no Windows/RX580.
     # Nesse modo, a VPS não precisa ter Blender/bpy instalado localmente.
-    selected_engine = "2d"
-    if selected_engine not in {"2d", "3d"}:
-        raise HTTPException(503, "ANIMA_RENDER_ENGINE inválido. Configure 2d ou 3d.")
-    if selected_engine == "3d":
-        blender_script = Path(__file__).with_name("blender_scene.py")
-        if not blender_script.is_file():
-            raise HTTPException(503, "Arquivo da cena Blender não encontrado na VPS.")
-        remote_enabled = True  # Episódios usam exclusivamente o worker Windows/RX580.
-        if remote_enabled:
-            if not os.getenv("ANIMA_WORKER_TOKEN", "").strip():
-                raise HTTPException(503, "Render RX 580 ativado, mas ANIMA_WORKER_TOKEN não foi configurado.")
-            now = time.time()
-            connected_workers = [name for name, seen in WORKER_LAST_SEEN.items() if now - seen < 75]
-            if not connected_workers:
-                raise HTTPException(503, "Computador RX 580 desconectado. Abra iniciar-worker.ps1 no Windows e tente novamente.")
-        elif not find_blender_runtime():
-            raise HTTPException(503, "Blender local indisponível e worker remoto desativado. Ative ANIMA_REMOTE_WORKER_ENABLED=true para usar a RX 580.")
+    selected_engine = selected_render_engine()
+    if selected_engine != "2d":
+        raise HTTPException(503, "Este estúdio utiliza exclusivamente o motor Cartoon 2D. Configure ANIMA_RENDER_ENGINE=2d.")
     _update(job_id, status="queued", stage="render_queued", progress=8,
             message="Roteiro aprovado. Preparando cenas e narração.", formats=formats,
             review_status="pending_review", outputs={}, error=None)
@@ -786,7 +705,7 @@ def download(job_id: str, fmt: str):
 def _has(binary: str) -> bool:
     from shutil import which
     if binary == "blender":
-        return blender_available()
+        return False
     if binary == "ffmpeg":
         if which("ffmpeg"):
             return True
