@@ -45,11 +45,11 @@ def _character(d, x, floor, scale, palette, name, phase, pointing=False, dog=Fal
         # short decorative curve can never abort the entire render job.
         if p3 is None and p2 is not None:
             # Quadratic Bezier -> equivalent cubic Bezier.
-            end = p2
-            p1 = (p0[0] + (2.0/3.0)*(p1[0]-p0[0]),
-                  p0[1] + (2.0/3.0)*(p1[1]-p0[1]))
-            p2 = (end[0] + (2.0/3.0)*(p1[0]-end[0]),
-                  end[1] + (2.0/3.0)*(p1[1]-end[1]))
+            control, end = p1, p2
+            p1 = (p0[0] + (2.0/3.0)*(control[0]-p0[0]),
+                  p0[1] + (2.0/3.0)*(control[1]-p0[1]))
+            p2 = (end[0] + (2.0/3.0)*(control[0]-end[0]),
+                  end[1] + (2.0/3.0)*(control[1]-end[1]))
             p3 = end
         elif p3 is None and p2 is None:
             # Straight segment -> cubic with controls on the line.
