@@ -5,7 +5,7 @@ The Windows agent polls this API; the ComfyUI HTTP API remains bound to localhos
 from __future__ import annotations
 import hmac, os, queue, time, uuid
 from datetime import datetime, timezone
-from fastapi import APIRouter, Header, HTTPException
+from fastapi import APIRouter, Header, HTTPException, Request\nfrom fastapi.responses import FileResponse\nfrom pathlib import Path
 from pydantic import BaseModel, Field
 
 router = APIRouter(prefix="/api/comfy", tags=["ComfyUI"])
@@ -79,3 +79,26 @@ def result(task_id: str, payload: dict, authorization: str | None=Header(default
 def tasks(authorization: str | None=Header(default=None)):
     _auth(authorization)
     return {"tasks":sorted(_tasks.values(),key=lambda t:t["created_at"],reverse=True)[:50]}
+
+@router.post("/tasks/{task_id}/image")
+async def upload_image(task_id: str, request: Request, authorization: str | None=Header(default=None)):
+    _auth(authorization)
+    task=_tasks.get(task_id)
+    if not task: raise HTTPException(404,"Tarefa não encontrada.")
+    data=await request.body()
+    if not data or len(data)>30*1024*1024: raise HTTPException(400,"Imagem vazia ou maior que 30 MB.")
+    storage=Path(os.getenv("ANIMA_STORAGE","/data/jobs"))/"comfyui"
+    storage.mkdir(parents=True,exist_ok=True)
+    target=storage/(task_id+".png")
+    temp=target.with_suffix(".tmp")
+    temp.write_bytes(data); temp.replace(target)
+    task["image_file"]=str(target)
+    task["image_url"]="/api/comfy/tasks/"+task_id+"/image"
+    return {"ok":True,"image_url":task["image_url"],"bytes":len(data)}
+
+@router.get("/tasks/{task_id}/image")
+def get_image(task_id: str, authorization: str | None=Header(default=None)):
+    _auth(authorization)
+    task=_tasks.get(task_id)
+    if not task or not task.get("image_file"): raise HTTPException(404,"Imagem ainda não disponível.")
+    return FileResponse(task["image_file"],media_type="image/png",filename=task_id+".png")
