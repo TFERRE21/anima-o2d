@@ -53,7 +53,7 @@ def main():
                     data=requests.get(COMFY+"/view",params=img,timeout=60).content
                     target=OUT/(tid+"_"+pathlib.Path(img["filename"]).name)
                     target.write_bytes(data)
-                    report(tid,"done","Imagem gerada com sucesso.",str(target))
+                    up=S.post(f"{SERVER}/api/comfy/tasks/{tid}/image",data=data,headers={"Content-Type":"application/octet-stream"},timeout=120); up.raise_for_status()\n                    report(tid,"done","Imagem gerada e enviada ao painel.",up.json()["image_url"])
                     print("Imagem salva:",target,flush=True); break
             except Exception as e:
                 report(tid,"failed",str(e)); print("Falha:",e,flush=True)
