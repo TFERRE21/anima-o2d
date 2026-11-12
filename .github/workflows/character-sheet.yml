@@ -28,6 +28,12 @@ jobs:
         run: python -m pip install --upgrade pip pillow
       - name: Renderizar arte com o motor Cartoon 2D
         run: python tools/render_character_sheet.py
+      - name: Disponibilizar imagem para visualização nesta conversa
+        uses: actions/upload-artifact@v4
+        with:
+          name: prancha-personagens-cartoon2d
+          path: docs/images/character-sheet-cartoon2d.png
+          retention-days: 7
       - name: Salvar imagem no GitHub
         run: |
           git config user.name "github-actions[bot]"
