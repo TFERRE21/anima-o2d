@@ -78,6 +78,17 @@
 
 <section class="page" id="page-create">
 <div class="sectionintro"><h2>História primeiro. Animação depois.</h2><p>O motor cria uma aventura original em um planeta inédito. Você revisa o roteiro antes de mandar desenhar e narrar.</p></div>
+<div class="card" style="margin-bottom:16px;border:1px solid #27a879">
+<div class="cardhead"><h3>Produção com IA online — FLUX + Kling 3.0</h3><span class="badge ready">GERAÇÃO REAL NA NUVEM</span></div>
+<p class="muted">Gera uma imagem cinematográfica dos Pequenos Guardiões e anima essa imagem em um clipe MP4 real usando modelos de IA online. Este teste não usa o desenho procedural antigo.</p>
+<div class="formgrid">
+<div class="field full"><label for="aiVideoTopic">Cena para gerar</label><input id="aiVideoTopic" maxlength="1200" value="Luna, Tomi e Pipo correm por uma floresta mágica e encontram uma pequena ponte brilhante."></div>
+<div class="field"><label for="aiVideoRatio">Formato</label><select id="aiVideoRatio"><option value="9:16">Vertical 9:16</option><option value="16:9">Horizontal 16:9</option></select></div>
+<div class="field"><label for="aiVideoDuration">Duração do clipe</label><select id="aiVideoDuration"><option value="5">5 segundos</option><option value="10">10 segundos</option><option value="15">15 segundos</option></select></div>
+</div>
+<div class="toolbar"><button class="btn" type="button" id="startCloudAiVideo">✨ Gerar cena profissional com IA online</button><span class="muted" id="cloudAiVideoStatus">Requer FAL_KEY configurada no servidor. A chave nunca aparece no navegador.</span></div>
+<div id="cloudAiVideoResult" style="display:none;margin-top:14px"><img id="cloudAiVideoImage" alt="Imagem gerada pela IA" style="max-width:240px;width:100%;border-radius:12px;display:block;margin-bottom:12px"><video id="cloudAiVideoPlayer" controls playsinline style="width:100%;max-width:640px;border-radius:12px"></video><p><a id="cloudAiVideoDownload" class="btn" download>Baixar MP4 gerado pela IA</a></p></div>
+</div>
 <div class="card" style="margin-bottom:16px;border:1px solid #4d80c9">
 <div class="cardhead"><h3>Teste automático de produção</h3><span class="badge ready">SEM DESENHO MANUAL</span></div>
 <p class="muted">Cria uma história inédita dos Pequenos Guardiões, monta as cenas ilustradas, gera as vozes e renderiza um vídeo vertical de teste com 60 a 90 segundos.</p>
@@ -270,6 +281,29 @@ async function openStory(id){
   go('create');
  }catch(e){alert(e.message);}
 }
+async function startCloudAiVideo(){
+ const btn=$('startCloudAiVideo'),status=$('cloudAiVideoStatus'),result=$('cloudAiVideoResult');
+ btn.disabled=true;btn.textContent='⏳ Enviando para IA online…';result.style.display='none';
+ try{
+  const response=await fetch('/api/ai-video/test',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({topic:$('aiVideoTopic').value,aspect_ratio:$('aiVideoRatio').value,duration:Number($('aiVideoDuration').value)})});
+  const data=await response.json();if(!response.ok)throw new Error(data.detail||'Falha ao iniciar geração online.');
+  status.textContent='Solicitação enviada. Gerando imagem e depois animando com Kling 3.0…';
+  const poll=async()=>{
+   const r=await fetch('/api/ai-video/jobs/'+encodeURIComponent(data.job_id));const j=await r.json();
+   status.textContent=(j.progress||0)+'% · '+(j.message||j.stage||j.status);
+   if(j.status==='completed'){
+    $('cloudAiVideoImage').src=j.image+'?t='+Date.now();
+    $('cloudAiVideoPlayer').src=j.video+'?t='+Date.now();
+    $('cloudAiVideoDownload').href=j.video;
+    result.style.display='block';btn.disabled=false;btn.textContent='✨ Gerar outra cena com IA online';return;
+   }
+   if(j.status==='failed'){throw new Error(j.message||'Falha na geração IA.');}
+   window.setTimeout(poll,4000);
+  };
+  await poll();
+ }catch(err){status.textContent='Erro: '+err.message;btn.disabled=false;btn.textContent='✨ Tentar novamente com IA online';}
+}
+$('startCloudAiVideo').addEventListener('click',startCloudAiVideo);
 async function runQuickAutoTest(){
  const btn=$('quickAutoTest'),msg=$('quickAutoMessage');
  btn.disabled=true;btn.textContent='⏳ Criando episódio…';
