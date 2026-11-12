@@ -131,7 +131,11 @@ def _character(d, x, floor, scale, palette, name, phase, pointing=False, dog=Fal
         line([((0,-153),(16,-151),(31,-155),(43,-166))],"#e6a36c",4)
         return
     shirt, shorts, accent=palette
-    skin="#f5c49f"; hair="#70412e" if name=="LUNA" else "#75472e"
+    is_luna = name.upper() == "LUNA"
+    skin = "#f5c49f" if is_luna else "#e9ad83"
+    hair = "#593326" if is_luna else "#75452b"
+    hair_light = "#a86b4d" if is_luna else "#bd8050"
+    iris_color = "#6b78d8" if is_luna else "#a66b36"
     # Legs are separate curved limbs with soft shoes and visible ankle cuffs
     for side,offset in [(-1,-walk),(1,walk)]:
         sx=side*25+offset
@@ -197,13 +201,25 @@ def _character(d, x, floor, scale, palette, name, phase, pointing=False, dog=Fal
         shape([((dx-21,-410),(dx-27,-430),(dx-18,-450),(dx,-451)),
                ((dx,-451),(dx+20,-451),(dx+27,-429),(dx+21,-410)),
                ((dx+21,-410),(dx+14,-397),(dx-14,-397),(dx-21,-410))],"#fffdf8",ink,2)
-        oval(dx+1,-424,11,18,"#5594c8",None)
+        oval(dx+1,-424,11,18,iris_color,None)
         oval(dx+1,-421,6,12,"#302b3d",None)
         oval(dx-2,-432,4,6,"#ffffff",None)
         line([((dx-23,-456),(dx-11,-464),(dx+5,-464),(dx+18,-456))],hair,4)
-    # Eyebrows, nose, cheek blush and freckles
-    line([((-59,-465),(-48,-474),(-31,-475),(-22,-468))],hair,5)
-    line([((22,-468),(34,-476),(50,-475),(60,-465))],hair,5)
+    # Eyebrows, nose, cheek blush and character-specific facial acting.
+    brow_y = -468 + math.sin(phase * 1.7) * 2
+    line([((-59,-465),(-48,brow_y-7),(-31,brow_y-8),(-22,-468))],hair,5)
+    line([((22,-468),(34,brow_y-8),(50,brow_y-7),(60,-465))],hair,5)
+    if is_luna:
+        for ex in (-34, 34):
+            line([((ex-18,-445),(ex-24,-451),(ex-26,-457))],ink,3)
+            line([((ex+15,-445),(ex+21,-451),(ex+23,-457))],ink,3)
+        oval(-55,-353,3,3,"#d97879",None)
+        oval(-47,-348,2,2,"#d97879",None)
+    else:
+        for fx in (-58,-49,49,58):
+            oval(fx,-355,2.8,2.8,"#bd765f",None)
+        line([((-58,-465),(-43,-477),(-27,-474),(-20,-466))],hair,6)
+        line([((20,-466),(27,-474),(43,-477),(58,-465))],hair,6)
     oval(0,-365,7,5,"#df987a",None)
     oval(-68,-361,15,12,"#ef9297",None); oval(68,-361,15,12,"#ef9297",None)
     # Mouth swaps between closed smile and open phoneme pose
@@ -217,6 +233,22 @@ def _character(d, x, floor, scale, palette, name, phase, pointing=False, dog=Fal
         line([((-13,-341),(-5,-337),(5,-337),(13,-341))],"#fff1e8",3)
     # Soft cheek highlights and small clothing details
     line([((-48,-124),(-31,-115),(-18,-113),(-9,-117))],"#ffffff",3)
+    if is_luna:
+        line([((-56,-230),(-43,-218),(-34,-205),(-30,-190))],"#ff9bc9",7)
+        line([((56,-230),(43,-218),(34,-205),(30,-190))],"#ff9bc9",7)
+        shape([((-17,-255),(-8,-267),(8,-267),(17,-255)),
+               ((17,-255),(12,-242),(0,-238),(-17,-255))],"#ff8fbd",ink,3)
+        oval(0,-250,6,6,"#ffe5a0","#fff5d5",2)
+        line([((-42,-139),(-20,-133),(20,-133),(42,-139))],"#ff9bc9",7)
+        for px in (-29,29):
+            d.rounded_rectangle((int(x+q(px-8)),int(floor+q(-162)),int(x+q(px+8)),int(floor+q(-145))),radius=max(2,q(4)),fill="#c83f83",outline=ink,width=max(1,q(2)))
+    else:
+        shape([((-20,-255),(-10,-268),(10,-268),(20,-255)),
+               ((20,-255),(10,-237),(0,-231),(-20,-255))],"#f4a24d",ink,3)
+        line([((-55,-220),(-42,-197),(-37,-169),(-33,-143))],"#8fc9f5",6)
+        line([((55,-220),(42,-197),(37,-169),(33,-143))],"#8fc9f5",6)
+        for px in (-31,31):
+            d.rounded_rectangle((int(x+q(px-8)),int(floor+q(-162)),int(x+q(px+8)),int(floor+q(-145))),radius=max(2,q(4)),fill="#185a9c",outline=ink,width=max(1,q(2)))
     # Premium cartoon finish: layered highlights, richer facial expression,
     # fabric folds and specular accents (kept inside the original silhouette).
     line([((-70,-395),(-63,-366),(-48,-345),(-30,-335))],"#ffd9c4",5)
@@ -238,6 +270,19 @@ def _character(d, x, floor, scale, palette, name, phase, pointing=False, dog=Fal
     line([((0,-207),(6,-191),(20,-188),(7,-177))],"#fff8dc",4)
     line([((7,-177),(10,-162),(0,-169),(-10,-162))],"#fff8dc",4)
     line([((-10,-162),(-7,-177),(-20,-188),(-6,-191))],"#fff8dc",4)
+    for hx in (-58,-35,-10,17,43,62):
+        line([((hx,-493),(hx-7,-474),(hx-4,-455),(hx+5,-444))],hair_light,3)
+    if is_luna:
+        oval(-72,-475,10,8,"#ff8ab9","#7b365b",2)
+        oval(-58,-475,10,8,"#ff8ab9","#7b365b",2)
+        oval(-65,-475,4,4,"#ffdf8b",None)
+    else:
+        d.arc((int(x+q(58)),int(floor+q(-475)),int(x+q(101)),int(floor+q(-405))),270,90,fill="#f0a34f",width=max(3,q(7)))
+        oval(82,-438,7,10,"#f0a34f",ink,2)
+    for hx,hy in [(-98,-160),(98,-160)]:
+        line([((hx,hy),(hx-3,hy+8),(hx-2,hy+13))],"#f8d0b5",3)
+    for sx in (-25,25):
+        line([((sx-17,-19),(sx,-15),(sx+17,-19))],"#f9d7a0",3)
 
 
 def _draw_frame(t: float, planet: str, portrait: bool = False):
