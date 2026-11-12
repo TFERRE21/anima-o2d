@@ -46,8 +46,16 @@ A publicação automática não é ligada por padrão. O upload/agendamento no Y
 - Variar bioma, habitantes, arquitetura, cores do cenário e props conforme o planeta.
 - Não imitar personagens ou franquias existentes.
 
-## Estado do motor
+## Motor definitivo — Cartoon 2D
 
-A produção agora usa modelos 3D procedurais no Blender Eevee, com materiais, iluminação, sombras, articulações simples, ciclos de caminhada, exploração, gestos, conversa, objetos de missão, cenários por bioma e câmera que acompanha o falante. O tempo do storyboard é calculado pelos intervalos reais de narração e diálogo. A boca é animada pela linha do tempo das falas; não há ainda sincronização fonema a fonema nem rig facial de estúdio.
+A produção de episódios utiliza exclusivamente o renderizador Cartoon 2D do projeto. O fluxo completo sintetiza as falas, constrói uma linha do tempo por personagem, desenha cenários ilustrados por bioma e ação, anima os personagens por ciclos e gestos, gera quadros, monta o vídeo com FFmpeg e valida o arquivo final.
 
-**Runtime obrigatório:** CPython 3.13 com `bpy==5.2.3`, Xvfb e Mesa. O aplicativo executa o módulo oficial Blender no mesmo Python da API; também aceita um executável Blender se estiver instalado. Não existe caminho de renderização 2D.
+- Personagens recorrentes: Luna, Tomi e Pipo, com silhuetas, paletas e acessórios consistentes.
+- Cenários: nave, planeta, vila, floresta, rio, caverna, ponte, biblioteca e ambientes especiais conforme o storyboard.
+- Movimento: caminhada, exploração, apontar, fala, reações, gestos e comemoração, com quadros a 24 FPS.
+- Áudio: narração e falas segmentadas; a linha do tempo determina o personagem que movimenta a boca.
+- Saída: episódio horizontal 1920×1080 e Shorts vertical 1080×1920, H.264/AAC.
+- Prévia ao vivo: JPEG atualizado durante a geração dos quadros e exibido no painel existente.
+- Runtime: Python 3.12, Pillow, FFmpeg e Edge TTS/espeak-ng. Blender, bpy, OpenGL e Xvfb não são dependências.
+
+A Radeon RX 580 pode ser usada pelo ComfyUI local para geração assistida de elementos visuais e pelo FFmpeg local com AMD AMF, quando o encoder estiver disponível. A geração dos quadros 2D no servidor usa Pillow; não se anuncia aceleração GPU nessa etapa sem suporte real.
