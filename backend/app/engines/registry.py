@@ -13,9 +13,9 @@ ENGINE_CATALOG: dict[str, dict[str, Any]] = {
     "2d": {
         "id": "2d",
         "name": "Animação 2D",
-        "purpose": "Prévia e produção 2D independente",
+        "purpose": "Produção integral de episódios Cartoon 2D",
         "worker": "server",
-        "render_backend": "cartoon2d",
+        "render_backend": "cartoon2d-full-production",
         "production": True,
     },
     "3d": {
@@ -47,7 +47,7 @@ def selected_render_engine() -> str:
 
 
 def engine_catalog(worker_connected: bool = False) -> dict[str, Any]:
-    selected = selected_render_engine()
+    selected = "2d"
     engines = []
     for engine_id, definition in ENGINE_CATALOG.items():
         is_3d = engine_id == "3d"
