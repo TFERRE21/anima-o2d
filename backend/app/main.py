@@ -27,7 +27,7 @@ from backend.app.system_deps import native_library_status, ensure_blender_native
 
 ROOT = Path(__file__).resolve().parents[2]
 WEB = ROOT / "web"
-STORAGE = Path(os.getenv("ANIMA_STORAGE", "/data/jobs"))
+STORAGE = Path(os.getenv("ANIMA_STORAGE", "/app/data/jobs"))
 STORAGE.mkdir(parents=True, exist_ok=True)
 
 class Settings(BaseSettings):
