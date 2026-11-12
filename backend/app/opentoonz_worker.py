@@ -29,7 +29,7 @@ MAX_ARCHIVE_BYTES = 2 * 1024 * 1024 * 1024
 
 
 def _storage() -> Path:
-    root = Path(os.getenv("ANIMA_STORAGE", "/data/jobs")) / "opentoonz"
+    root = Path(os.getenv("ANIMA_STORAGE", "/app/data/jobs")) / "opentoonz"
     root.mkdir(parents=True, exist_ok=True)
     return root
 
