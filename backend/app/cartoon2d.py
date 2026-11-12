@@ -259,8 +259,7 @@ def _character(d, x, floor, scale, palette, name, phase, pointing=False, dog=Fal
         line([((ex-17,-455),(ex,-460),(ex+15,-455))],"#34283b",3)
     # Layered hair strands give the cap a soft, hand-painted volume.
     for hx in (-58,-28,5,37,62):
-        line([((hx,-489),(hx-8,-471),(hx-5,-451),(hx+5,-441))],
-             "#956247" if name=="TOMI" else "#986044",3)
+        line([((hx,-489),(hx-8,-471),(hx-5,-451),(hx+5,-441))],hair_light,3)
     # Subtle clothing seams, sleeve highlights and lower fabric folds.
     line([((-48,-224),(-43,-195),(-40,-166),(-35,-145))],"#ffffff",3)
     line([((48,-224),(43,-195),(40,-166),(35,-145))],"#ffffff",3)
