@@ -30,10 +30,10 @@ O renderizador mede a duração da faixa de áudio final e ajusta a velocidade d
 ## Motor de animação Cartoon 2D
 
 - Renderizador de produção **Cartoon 2D**, com cenários ilustrados em camadas, personagens recorrentes, animação de caminhada, gestos, expressões e composição infantil.
-- Luna, Tomi e Pipo são modelos 3D procedurais com volumes arredondados, figurinos, acessórios e articulações próprias; moradores também aparecem nos encontros. A direção visual é uma série infantil original de aventura, colorida e cinematográfica, sem reproduzir personagens, logotipo ou modelos de outra franquia.
+- Luna, Tomi e Pipo são personagens 2D ilustrados com silhuetas orgânicas, figurinos, acessórios e identidade visual consistente. A direção visual é uma série infantil original de aventura, colorida e cinematográfica, sem reproduzir personagens, logotipo ou modelos de outra franquia.
 - Animação por cena: caminhada com ciclos de braços/pernas, exploração com deslocamento, apontar, gestos, surpresa, conversa virada entre os personagens, trabalho em equipe e comemoração.
 - Linha do tempo de voz por personagem: a boca do falante é animada durante a fala, incluindo moradores locais. As vozes ficam fixas em `/data/jobs/voice-profiles.json`.
-- Planetas têm cenários 3D diferentes conforme bioma e missão: florestas, oceanos, gelo, desertos, ilhas flutuantes, vilas, pontes, faróis, bibliotecas, equipamentos e objetos da história.
+- Planetas têm cenários 2D ilustrados diferentes conforme bioma e missão: florestas, oceanos, gelo, desertos, ilhas flutuantes, vilas, pontes, faróis, bibliotecas, equipamentos e objetos da história.
 - Câmera acompanha a ação e muda o enquadramento em cada parte do storyboard. Não são usadas caixas de legenda ou títulos sobre a imagem.
 - Cartoon 2D é o renderizador principal. Blender, bpy, Eevee e Workbench não fazem parte do caminho de produção. A saída final é codificada em 24 fps e em 1920×1080 ou 1080×1920.
 - Cada parágrafo da narradora está ligado à cena correspondente por marcação de tempo real do áudio; o vídeo troca de cena junto com a fala. Atores fazem a ação descrita (pouso, exploração, investigação, descoberta, conversa com moradores, trabalho em equipe, diário e retorno). Durante diálogos, a câmera favorece quem fala, o personagem falante gesticula e os demais reagem como ouvintes. A boca é animada conforme os intervalos das falas; ainda não é sincronização fonema a fonema nem rig facial profissional.
@@ -44,10 +44,8 @@ O renderizador mede a duração da faixa de áudio final e ajusta a velocidade d
 
 - O runtime principal usa Python 3.12, Pillow, FFmpeg e Edge TTS/espeak-ng. Não requer Blender nem `bpy`.
 - A API disponibiliza `/api/health`, `/api/health/2d` e `/api/diagnostics` para verificar FFmpeg, voz, armazenamento e motor Cartoon 2D.
-- `GET /api/diagnostics` informa `blender_backend` (`binary` ou `python-module`), `bpy_module_available`, se `backend/app/blender_scene.py` existe, versão do Python, FFmpeg, voz e volume.
-- A renderização chama `blender_scene.py` usando o executável ou o próprio `sys.executable` com `bpy`; não depende de `BLENDER_BIN` estar definido.
+- `GET /api/diagnostics` informa a versão do Python, disponibilidade do FFmpeg, voz, armazenamento e o motor Cartoon 2D ativo.
 - O pipeline Cartoon 2D é o único caminho de produção. Não existe fallback silencioso para Blender ou vídeo de demonstração.
-- No entrypoint `python app.py` do ICP, um bootstrap em segundo plano tenta instalar bibliotecas Debian ausentes (incluindo `libxfixes3`) quando o container permite `apt-get` como root; após a instalação, limpa o cache do teste de importação do `bpy`.
 
 **Runtime necessário:** Python 3.12, Pillow, FFmpeg, fontes DejaVu e Edge TTS/espeak-ng. O Dockerfile instala apenas as dependências do motor 2D.
 
