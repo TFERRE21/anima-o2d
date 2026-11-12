@@ -1,5 +1,5 @@
-"""Independent 2D cartoon preview renderer for Anima Studio.
-Uses Pillow drawing + FFmpeg; does not import or alter Blender/bpy or the RX580 worker.
+"""Shared Cartoon 2D artwork renderer for previews and full episode production.
+Uses Pillow drawing + FFmpeg; does not depend on Blender/bpy or the RX580 worker.
 """
 from __future__ import annotations
 
