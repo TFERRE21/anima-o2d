@@ -1,6 +1,6 @@
-# Anima Studio 3D — Pequenos Guardiões
+# Anima Studio 2D — Pequenos Guardiões
 
-Estúdio web para produção exclusiva de episódios infantis em 3D com Luna, Tomi, Pipo e moradores de planetas originais.
+Estúdio web para produção exclusiva de episódios infantis em Cartoon 2D com Luna, Tomi, Pipo e moradores de planetas originais.
 
 ## Painel do estúdio
 
@@ -27,34 +27,34 @@ O painel possui:
 
 O renderizador mede a duração da faixa de áudio final e ajusta a velocidade dentro de limites para respeitar as duas faixas. O episódio longo alterna narrador e falas dos três personagens. O Shorts usa a pista, a virada e a solução da missão — a parte mais impactante — com áudio e seleção de cenas próprios. Se não conseguir cumprir a faixa, marca o job como falha em vez de entregar um vídeo com duração incorreta.
 
-## Motor de animação 3D
+## Motor de animação Cartoon 2D
 
-- Renderizador exclusivo **Blender 3D (Eevee)**, com geometria real, câmera em perspectiva, materiais PBR estilizados, iluminação de estúdio, sombras suaves, ambient occlusion e profundidade.
+- Renderizador de produção **Cartoon 2D**, com cenários ilustrados em camadas, personagens recorrentes, animação de caminhada, gestos, expressões e composição infantil.
 - Luna, Tomi e Pipo são modelos 3D procedurais com volumes arredondados, figurinos, acessórios e articulações próprias; moradores também aparecem nos encontros. A direção visual é uma série infantil original de aventura, colorida e cinematográfica, sem reproduzir personagens, logotipo ou modelos de outra franquia.
 - Animação por cena: caminhada com ciclos de braços/pernas, exploração com deslocamento, apontar, gestos, surpresa, conversa virada entre os personagens, trabalho em equipe e comemoração.
 - Linha do tempo de voz por personagem: a boca do falante é animada durante a fala, incluindo moradores locais. As vozes ficam fixas em `/data/jobs/voice-profiles.json`.
 - Planetas têm cenários 3D diferentes conforme bioma e missão: florestas, oceanos, gelo, desertos, ilhas flutuantes, vilas, pontes, faróis, bibliotecas, equipamentos e objetos da história.
 - Câmera acompanha a ação e muda o enquadramento em cada parte do storyboard. Não são usadas caixas de legenda ou títulos sobre a imagem.
-- Blender Eevee é o renderizador principal; Workbench pode ser usado como compatibilidade visual alternativa dentro do próprio Blender. Ambos renderizam geometria 3D real. Não existe renderizador 2D nem exportação de desenho 2D. A saída final é codificada em 24 fps e em 1920×1080 ou 1080×1920.
+- Cartoon 2D é o renderizador principal. Blender, bpy, Eevee e Workbench não fazem parte do caminho de produção. A saída final é codificada em 24 fps e em 1920×1080 ou 1080×1920.
 - Cada parágrafo da narradora está ligado à cena correspondente por marcação de tempo real do áudio; o vídeo troca de cena junto com a fala. Atores fazem a ação descrita (pouso, exploração, investigação, descoberta, conversa com moradores, trabalho em equipe, diário e retorno). Durante diálogos, a câmera favorece quem fala, o personagem falante gesticula e os demais reagem como ouvintes. A boca é animada conforme os intervalos das falas; ainda não é sincronização fonema a fonema nem rig facial profissional.
 
 ### Runtime necessário
 
-### Motor 3D e diagnóstico do runtime
+### Motor 2D e diagnóstico do runtime
 
-- O runtime principal é o módulo oficial `bpy==5.2.3`, instalado no mesmo CPython 3.13 da aplicação. O executável `blender` também é aceito quando está disponível.
-- A API e o worker usam `find_blender_runtime()`: primeiro procuram o executável e depois o módulo `bpy`. O mesmo mecanismo é usado em `/api/health`, `/api/health/3d` e `/api/diagnostics`.
+- O runtime principal usa Python 3.12, Pillow, FFmpeg e Edge TTS/espeak-ng. Não requer Blender nem `bpy`.
+- A API disponibiliza `/api/health`, `/api/health/2d` e `/api/diagnostics` para verificar FFmpeg, voz, armazenamento e motor Cartoon 2D.
 - `GET /api/diagnostics` informa `blender_backend` (`binary` ou `python-module`), `bpy_module_available`, se `backend/app/blender_scene.py` existe, versão do Python, FFmpeg, voz e volume.
 - A renderização chama `blender_scene.py` usando o executável ou o próprio `sys.executable` com `bpy`; não depende de `BLENDER_BIN` estar definido.
-- O projeto não contém renderizador 2D, funções de desenho Pillow ou substituição 2D. Se o motor 3D não estiver instalado, a API retorna erro explícito e não cria um vídeo alternativo.
+- O pipeline Cartoon 2D é o único caminho de produção. Não existe fallback silencioso para Blender ou vídeo de demonstração.
 - No entrypoint `python app.py` do ICP, um bootstrap em segundo plano tenta instalar bibliotecas Debian ausentes (incluindo `libxfixes3`) quando o container permite `apt-get` como root; após a instalação, limpa o cache do teste de importação do `bpy`.
 
-**Runtime necessário:** CPython 3.13 com `bpy==5.2.3`, bibliotecas OpenGL/Mesa, Xvfb, FFmpeg e Edge TTS. O Dockerfile instala e valida essas dependências; o `requirements.txt` também inclui o módulo `bpy` para builds Python 3.13 do painel.
+**Runtime necessário:** Python 3.12, Pillow, FFmpeg, fontes DejaVu e Edge TTS/espeak-ng. O Dockerfile instala apenas as dependências do motor 2D.
 
-- Engine exclusiva: Blender 3D / Eevee.
+- Engine exclusiva: Anima Studio Cartoon 2D.
 - Porta interna: `5000`.
 - Volume persistente: `/data/jobs` para roteiros, perfis de voz, vídeos e tokens.
-- Healthcheck Docker: `/api/health/3d`, que só retorna sucesso quando Blender e o arquivo de cena 3D estão disponíveis.
+- Healthcheck Docker: `/api/health/2d`, que valida FFmpeg, voz e armazenamento.
 
 ## Automação e publicação — estado real
 
@@ -85,16 +85,16 @@ docker compose up -d --build
 
 Painel: http://localhost:5000  
 API: http://localhost:5000/docs  
-Saúde: http://localhost:5000/api/health
+Saúde: http://localhost:5000/api/health/2d
 
 Vídeos, histórico e preferências ficam persistidos em `./data`.
 
 ## Publicar no iContainer (runtime Docker)
 
-Para renderização 3D, publique a imagem Docker construída a partir do Dockerfile. O runtime Python deve usar CPython 3.13 e instalar o `requirements.txt`, que inclui `bpy==5.2.3`. Para Docker, use o Dockerfile do projeto.
+Publique a imagem Docker construída a partir do Dockerfile do motor Cartoon 2D. O runtime não instala Blender, bpy, Xvfb ou bibliotecas OpenGL.
 
-- Build: `docker build -t anima-studio-3d .`.
-- Inicialização: o Dockerfile inicia Uvicorn; Blender 3D é executado pelo módulo `bpy` via CPython 3.13, com Xvfb/Mesa para renderização headless.
+- Build: `docker build -t anima-studio-2d .`.
+- Inicialização: Uvicorn executa a API e o pipeline Cartoon 2D; FFmpeg monta e codifica os episódios.
 - Porta interna: `5000` (defina `PORT` para outro valor se o painel exigir).
 - Volume persistente: montar em `/data/jobs` para preservar vídeos, roteiros, vozes e token OAuth do YouTube.
 - Voz neural: Edge TTS exige conexão de saída à internet.
@@ -117,6 +117,10 @@ Para renderização 3D, publique a imagem Docker construída a partir do Dockerf
 - `GET /api/jobs/{id}`
 - `POST /api/jobs/{id}/review`
 - `GET /api/jobs/{id}/download/{fmt}`
+
+## Motor e estação local
+
+A rota de produção usa `ANIMA_RENDER_ENGINE=2d` e não consulta Blender. A Radeon RX 580 pode ser usada pelo ComfyUI local para gerar ativos visuais e pelo FFmpeg com AMD AMF quando o encoder estiver disponível no Windows. A composição dos quadros 2D no servidor permanece no pipeline Cartoon 2D.
 
 ## Segurança antes de publicar em VPS
 
