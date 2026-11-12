@@ -78,6 +78,11 @@
 
 <section class="page" id="page-create">
 <div class="sectionintro"><h2>História primeiro. Animação depois.</h2><p>O motor cria uma aventura original em um planeta inédito. Você revisa o roteiro antes de mandar desenhar e narrar.</p></div>
+<div class="card" style="margin-bottom:16px;border:1px solid #4d80c9">
+<div class="cardhead"><h3>Teste automático de produção</h3><span class="badge ready">SEM DESENHO MANUAL</span></div>
+<p class="muted">Cria uma história inédita dos Pequenos Guardiões, monta as cenas ilustradas, gera as vozes e renderiza um vídeo vertical de teste com 60 a 90 segundos.</p>
+<div class="toolbar"><button class="btn" type="button" id="quickAutoTest">🚀 Criar meu primeiro vídeo automaticamente</button><span class="muted" id="quickAutoMessage">Um clique inicia roteiro, vozes, animação 2D e MP4. Não publica no YouTube.</span></div>
+</div>
 <div class="card"><form id="createForm"><div class="formgrid">
 <div class="field full"><label for="topic">Tema ou valor educativo (opcional)</label><input id="topic" maxlength="120" placeholder="Ex.: amizade, respeito, cuidado com a natureza. Deixe em branco para uma aventura surpresa."></div>
 <div class="field full"><label>Formatos que serão produzidos</label><div class="checks"><label class="check"><input type="checkbox" name="format" value="16:9" checked> Episódio 16:9 · mínimo 5:01 · 1920×1080</label><label class="check"><input type="checkbox" name="format" value="9:16" checked> Shorts 9:16 · 1:00 a 1:30 · 1080×1920</label></div></div>
@@ -265,6 +270,38 @@ async function openStory(id){
   go('create');
  }catch(e){alert(e.message);}
 }
+async function runQuickAutoTest(){
+ const btn=$('quickAutoTest'),msg=$('quickAutoMessage');
+ btn.disabled=true;btn.textContent='⏳ Criando episódio…';
+ msg.textContent='Etapa 1/3: criando história original e storyboard…';
+ try{
+  const storyResponse=await fetch('/api/stories/generate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({formats:['9:16'],topic:$('topic').value.trim()||'amizade e cooperação'})});
+  const storyData=await storyResponse.json();
+  if(!storyResponse.ok)throw new Error(storyData.detail||'Não foi possível criar o roteiro.');
+  pendingStoryId=storyData.job_id;pendingFormats=['9:16'];
+  const story=storyData.story;
+  $('storyTitle').textContent=story.title;$('storyPlanet').textContent=story.planet;
+  $('storyBiome').textContent=story.biome;$('storyValue').textContent=story.value;
+  $('storyScenes').textContent=(story.scenes||[]).length;$('storySynopsis').textContent=story.synopsis;
+  $('longWordCount').textContent=(story.word_count_long||0)+' palavras';
+  $('shortWordCount').textContent=(story.word_count_short||0)+' palavras · vídeo vertical';
+  $('longStoryText').textContent=story.long_script;$('shortStoryText').textContent=story.short_script;
+  $('shortFocus').textContent=story.short_highlight||'Destaque da aventura';
+  $('dialogueList').innerHTML=(story.dialogues||[]).map(line=>'<div style="padding:9px 11px;border:1px solid #263c5c;border-radius:10px;background:#101e33"><b>'+esc(line.speaker)+'</b><div class="muted">'+esc(line.text)+'</div></div>').join('');
+  $('storyboardList').innerHTML=(story.scenes||[]).map((scene,i)=>'<div class="episode"><div class="thumb">'+String(i+1).padStart(2,'0')+'</div><div><div class="epname">'+esc(scene.title)+'</div><div class="epmeta">'+esc(scene.caption)+'</div><p class="muted">'+esc(scene.visual_action||'')+'</p></div></div>').join('');
+  $('storyPreview').style.display='block';$('activeJobCard').style.display='block';
+  msg.textContent='Etapa 2/3: roteiro pronto. Iniciando geração de vozes e animação…';
+  $('renderMessage').textContent='Teste automático iniciado; o roteiro foi aprovado para este teste.';
+  const renderResponse=await fetch('/api/jobs/'+encodeURIComponent(pendingStoryId)+'/render',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({formats:['9:16']})});
+  const renderData=await renderResponse.json();
+  if(!renderResponse.ok)throw new Error(renderData.detail||'O roteiro foi criado, mas a renderização não iniciou.');
+  msg.textContent='Etapa 3/3: vídeo em produção. Acompanhe o progresso abaixo.';
+  watchJob(renderData.job_id);
+  $('activeJobCard').scrollIntoView({behavior:'smooth',block:'start'});
+ }catch(err){msg.textContent='Não foi possível concluir: '+err.message;}
+ finally{btn.disabled=false;btn.textContent='🚀 Criar outro vídeo automaticamente';}
+}
+$('quickAutoTest').addEventListener('click',runQuickAutoTest);
 async function createEpisode(e){
  e.preventDefault();
  const formats=[...document.querySelectorAll('input[name="format"]:checked')].map(x=>x.value);
