@@ -401,8 +401,7 @@ def render_story(job_id: str, payload: RenderRequest):
         raise HTTPException(400, "Formatos inválidos.")
     if not _has("ffmpeg") or not _has("tts"):
         raise HTTPException(503, "Motor de mídia incompleto. É necessário FFmpeg e voz (espeak-ng ou edge-tts).")
-    # O motor 3D remoto executa Blender diretamente no Windows/RX580.
-    # Nesse modo, a VPS não precisa ter Blender/bpy instalado localmente.
+    # Produção integral pelo motor Cartoon 2D; não há seleção de Blender.
     selected_engine = selected_render_engine()
     if selected_engine != "2d":
         raise HTTPException(503, "Este estúdio utiliza exclusivamente o motor Cartoon 2D. Configure ANIMA_RENDER_ENGINE=2d.")
@@ -471,7 +470,7 @@ def youtube_callback(code: str = "", state: str = "", error: str = ""):
     flow.redirect_uri = settings.youtube_redirect_uri
     flow.fetch_token(code=code)
     YOUTUBE_TOKEN_FILE.write_text(flow.credentials.to_json(), encoding="utf-8")
-    return HTMLResponse("<h2>Canal conectado com sucesso!</h2><p>Volte ao Anima Studio 3D. Esta janela pode ser fechada.</p>")
+    return HTMLResponse("<h2>Canal conectado com sucesso!</h2><p>Volte ao Anima Studio 2D. Esta janela pode ser fechada.</p>")
 
 @app.post("/api/jobs/{job_id}/publish")
 def publish_job(job_id: str, payload: PublishRequest):
