@@ -5,7 +5,9 @@ The Windows agent polls this API; the ComfyUI HTTP API remains bound to localhos
 from __future__ import annotations
 import hmac, os, queue, time, uuid
 from datetime import datetime, timezone
-from fastapi import APIRouter, Header, HTTPException, Request\nfrom fastapi.responses import FileResponse\nfrom pathlib import Path
+from fastapi import APIRouter, Header, HTTPException, Request
+from fastapi.responses import FileResponse
+from pathlib import Path
 from pydantic import BaseModel, Field
 
 router = APIRouter(prefix="/api/comfy", tags=["ComfyUI"])
