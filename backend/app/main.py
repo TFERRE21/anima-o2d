@@ -2,11 +2,8 @@ from __future__ import annotations
 
 import json
 import math
-import queue
 import time
 import os
-import subprocess
-import shutil
 import sys
 import threading
 import uuid
@@ -14,7 +11,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from fastapi import FastAPI, HTTPException, Request, Header
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, RedirectResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
@@ -85,7 +82,7 @@ def _studio_settings():
 
 @app.post("/api/2d/preview")
 def create_2d_preview(planet: str = "AURORA-7"):
-    """Render an isolated 8-second 2D cartoon proof-of-concept without Blender."""
+    """Render a 10-second Cartoon 2D preview using the production artwork pipeline."""
     safe_planet = "".join(ch for ch in planet if ch.isalnum() or ch in " -_")[:28].strip() or "AURORA-7"
     filename = f"2d-preview-{uuid.uuid4().hex[:10]}.mp4"
     output = STORAGE / filename
