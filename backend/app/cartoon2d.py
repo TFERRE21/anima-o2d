@@ -39,7 +39,26 @@ def _character(d, x, floor, scale, palette, name, phase, pointing=False, dog=Fal
     """Organic, hand-illustrated 2D mascot artwork with smooth silhouette curves."""
     ink = "#493044"
     def q(v): return int(v * scale)
-    def bezier(p0, p1, p2, p3, steps=18):
+    def bezier(p0, p1, p2=None, p3=None, steps=18):
+        # Accept cubic (4 points), quadratic (3 points), and straight (2 points)
+        # segments. Artwork uses all three forms; normalize to cubic so one
+        # short decorative curve can never abort the entire render job.
+        if p3 is None and p2 is not None:
+            # Quadratic Bezier -> equivalent cubic Bezier.
+            end = p2
+            p1 = (p0[0] + (2.0/3.0)*(p1[0]-p0[0]),
+                  p0[1] + (2.0/3.0)*(p1[1]-p0[1]))
+            p2 = (end[0] + (2.0/3.0)*(p1[0]-end[0]),
+                  end[1] + (2.0/3.0)*(p1[1]-end[1]))
+            p3 = end
+        elif p3 is None and p2 is None:
+            # Straight segment -> cubic with controls on the line.
+            end = p1
+            p1 = (p0[0] + (end[0]-p0[0])/3.0,
+                  p0[1] + (end[1]-p0[1])/3.0)
+            p2 = (p0[0] + 2.0*(end[0]-p0[0])/3.0,
+                  p0[1] + 2.0*(end[1]-p0[1])/3.0)
+            p3 = end
         pts=[]
         for i in range(steps+1):
             t=i/steps; u=1-t
