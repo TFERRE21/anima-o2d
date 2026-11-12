@@ -239,7 +239,7 @@ def _character(d, x, floor, scale, palette, name, phase, pointing=False, dog=Fal
     # Small hair accessories and cheek glints make the silhouettes feel authored.
     if name=="LUNA":
         oval(77,-474,7,8,"#fff0a8",None)
-        line([((-82,-460),(-75,-474),(-64,-482))],"#ffd0e7",4)
+        line([((-82,-460),(-79,-467),(-72,-477),(-64,-482))],"#ffd0e7",4)
     else:
         for hx in (-49,-16,17,49):
             line([((hx-7,-495),(hx,-502),(hx+7,-496))],"#a36b4b",3)
