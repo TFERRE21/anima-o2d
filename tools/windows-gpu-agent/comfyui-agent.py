@@ -40,9 +40,12 @@ def make_workflow(config):
                 return node["inputs"]
         raise RuntimeError("Nó ausente no workflow ComfyUI: " + node_type)
 
-    checkpoint = config.get("checkpoint", "").strip()
-    if checkpoint:
-        inputs("CheckpointLoaderSimple")["ckpt_name"] = checkpoint
+    available = requests.get(COMFY + "/object_info/CheckpointLoaderSimple", timeout=30).json()
+    choices = available.get("CheckpointLoaderSimple", {}).get("input", {}).get("required", {}).get("ckpt_name", [[]])[0]
+    if not choices:
+        raise RuntimeError("Nenhum checkpoint instalado no ComfyUI. Instale um modelo .safetensors em ComfyUI/models/checkpoints.")
+    requested = config.get("checkpoint", "").strip()
+    inputs("CheckpointLoaderSimple")["ckpt_name"] = requested if requested in choices else choices[0]
     text_nodes = [node["inputs"] for node in nodes if node.get("class_type") == "CLIPTextEncode"]
     if len(text_nodes) < 2:
         raise RuntimeError("O workflow precisa de CLIP positivo e negativo.")
