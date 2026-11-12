@@ -1,10 +1,8 @@
-# RX 580 Windows render worker
+# Estação local RX 580 — ComfyUI e aceleração de mídia
 
 ## Architecture
 
-The Windows computer initiates outbound HTTPS requests to the Anima API (pull worker).
-No inbound Windows port, router forwarding, or public Windows service is required.
-The VPS keeps the existing CPU renderer as the fallback. Remote rendering is opt-in.
+O computador Windows pode executar o ComfyUI localmente para gerar elementos visuais com a Radeon RX 580. Ele inicia conexões de saída; não é necessário abrir portas de entrada nem configurar redirecionamento no roteador. A renderização dos episódios 2D permanece no servidor e não depende do Blender.
 
 ## VPS environment
 
@@ -38,7 +36,7 @@ Set-ExecutionPolicy -Scope Process Bypass -Force
 5. Enter the public HTTPS panel URL and the same secret token configured on the VPS.
 6. Leave the PowerShell window open. The worker sends heartbeats and waits for render jobs.
 
-The worker uses Blender's Eevee engine and the scene script shipped with this repository. It sends PNG frames back to the VPS as a ZIP; FFmpeg/audio/video assembly remains on the VPS.
+O agente ComfyUI é um serviço opcional de criação de ativos visuais, não o renderizador de episódios. Não inicie o worker Blender legado para produção 2D. Para codificação AMD, use FFmpeg local que liste `h264_amf` em `ffmpeg -encoders`; caso contrário, a codificação H.264 por software continua disponível.
 
 ## API checks
 
