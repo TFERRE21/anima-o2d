@@ -103,6 +103,19 @@ def _character(d, x, floor, scale, palette, name, phase, pointing=False, dog=Fal
         oval(0,-195,16,9,"#6d3946")
         line([((-35,-145),(-15,-132),(15,-132),(35,-145))],"#d94b62",11)
         oval(0,-143,10,13,"#ffd15c","#fff0b4",2)
+        # Premium TV-cartoon finish: layered fur tufts, eye sparkle and soft muzzle.
+        for fx,fy,rx,ry in [(-34,-301,9,13),(-17,-318,8,11),(17,-318,8,11),(34,-301,9,13)]:
+            oval(fx,fy,rx,ry,"#e0a36a",None)
+        for ex in (-20,20):
+            oval(ex-3,-270,2,3,"#ffffff",None)
+            line([((ex-9,-285),(ex,-289),(ex+9,-285))],"#6f402f",3)
+        oval(-9,-205,4,3,"#fff5e7",None)
+        oval(9,-205,4,3,"#fff5e7",None)
+        line([((-42,-158),(-20,-150),(0,-151),(22,-158))],"#f0b46e",4)
+        line([((-49,-176),(-42,-168),(-34,-165))],"#f0c08b",4)
+        line([((49,-176),(42,-168),(34,-165))],"#f0c08b",4)
+        # Collar tag and chest fur highlight.
+        oval(0,-151,7,9,"#ffdf76","#fff2c8",2)
         return
     shirt, shorts, accent=palette
     skin="#f5c49f"; hair="#70412e" if name=="LUNA" else "#75472e"
@@ -196,6 +209,40 @@ def _character(d, x, floor, scale, palette, name, phase, pointing=False, dog=Fal
     line([((0,-207),(6,-191),(20,-188),(7,-177))],"#fff8dc",4)
     line([((7,-177),(10,-162),(0,-169),(-10,-162))],"#fff8dc",4)
     line([((-10,-162),(-7,-177),(-20,-188),(-6,-191))],"#fff8dc",4)
+    # Expressive modern children's-TV character polish.
+    # Hair sheen and individual curved strands add volume without changing identity.
+    line([((-66,-476),(-45,-496),(-17,-499),(3,-490))],"#9a6547",5)
+    line([((10,-493),(31,-499),(55,-485),(66,-464))],"#9a6547",4)
+    line([((-72,-411),(-68,-390),(-62,-371),(-55,-358))],"#9a6547",3)
+    # Large glossy eye catchlights and iris rim.
+    for ex in (-34,34):
+        oval(ex+5,-423,3,7,"#a9d9f5",None)
+        oval(ex-4,-428,3,4,"#ffffff",None)
+        oval(ex+7,-416,2,3,"#ffffff",None)
+        line([((ex-18,-447),(ex,-453),(ex+17,-447))],"#302b3d",3)
+    # Face contour warmth and a tiny chin highlight.
+    line([((-73,-337),(-62,-313),(-43,-293),(-22,-286))],"#f8d4b6",4)
+    line([((22,-286),(43,-293),(62,-313),(73,-337))],"#f8d4b6",4)
+    oval(0,-293,13,3,"#ffe0c8",None)
+    # Tailored clothing: collar, seams, cuffs and pocket stitching.
+    shape([((-18,-251),(-10,-239),(0,-235),(10,-239)),
+           ((10,-239),(18,-246),(21,-252),(20,-258)),
+           ((20,-258),(7,-253),(-7,-253),(-18,-251))],"#fff0cf",ink,2)
+    line([((-52,-208),(-48,-183),(-46,-153),(-42,-128))],"#ffffff",3)
+    line([((52,-208),(48,-183),(46,-153),(42,-128))],"#ffffff",3)
+    line([((-59,-185),(-48,-181),(-39,-184))],"#fff0cf",4)
+    line([((59,-185),(48,-181),(39,-184))],"#fff0cf",4)
+    line([((-30,-109),(-12,-104),(12,-104),(30,-109))],"#ffffff",3)
+    # Soft directional highlights on sleeves and forearms.
+    line([((-76,-206),(-83,-190),(-84,-178))],"#ffdfc9",4)
+    line([((76,-206),(83,-190),(84,-178))],"#ffdfc9",4)
+    # Small hair accessories and cheek glints make the silhouettes feel authored.
+    if name=="LUNA":
+        oval(77,-474,7,8,"#fff0a8",None)
+        line([((-82,-460),(-75,-474),(-64,-482))],"#ffd0e7",4)
+    else:
+        for hx in (-49,-16,17,49):
+            line([((hx-7,-495),(hx,-502),(hx+7,-496))],"#a36b4b",3)
 
 
 def _draw_frame(t: float, planet: str, portrait: bool = False):
@@ -385,6 +432,15 @@ def _draw_story_scene(t: float, planet: str, biome: str, palette: str,
             if idx==14:
                 d.rounded_rectangle((250,100,1030,270),radius=38,fill="#203a66",outline="#fff4d7",width=8)
                 d.text((365,145),"A MORAL DA HISTÓRIA",font=_font(40,True),fill="#fff4d7")
+    # Cinematic layered set dressing: foreground leaves, light shafts and depth.
+    haze=Image.new("RGBA",(W,H),(0,0,0,0))
+    hd=ImageDraw.Draw(haze)
+    for i in range(7):
+        x=90+i*185
+        hd.polygon([(x,0),(x+32,0),(x+210,470),(x+155,470)],
+                   fill=(255,239,194,10))
+    im=Image.alpha_composite(im.convert("RGBA"),haze).convert("RGB")
+    d=ImageDraw.Draw(im)
     # Layered foreground meadow, flowers and soft stones
     curve([((0,625),(220,565),(390,640),(600,615)),
            ((600,615),(850,585),(1030,660),(1280,600)),
