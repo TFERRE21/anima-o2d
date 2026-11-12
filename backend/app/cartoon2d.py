@@ -282,9 +282,23 @@ def _draw_story_scene(t: float, planet: str, biome: str, palette: str,
     }
     top,bottom,accent,ground=palettes.get(palette,palettes["aurora"])
     _gradient(d,top,bottom)
+    # Cinematic atmosphere: soft radial light, distant haze and subtle stars.
+    glow=Image.new("RGBA",(W,H),(0,0,0,0))
+    gd=ImageDraw.Draw(glow)
+    for radius,alpha in [(230,18),(175,22),(120,30),(72,38)]:
+        gd.ellipse((1010-radius,118-radius,1010+radius,118+radius),
+                   fill=(255,231,177,alpha))
+    im=Image.alpha_composite(im.convert("RGBA"),glow).convert("RGB")
+    d=ImageDraw.Draw(im)
+    for k in range(42):
+        sx=(k*197+scene_index*43)%W
+        sy=(k*83+29)%360
+        r=2+(k%3)
+        d.ellipse((sx-r,sy-r,sx+r,sy+r),fill=(255,247,218))
     # Distant planets, soft clouds and drifting lights
     d.ellipse((1010,45,1170,205),fill="#fff0bd")
     d.ellipse((1040,75,1140,175),fill="#fff7d9")
+    d.ellipse((1061,96,1119,154),fill="#fffbe8")
     for i in range(5):
         cx=(i*310+int(t*9))%(W+250)-120; cy=92+(i%3)*45
         d.ellipse((cx,cy+18,cx+100,cy+62),fill="#fff4ed")
@@ -383,9 +397,17 @@ def _draw_story_scene(t: float, planet: str, biome: str, palette: str,
             px=fx+math.cos(ang)*7; py=fy+math.sin(ang)*7
             d.ellipse((px-5,py-5,px+5,py+5),fill=col)
         d.ellipse((fx-3,fy-3,fx+3,fy+3),fill="#ffbd45")
-    # Cast staging; organic illustrated characters remain consistent between scenes.
+    # Cinematic cast staging: stronger character scale and clear silhouettes.
+    # Ground contact shadows add depth and prevent the cast from floating.
     positions=[(350,665,.91),(640,665,.91),(930,665,.83)]
-    if portrait: positions=[(445,665,.68),(640,665,.68),(835,665,.63)]
+    if portrait:
+        # Tighter vertical camera framing: heroes occupy the frame, not a tiny strip.
+        positions=[(405,682,.86),(640,682,.86),(875,682,.78)]
+    for px,py,sc in positions:
+        shadow_w=int(92*sc)
+        shadow_y=int(py-5)
+        d.ellipse((px-shadow_w,shadow_y-13,px+shadow_w,shadow_y+13),
+                  fill="#26354b")
     if idx in (0,1,12,13): positions=[(px,py-42,sc) for px,py,sc in positions]
     if idx==7: positions=[(px,py+5,sc) for px,py,sc in positions]
     _character(d,positions[0][0]+int(math.sin(t*1.4)*18),positions[0][1],positions[0][2],
@@ -396,7 +418,16 @@ def _draw_story_scene(t: float, planet: str, biome: str, palette: str,
                speaking=active_speaker=="Tomi",walking=action in ("walk","explore","run"))
     _character(d,positions[2][0]+int(math.sin(t*1.7+2)*12),positions[2][1],positions[2][2],
                ("#d58a48","#fff","#287cc6"),"PIPO",t,dog=True,walking=action in ("walk","explore","run"))
-    if portrait: im=im.crop((360,0,920,720)).resize((720,1280),Image.Resampling.LANCZOS)
+    if portrait:
+        # Portrait crop is deliberately closer and composed around the full cast.
+        # Keep headroom for the episode title and safe margins for mobile UI.
+        im=im.crop((300,0,980,720)).resize((720,1280),Image.Resampling.LANCZOS)
+        # Gentle vignette and warm lower bounce light for a finished storybook look.
+        overlay=Image.new("RGBA",im.size,(0,0,0,0))
+        od=ImageDraw.Draw(overlay)
+        od.rectangle((0,0,720,1280),fill=(8,17,39,12))
+        od.ellipse((70,690,650,1420),fill=(255,211,143,18))
+        im=Image.alpha_composite(im.convert("RGBA"),overlay).convert("RGB")
     return im
 
 
