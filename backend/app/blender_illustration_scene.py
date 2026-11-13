@@ -76,7 +76,7 @@ def render(config):
         raise ValueError("Formato inválido")
     total_frames = int(config["total_frames"])
     fps = float(config["fps"])
-    if not 1 <= total_frames <= 100_000 or not 1 <= fps <= 30:
+    if not 1 <= total_frames <= 100_000 or not 0 < fps <= 30:
         raise ValueError("Frames/fps fora do limite.")
     output = Path(config["frames_dir"])
     output.mkdir(parents=True, exist_ok=True)
