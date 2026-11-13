@@ -122,7 +122,7 @@ def health_3d():
 def diagnostics():
     from shutil import which
     return {
-        "ok": bool(_has("ffmpeg") and _has("tts") and os.access(STORAGE, os.W_OK)),
+        "ok": bool(_has("ffmpeg") and _has("tts") and blender_available() and os.access(STORAGE, os.W_OK)),
         "container_runtime": "docker" if Path("/.dockerenv").exists() else "unknown",
         "python_version": sys.version.split()[0],
         "working_directory": str(Path.cwd()),
@@ -146,7 +146,7 @@ def config():
             {"id": "9:16", "width": 1080, "height": 1920, "label": "YouTube Shorts"},
         ],
         "youtube_oauth_configured": bool(settings.youtube_client_id and settings.youtube_client_secret),
-        "generation_enabled": _has("ffmpeg") and _has("tts"),
+        "generation_enabled": _has("ffmpeg") and _has("tts") and blender_available(),
         "media": {"ffmpeg": _has("ffmpeg"), "tts": _has("tts"), "blender_3d": blender_available()},
         "engine": "Anima Studio — Cartoon 3D infantil",
     }
