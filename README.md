@@ -1,80 +1,63 @@
-# Anima Studio Cartoon 3D — Pequenos Guardiões
+# Anima Studio — Cartoon infantil com arte aprovada e animação Blender
 
-Estúdio web para produção de histórias infantis em animação tridimensional Cartoon, com personagens recorrentes, cenários 3D, câmera cinematográfica, movimentos e vozes.
+Estúdio web dos **Pequenos Guardiões**: roteiro e falas → artes originais com IA → revisão de personagens/cenários → animação de ilustrações no Blender → vídeo com áudio e formatos YouTube/Shorts.
 
-## Painel
-O painel mantém criação e revisão de roteiros, biblioteca de episódios, progresso da renderização em tempo real, prévia ao vivo, histórico, configurações e integração com YouTube.
+## Mudança de motor artístico
 
-## Motor exclusivo Cartoon 3D
-- O único motor autorizado para novos episódios é o Blender 3D com Eevee.
-- O renderizador 2D anterior está desativado nas rotas de prévia e não é chamado pelo pipeline de produção.
-- Luna e Tomi são personagens tridimensionais originais, com cabeça, rosto, cabelo, roupas, braços e pernas articulados.
-- Pipo é um companheiro canino tridimensional com corpo, focinho, orelhas, patas, colete e cauda.
-- Os cenários são montados como ambientes 3D por bioma e missão, com objetos, vegetação, construções, iluminação e câmeras.
-- As cenas são animadas por quadros-chave e ações; a fala continua sincronizada por linha do tempo de áudio e movimentos de boca.
-- Blender gera quadros PNG; FFmpeg compõe o vídeo e sincroniza o áudio.
+O antigo renderizador que criava bonecos com esferas e armaduras **não é mais chamado** no fluxo de produção de episódios. O novo motor é baseado em imagens de personagens e cenários **explicitamente aprovadas**. Se faltar uma imagem, a API retorna 409 com os identificadores pendentes. Ela nunca troca o projeto visual por bonecos procedurais.
 
-## Formatos
-| Formato | Saída | Duração |
-|---|---:|---:|
-| YouTube | 1920×1080 | 5 a 10 minutos |
-| Shorts | 1080×1920 | 60 a 90 segundos |
+A primeira integração de animação usa **planos ilustrados em Blender (2.5D, com Cycles CPU)**. Ela permite câmera, profundidade básica, deslocamento suave, balanço corporal e reações à fala por mudança de escala. **Não oferece ainda rig de membros, expressões faciais deformáveis nem sincronia labial verdadeira**. Esses recursos exigem a produção de recortes/poses e uma etapa adicional de rigging. Não confunda um PNG plano com personagem 3D completamente modelado.
 
-## Runtime de produção
-Python 3.12, Blender (executável em modo background), Eevee, Xvfb, FFmpeg, Edge TTS ou espeak-ng. O Dockerfile instala o Blender e valida o executável durante o build.
-- Porta interna: 5000.
-- Volume persistente: /data/jobs.
-- Healthcheck: GET /api/health/3d.
-- Diagnóstico: GET /api/diagnostics.
-- Catálogo: GET /api/engines/catalog.
-- A rota antiga /api/health/2d e as rotas /api/2d/preview retornam 410 Gone.
+## Produção no painel
 
-## Renderização e hardware
-O pipeline atual executa Blender no servidor, em modo background, usando Eevee. A renderização pode ser limitada pela CPU e pela disponibilidade de OpenGL no container. A Radeon RX 580 local não é considerada conectada automaticamente: para utilizá-la como worker remoto será necessário configurar e validar um agente de renderização seguro na máquina que possui a GPU. Não afirmar aceleração por GPU sem comprovação no runtime.
+1. Crie o roteiro na página principal e escolha os formatos.
+2. Entre na [Central de Arte](/arte.html) do próprio estúdio.
+3. Conecte o agente ComfyUI do seu Windows (configuração em `docs/integracao-comfyui.md`). O token `ANIMA_COMFY_TOKEN` fica na variável secreta do iContainer e na sessão do navegador; nunca publique-o.
+4. Selecione o episódio e formato. Use **Gerar imagens que faltam** para enviar os prompts à fila ComfyUI; selecione cada tarefa, visualize e aprove. Também é possível carregar PNGs prontos e aprová-los diretamente.
+5. Os personagens Luna, Tomi e Pipo exigem PNG com transparência real; imagens com fundo uniformemente branco geradas no ComfyUI podem ser recortadas automaticamente **no momento da aprovação**. Fundo complexo requer recorte externo e envio de PNG transparente.
+6. Cada cena requer seu background ilustrado na proporção do vídeo. A aprovação é persistente em `ANIMA_STORAGE/<job_id>/art/approved/`.
+7. Com todos os materiais aprovados, clique em **Renderizar arte aprovada** no painel. O Blender posiciona e move os PNGs aprovados, FFmpeg sincroniza as vozes e gera MP4.
 
-## Histórias e publicação
-O roteiro é criado antes da renderização e passa por revisão editorial. As falas mantêm perfis de voz estáveis. O upload/agendamento no YouTube requer OAuth configurado e aprovação editorial.
+ComfyUI é um gerador externo conectado ao painel, não um serviço incluído no ChatGPT Plus. O agente deve estar online para produzir as imagens. A qualidade dos candidatos depende do checkpoint, do fluxo ComfyUI e da aprovação artística.
 
-## Executar com Docker
+## Endpoints para integrar/diagnosticar
+
+- `GET /api/jobs/{id}/art-plan?fmt=9:16`: referência visual, prompts e lista de cenas.
+- `GET /api/jobs/{id}/art/status?fmt=9:16`: aprovação e arquivos faltantes.
+- `POST /api/jobs/{id}/art/generate`: enfileirar artes no ComfyUI (token Bearer; body `{"format":"9:16"}`).
+- `POST /api/jobs/{id}/art/approve/{task_id}`: validar e aprovar uma imagem ComfyUI (Bearer).
+- `POST /api/jobs/{id}/art/upload/{asset_id}?fmt=9:16`: enviar PNG aprovado no corpo da requisição (Bearer).
+- `POST /api/jobs/{id}/render`: gerar vídeo somente com arte aprovada.
+- `GET /api/jobs/{id}/render-status`: progresso, quadros e eventos recentes.
+- `GET /api/health/3d`: verificar Blender dentro do container.
+- `GET /api/diagnostics`: diagnosticar dependências e instalação do Blender.
+
+Os personagens aprovados são compartilhados entre 9:16 e 16:9. Os cenários são específicos por formato. Cada aprovação associa um SHA-256 ao arquivo e trava a identidade visual pelo `identity_lock` do elenco.
+
+## Ambiente e deploy
+
+A VPS iContainer pode usar uma imagem `python:3.13.0` genérica e **ignorar o Dockerfile**. Instalar Blender à mão dentro desse container não resiste à sua recriação. O bootstrap tenta recuperar dependências na inicialização com root+apt-get, mas o melhor é construir a imagem personalizada com o Dockerfile.
+
+O novo renderizador usa Cycles em **CPU**, por isso não exige GPU CUDA/HIP no servidor e evita depender diretamente do contexto Eevee/OpenGL que apresentou segmentation fault no container anterior. A execução de uma cena de teste em CI não garante desempenho em episódios completos. O motor gera PNGs intermediários e o FFmpeg compõe e codifica os vídeos finais.
+
+Os arquivos de episódio e aprovações ficam no volume persistente `/data/jobs`. Não remova esse volume ao atualizar a aplicação. Código enviado ao GitHub **não instala automaticamente a atualização no iContainer**: faça o deploy da versão nova pelo painel.
+
+### Executar a imagem Docker local
+
 ```bash
 docker compose up -d --build
 ```
 
-Painel: http://localhost:5000  
-API: http://localhost:5000/docs  
-Saúde: http://localhost:5000/api/health/3d
+A página principal fica em `http://localhost:5000` e a Central de Arte em `http://localhost:5000/arte.html`.
 
+## Verificações
 
-## Implantação no iContainer (imagem Python genérica)
+- `python -m unittest discover -s backend/tests -v` valida roteiro, aprovação PNG, pipeline de áudio/FFmpeg e frames Blender quando as dependências estão instaladas.
+- O GitHub Actions executa testes, valida o painel e constrói o Docker.
+- Os PNGs simples criados nos testes são **somente fixtures técnicas**, nunca personagens de produção ou fallback artístico.
 
-O iContainer pode iniciar a aplicação usando uma imagem `python:3.13.0` em vez de construir o `Dockerfile` do repositório. Nesse caso, instalar Blender via `docker exec` é temporário: uma recriação do container desfaz os pacotes instalados.
+## Segurança e limitações
 
-O Anima Studio detecta automaticamente a ausência do Blender na inicialização da API. Se estiver dentro de Docker, com usuário root e `apt-get`, instala Blender, Xvfb, FFmpeg e espeak-ng **em segundo plano, apenas nesse container**, sem bloquear a API. A instalação é repetida quando uma imagem genérica é recriada. O progresso e eventuais falhas aparecem em `GET /api/diagnostics`, no campo `blender_bootstrap`, e nos logs prefixados por `[cartoon3d-blender]`. Enquanto a instalação estiver em andamento, a produção continua indisponível, sem retornar para 2D.
+Proteja o painel com HTTPS e autenticação/restrições de acesso antes de disponibilizar ao público. Os endpoints de geração e aprovação artística exigem `ANIMA_COMFY_TOKEN`; o restante da API tem pontos de acesso administrativos que também devem ser protegidos na implantação.
 
-Desative a recuperação automática com `ANIMA_AUTO_INSTALL_BLENDER=0`. A solução definitiva e mais rápida continua sendo configurar o iContainer para **construir e usar a imagem do Dockerfile**, que já contém o Blender pronto. Não remova o volume de episódios existente ao migrar a aplicação.
-
-## Evolução do motor artístico: ilustração por IA + animação
-
-O motor atual Blender ainda cria modelos geométricos. A nova arquitetura separa **direção de arte** de **movimento**. `backend/app/art_director.py` já gera, para cada história, instruções de arte com referências oficiais e identidade travada de Luna, Tomi e Pipo. Consulte `GET /api/jobs/{job_id}/art-plan` depois de gerar um roteiro.
-
-A criação das imagens finais precisa de um gerador conectado (por exemplo, o agente ComfyUI da estação RX 580, descrito em `docs/integracao-comfyui.md`) e revisão visual. Essas imagens **ainda não são usadas automaticamente pelo renderizador de episódios**: nesta etapa implementamos a direção de arte, não um sistema completo de corte em camadas e rig. A qualidade e a identidade dos personagens precisam ser aprovadas antes da integração definitiva ao Blender. Uma imagem plana serve para parallax/câmera, mas não oferece movimentos realistas de braços, boca e pernas sem camadas, poses ou uma malha/rig próprio.
-
-### Blender 3.4 / falha nativa
-Se ocorrer `Segmentation fault` logo após `ANIMA_ART_VERSION`, há suspeita de incompatibilidade do Blender/OpenGL no container. Uma consulta nativa a `gpu.platform.renderer_get()` foi removida do processo em segundo plano, e a limpeza da cena não depende mais de operadores de seleção. Essa mudança reduz pontos de risco **mas não garante eliminar** outras falhas do Blender. Verifique `/tmp/blender.crash.txt` no container, os eventos `ANIMA_BOOT` e se a aplicação utiliza uma imagem Docker compatível com GPU/OpenGL.
-
-O acesso ao ChatGPT Plus não inclui créditos de API ou acesso automático à execução de modelos de geração de imagens na VPS.
-
-## Diagnóstico e desempenho do Cartoon 3D no iContainer
-
-A renderização pode demorar muito com Eevee sem GPU. O motor detecta OpenGL por software (`llvmpipe`) e usa **Blender Workbench com materiais, luz de estúdio e geometria 3D real** quando `ANIMA_3D_RENDER_MODE=auto`. Workbench é um estilo de renderização 3D mais leve, visualmente diferente do Eevee; não é o antigo motor 2D. Para forçar a iluminação Eevee, configure `ANIMA_3D_RENDER_MODE=eevee` e providencie GPU/OpenGL compatíveis.
-
-- `ANIMA_CARTOON_CAPTURE_FPS=12`: gera doze poses 3D distintas por segundo e codifica o vídeo final a 24 fps (repetição de quadros). Aumentar para 24 melhora a fluidez, mas exige o dobro dos quadros. A qualidade espacial das imagens não muda com a taxa de poses.
-- `ANIMA_EARLY_PREVIEW=1`: renderiza uma primeira imagem 3D reduzida assim que a cena estiver montada e disponibiliza na prévia ao vivo.
-- `ANIMA_FIRST_FRAME_TIMEOUT=360`: encerra uma tentativa que não consegue produzir sequer o primeiro quadro dentro de seis minutos, com erro explicativo; `ANIMA_BLENDER_TOTAL_TIMEOUT` controla o limite total.
-- `GET /api/jobs/{id}/render-status`: retorna o estado da renderização, total de quadros disponíveis, indicação de prévia pronta e últimas mensagens técnicas.
-- Arquivos `render-log-9x16.txt` ou `render-log-16x9.txt` ficam no diretório persistente do episódio, facilitando o diagnóstico sem depender do fluxo de acessos HTTP do painel.
-
-A produção continua exclusivamente em Cartoon 3D. Este modo de recuperação prioriza conseguir renderizar na VPS, **não substitui uma GPU dedicada nem garante renderização de episódios completos em poucos minutos**. Alterações no GitHub só se aplicam à aplicação quando o iContainer recebe o novo código e reinicia seu container.
-
-## Segurança
-Antes de expor o painel publicamente, configure autenticação, HTTPS, proteção dos endpoints e limites de uso. Nunca envie credenciais OAuth ou youtube-token.json para o Git.
+O agente ComfyUI mantém a fila em memória; reiniciar a API interrompe tarefas pendentes. Imagens **já aprovadas** são persistidas. A qualidade final ainda depende de gerar personagens consistentes, sem artefatos, e aprimorar o rigging.
