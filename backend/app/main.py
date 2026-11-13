@@ -514,6 +514,47 @@ def get_job(job_id: str):
     job = _get_job(job_id)
     return job
 
+@app.get("/api/jobs/{job_id}/render-status")
+def job_render_status(job_id: str):
+    """Identify the first-frame bottleneck without spamming missing JPG requests."""
+    from collections import deque
+    job = _get_job(job_id)
+    formats = job.get("formats") or ["16:9", "9:16"]
+    fmt = "9:16" if job.get("stage") == "rendering_short" or formats == ["9:16"] else "16:9"
+    key = fmt.replace(":", "x")
+    folder = STORAGE / job_id
+    frame_dir = folder / f"frames-{key}"
+    log_file = folder / f"render-log-{key}.txt"
+    preview_file = folder / f"preview-{key}.jpg"
+    count = sum(1 for _ in frame_dir.glob("frame-*.png")) if frame_dir.is_dir() else 0
+    messages = []
+    log_age_seconds = None
+    if log_file.is_file():
+        try:
+            with log_file.open("r", encoding="utf-8", errors="replace") as log:
+                messages = list(deque(
+                    (line.strip()[:280] for line in log
+                     if line.startswith(("ANIMA_", "Error", "Traceback", "Fra", "Blender"))),
+                    maxlen=12,
+                ))
+            log_age_seconds = round(max(0, time.time() - log_file.stat().st_mtime), 1)
+        except OSError:
+            pass
+    ready = preview_file.is_file()
+    phase = ("completed" if job.get("status") == "done" else
+             "failed" if job.get("status") == "failed" else
+             "rendering" if count else
+             "first_frame" if ready else "initializing")
+    return {
+        "job_id": job_id, "status": job.get("status"), "phase": phase,
+        "format": fmt, "progress": job.get("progress", 0),
+        "frames_generated": count, "preview_ready": ready,
+        "last_renderer_output_age_seconds": log_age_seconds,
+        "recent_renderer_events": messages,
+        "message": job.get("message", ""),
+    }
+
+
 @app.get("/api/jobs/{job_id}/preview/{fmt}")
 def job_preview(job_id: str, fmt: str):
     """Return the latest rendered frame for the live studio preview."""
