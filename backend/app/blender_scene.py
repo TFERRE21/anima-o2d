@@ -804,9 +804,9 @@ def render(config: dict):
     elif "BLENDER_EEVEE" in engine_ids:
         scene.render.engine = "BLENDER_EEVEE"
     else:
-        scene.render.engine = "BLENDER_WORKBENCH"
-    report(7, "Motor Blender Eevee selecionado para renderização acelerada pela GPU.")
-    print("ANIMA_RENDER_DEVICE: EEVEE_GPU", flush=True)
+        raise RuntimeError("Blender não possui Eevee disponível. Atualize o runtime Cartoon 3D.")
+    report(7, "Motor Blender Eevee selecionado; verificando disponibilidade gráfica do container.")
+    print("ANIMA_RENDER_DEVICE: EEVEE_OPENGL_BACKEND_UNVERIFIED", flush=True)
     scene.render.resolution_x = int(width)
     scene.render.resolution_y = int(height)
     scene.render.resolution_percentage = 100
