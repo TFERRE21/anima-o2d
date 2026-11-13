@@ -11,7 +11,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request, Header
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, RedirectResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
@@ -218,6 +218,114 @@ def get_story(job_id: str):
             "synopsis": job.get("synopsis"), "value": job.get("value"),
             "story": job["story_plan"], "status": job.get("status")}
 
+class ArtQueueRequest(BaseModel):
+    format: str = "9:16"
+    asset_id: str | None = None
+    checkpoint: str = ""
+    steps: int = Field(default=24, ge=6, le=50)
+
+
+@app.get("/api/jobs/{job_id}/art/status")
+def get_episode_art_status(job_id: str, fmt: str = "9:16"):
+    from backend.app.art_assets import readiness
+    job = _get_job(job_id)
+    plan = job.get("story_plan")
+    if not plan:
+        raise HTTPException(409, "Crie o roteiro antes de gerar arte.")
+    indices = plan.get("short_scene_indices") if fmt == "9:16" else None
+    try:
+        return readiness(STORAGE, job_id, plan, fmt, indices)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+
+
+@app.post("/api/jobs/{job_id}/art/generate", status_code=202)
+def queue_episode_art(job_id: str, payload: ArtQueueRequest,
+                      authorization: str | None = Header(default=None)):
+    """Send one image or every missing image to a connected ComfyUI agent."""
+    from backend.app import comfy_worker
+    from backend.app.art_director import create_art_plan
+    comfy_worker._auth(authorization)
+    state = get_episode_art_status(job_id, payload.format)
+    plan = create_art_plan(_get_job(job_id)["story_plan"], payload.format)
+    desired = [payload.asset_id] if payload.asset_id else state["missing"]
+    allowed = set(state["required"])
+    if any(item not in allowed for item in desired):
+        raise HTTPException(400, "Material solicitado não pertence ao formato/roteiro.")
+    generated = []
+    for asset_id in desired:
+        if asset_id in {"luna", "tomi", "pipo"}:
+            actor = next(x for x in plan["characters"] if x["id"] == asset_id)
+            prompt = actor["prompt"] + (
+                "; single character alone, pure white uniform (#ffffff) background "
+                "touching all four corners, no shadows, no floor, no other characters, "
+                "full body fully inside canvas, readable natural silhouette"
+            )
+            width, height = 768, 1024
+        else:
+            idx = int(asset_id.split("-")[1])
+            scene_brief = next(x for x in plan["scenes"] if x["index"] == idx)
+            prompt = scene_brief["prompt"]
+            width, height = ((576, 1024) if payload.format == "9:16" else (1024, 576))
+        result = comfy_worker.queue_art_image({
+            "prompt": prompt, "negative_prompt": plan["characters"][0]["negative_prompt"],
+            "checkpoint": payload.checkpoint or "v1-5-pruned-emaonly.safetensors",
+            "width": width, "height": height, "steps": payload.steps,
+            "cfg": 7, "seed": -1,
+        }, job_id, asset_id, payload.format, state["identity_lock"])
+        generated.append(result)
+    return {"queued": len(generated), "tasks": generated,
+            "message": "Revise as imagens no IA Studio e aprove os resultados antes da renderização."}
+
+
+@app.post("/api/jobs/{job_id}/art/approve/{task_id}")
+def approve_comfy_art(job_id: str, task_id: str,
+                      authorization: str | None = Header(default=None)):
+    from backend.app import comfy_worker
+    from backend.app.art_assets import approve_art
+    comfy_worker._auth(authorization)
+    job = _get_job(job_id)
+    task = comfy_worker.get_art_task(task_id, job_id)
+    if not task.get("image_file"):
+        raise HTTPException(409, "O ComfyUI ainda não enviou a imagem desta tarefa.")
+    fmt = task["format"]
+    state = get_episode_art_status(job_id, fmt)
+    if task.get("identity_lock") != state["identity_lock"]:
+        raise HTTPException(409, "A identidade visual mudou; gere esta arte novamente.")
+    try:
+        record = approve_art(
+            STORAGE, job_id, task["asset_id"], fmt,
+            Path(task["image_file"]).read_bytes(), job["story_plan"],
+            auto_cutout=task["asset_id"] in {"luna", "tomi", "pipo"},
+        )
+    except (ValueError, OSError) as exc:
+        raise HTTPException(422, str(exc)) from exc
+    return {"approved": True, "record": record,
+            "art_status": get_episode_art_status(job_id, fmt)}
+
+
+@app.post("/api/jobs/{job_id}/art/upload/{asset_id}")
+async def upload_episode_art(job_id: str, asset_id: str, request: Request,
+                             fmt: str = "9:16",
+                             authorization: str | None = Header(default=None)):
+    """Explicitly approve an uploaded transparent character/background PNG."""
+    from backend.app import comfy_worker
+    from backend.app.art_assets import approve_art
+    comfy_worker._auth(authorization)
+    job = _get_job(job_id)
+    if not job.get("story_plan"):
+        raise HTTPException(409, "Crie o roteiro antes de enviar arte.")
+    if request.headers.get("content-length") and int(request.headers["content-length"]) > 25 * 1024 * 1024:
+        raise HTTPException(413, "O arquivo PNG excede 25 MB.")
+    data = await request.body()
+    try:
+        record = approve_art(STORAGE, job_id, asset_id, fmt, data, job["story_plan"])
+    except (ValueError, OSError) as exc:
+        raise HTTPException(422, str(exc)) from exc
+    return {"approved": True, "record": record,
+            "art_status": get_episode_art_status(job_id, fmt)}
+
+
 @app.post("/api/jobs/{job_id}/render", status_code=202)
 def render_story(job_id: str, payload: RenderRequest):
     job = _get_job(job_id)
@@ -230,7 +338,15 @@ def render_story(job_id: str, payload: RenderRequest):
         raise HTTPException(400, "Formatos inválidos.")
     if not _has("ffmpeg") or not _has("tts"):
         raise HTTPException(503, "Motor de mídia incompleto. É necessário FFmpeg e voz (espeak-ng ou edge-tts).")
-    # Produção integral pelo motor Blender Cartoon 3D; o pipeline 2D está bloqueado.
+    missing_art = {fmt: get_episode_art_status(job_id, fmt)["missing"] for fmt in formats}
+    missing_art = {fmt: missing for fmt, missing in missing_art.items() if missing}
+    if missing_art:
+        raise HTTPException(409, {
+            "reason": "Antes de animar, gere e aprove as imagens dos personagens e cenários. O motor antigo está bloqueado.",
+            "missing_art": missing_art,
+            "art_studio": "/ai-studio.html",
+        })
+    # Produção apenas com imagens aprovadas; o Blender não desenha bonecos.
     selected_engine = selected_render_engine()
     if selected_engine != "3d" or not blender_available():
         state = blender_bootstrap_status()
