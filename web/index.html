@@ -29,6 +29,7 @@
 <div class="navlabel">ESTÚDIO</div>
 <nav class="nav">
 <button class="active" data-page="dashboard"><span class="ico">▦</span><span class="txt">Visão geral</span></button>
+<a href="/arte.html" class="art-nav" style="display:block;padding:12px 16px;border:1px solid #365578;background:#112a42;border-radius:10px;color:#9cd9ff;text-decoration:none;font-weight:800;margin:7px 0">✦ Central de Arte IA</a>
 <button data-page="episodes"><span class="ico">▤</span><span class="txt">Episódios</span></button>
 <button data-page="create"><span class="ico">✦</span><span class="txt">Criar episódio</span></button>
 <button data-page="automation"><span class="ico">◷</span><span class="txt">Automação</span></button>
@@ -70,7 +71,7 @@
 </section>
 
 <section class="page" id="page-create">
-<div class="sectionintro"><h2>História primeiro. Animação depois.</h2><p>O motor cria uma aventura original em um planeta inédito. Você revisa o roteiro antes de animar os personagens e narrar.</p></div>
+<div class="sectionintro"><h2>História → Arte IA → Animação.</h2><p>Crie o roteiro, gere e aprove os desenhos na <a href="/arte.html" style="color:#94caff">Central de Arte</a>, depois o Blender anima as imagens. O motor antigo de bonecos não será utilizado.</p></div>
 <div class="card"><form id="createForm"><div class="formgrid">
 <div class="field full"><label for="topic">Tema ou valor educativo (opcional)</label><input id="topic" maxlength="120" placeholder="Ex.: amizade, respeito, cuidado com a natureza. Deixe em branco para uma aventura surpresa."></div>
 <div class="field full"><label>Formatos que serão produzidos</label><div class="checks"><label class="check"><input type="checkbox" name="format" value="16:9" checked> Episódio 16:9 · mínimo 5:01 · 1920×1080</label><label class="check"><input type="checkbox" name="format" value="9:16" checked> Shorts 9:16 · 1:00 a 1:30 · 1080×1920</label></div></div>
@@ -87,7 +88,7 @@
 <div class="card" style="background:#0a1527;margin-top:12px"><div class="cardhead"><h3>Falas dos personagens</h3><span class="badge ready">VOZES SEPARADAS</span></div><div id="dialogueList" style="display:grid;gap:8px"></div></div>
 <div class="card" style="background:#0a1527;margin-top:12px"><div class="cardhead"><h3>Short — momento mais impactante</h3><span class="badge">9:16 · 1:00–1:30</span></div><p class="muted" id="shortWordCount"></p><p class="muted" id="shortFocus"></p><div id="shortStoryText" style="font-size:13px;line-height:1.7;max-height:140px;overflow:auto;white-space:pre-wrap;color:#dce8fa"></div></div>
 <div class="card" style="background:#0a1527;margin-top:12px"><div class="cardhead"><h3>Storyboard</h3><span class="muted">cena por cena</span></div><div id="storyboardList"></div></div>
-<div class="toolbar" style="margin-top:16px"><button class="btn good" id="approveStory">✓ Aprovar roteiro e gerar animação Cartoon 3D</button><button class="btn ghost" id="discardStory">Descartar e criar outra história</button><span class="muted" id="renderMessage">Confira o planeta, a aventura e a lição antes de renderizar.</span></div>
+<div class="toolbar" style="margin-top:16px"><a class="btn ghost" id="openArtStudio" href="/arte.html">✦ Gerar e aprovar artes</a><button class="btn good" id="approveStory">✓ Renderizar arte aprovada</button><button class="btn ghost" id="discardStory">Descartar e criar outra história</button><span class="muted" id="renderMessage">Confira o planeta, a aventura e a lição antes de renderizar.</span></div>
 </div>
 <div class="card" id="activeJobCard" style="margin-top:16px;display:none">
 <div class="cardhead"><h3 id="activeJobTitle">Produção iniciada</h3><span class="badge pending" id="activeJobBadge">EM FILA</span></div>
@@ -255,7 +256,7 @@ async function createEpisode(e){
   $('shortFocus').textContent=story.short_highlight?'Destaque escolhido: '+story.short_highlight+'.':'O Short usa a parte central da aventura.';
   $('dialogueList').innerHTML=(story.dialogues||[]).map(line=>'<div style="padding:9px 11px;border:1px solid #263c5c;border-radius:10px;background:#101e33"><b style="color:'+(line.speaker==='Luna'?'#ff9bd2':line.speaker==='Tomi'?'#8dbdff':'#ffc978')+'">'+esc(line.speaker)+'</b><div class="muted" style="margin-top:4px">'+esc(line.text)+'</div></div>').join('')||'<p class="muted">Este roteiro antigo não possui falas separadas.</p>';
   $('storyboardList').innerHTML=(story.scenes||[]).map((scene,i)=>'<div class="episode"><div class="thumb">'+String(i+1).padStart(2,'0')+'</div><div><div class="epname">'+esc(scene.title)+'</div><div class="epmeta">'+esc(scene.caption)+'</div><p class="muted">'+esc(scene.visual_action||'')+'</p></div></div>').join('');
-  $('storyPreview').style.display='block';$('renderMessage').textContent='Roteiro salvo. Revise antes de iniciar a animação.';
+  $('storyPreview').style.display='block';$('renderMessage').textContent='Roteiro salvo. Aprove primeiro as imagens na Central de Arte.';$('openArtStudio').href='/arte.html?job='+encodeURIComponent(pendingStoryId);
   $('createMessage').textContent='História pronta! Nenhum vídeo foi criado ainda.';
  }catch(err){$('createMessage').textContent=err.message;}
  finally{btn.disabled=false;btn.textContent='✦ Criar outra história';}
@@ -266,7 +267,7 @@ $('approveStory').addEventListener('click',async()=>{
  const btn=$('approveStory');btn.disabled=true;btn.textContent='Preparando animação…';
  try{
   const r=await fetch('/api/jobs/'+encodeURIComponent(pendingStoryId)+'/render',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({formats:pendingFormats})});
-  const data=await r.json();if(!r.ok)throw new Error(data.detail||'Falha ao iniciar renderização.');
+  const data=await r.json();if(!r.ok){const detail=data.detail||'Falha ao iniciar renderização.';if(typeof detail==='object'&&detail.missing_art){const url='/arte.html?job='+encodeURIComponent(pendingStoryId);$('renderMessage').innerHTML='Faltam artes aprovadas para este roteiro. <a style="color:#93c7ff" href="'+url+'">Abrir Central de Arte e gerar imagens</a>';throw new Error('Abra a Central de Arte para aprovar personagens e cenários antes do vídeo.')}throw new Error(typeof detail==='string'?detail:JSON.stringify(detail))}
   $('renderMessage').textContent='Roteiro aprovado. Renderizando os formatos selecionados.';
   $('activeJobCard').style.display='block';watchJob(data.job_id);
  }catch(err){$('renderMessage').textContent=err.message;btn.disabled=false;btn.textContent='✓ Tentar gerar vídeos novamente';}
