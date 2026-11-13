@@ -13,7 +13,7 @@ jobs:
         with:
           python-version: "3.13"
       - name: Install system dependencies
-        run: sudo apt-get update && sudo apt-get install -y ffmpeg espeak-ng fonts-dejavu-core xvfb xauth libgl1 libegl1 libosmesa6 libx11-6 libxi6 libxrender1 libxfixes3 libxkbcommon0 libsm6 libxext6 libxrandr2 libxinerama1 libxcursor1 libxxf86vm1 libdbus-1-3 libfontconfig1 libfreetype6 libwayland-client0 libwayland-egl1 libglib2.0-0 libstdc++6 libgomp1
+        run: sudo apt-get update && sudo apt-get install -y blender ffmpeg espeak-ng fonts-dejavu-core xvfb xauth libgl1 libegl1 libosmesa6 libx11-6 libxi6 libxrender1 libxfixes3 libxkbcommon0 libsm6 libxext6 libxrandr2 libxinerama1 libxcursor1 libxxf86vm1 libdbus-1-3 libfontconfig1 libfreetype6 libwayland-client0 libwayland-egl1 libglib2.0-0 libstdc++6 libgomp1
       - name: Install Python dependencies
         run: pip install -r backend/requirements.txt
       - name: Compile Python
@@ -30,8 +30,8 @@ jobs:
           Path("/tmp/anima-dashboard.js").write_text(scripts[-1], encoding="utf-8")
           PY
           node --check /tmp/anima-dashboard.js
-      - name: Check Blender Python module for Python 3.13
-        run: python -c "import bpy; print('Blender 3D bpy disponível:', bpy.app.version_string)"
+      - name: Check Blender executable
+        run: blender --background --factory-startup --python-expr "import bpy; print('Blender 3D disponível:', bpy.app.version_string)"
       - name: Check portable media dependencies
         run: python -c "import edge_tts, imageio_ffmpeg, mutagen; print('Edge TTS, FFmpeg portátil e Mutagen disponíveis')"
       - name: Test story engine
@@ -39,4 +39,4 @@ jobs:
       - name: Validate Docker Compose
         run: docker compose -f docker-compose.yml config -q
       - name: Build Docker image
-        run: docker build -t anima2d:test .
+        run: docker build -t anima-cartoon3d:test .
