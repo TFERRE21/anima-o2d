@@ -68,6 +68,31 @@ def generate(payload: GenerateRequest, authorization: str | None=Header(default=
     _queue.put(task_id)
     return {"task_id":task_id,"status":"queued"}
 
+def queue_art_image(payload: dict, job_id: str, asset_id: str, fmt: str, identity_lock: str) -> dict:
+    """Queue image generation on the existing connected Windows ComfyUI worker."""
+    if not any(time.time()-seen < 75 for seen in _workers.values()):
+        raise HTTPException(503, "Agente ComfyUI offline. Conecte o computador com GPU antes de gerar a arte.")
+    config = GenerateRequest(**payload).model_dump()
+    task_id = uuid.uuid4().hex[:16]
+    _tasks[task_id] = {
+        "id": task_id, "status": "queued", "config": config,
+        "job_id": job_id, "asset_id": asset_id, "format": fmt,
+        "identity_lock": identity_lock,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    _queue.put(task_id)
+    return {"task_id": task_id, "status": "queued",
+            "asset_id": asset_id, "format": fmt,
+            "message": "Arte enviada para ComfyUI; revise a imagem antes de aprovar."}
+
+
+def get_art_task(task_id: str, job_id: str) -> dict:
+    task = _tasks.get(task_id)
+    if not task or task.get("job_id") != job_id:
+        raise HTTPException(404, "Tarefa de arte não encontrada neste episódio.")
+    return task
+
+
 @router.post("/tasks/{task_id}/result")
 def result(task_id: str, payload: dict, authorization: str | None=Header(default=None)):
     _auth(authorization)
