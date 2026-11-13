@@ -178,185 +178,17 @@ def make_pivot(parent, name, loc):
     return pivot
 
 
+# Version 2 uses fully redesigned Storybook Cartoon humans and puppy.
+# No code path can instantiate the deprecated armored toy/bobblehead models.
+from cartoon_art_v2 import ART_VERSION, build_human, build_dog, dress_stage
+
+
 def human_character(name, kind, origin, size=1.0):
-    """Original rounded 3D child-hero design with expressive face and adventure suit."""
-    root = empty(name + " root", origin)
-    root.scale = (size, size, size)
-    profile = CHARACTER_PROFILES.get(kind, {})
-    root["character_profile_id"] = profile.get("id", kind.lower() + "-legacy")
-    root["rig_controls"] = json.dumps(profile.get("rig", []))
-    root["visemes"] = json.dumps(profile.get("visemes", []))
-    is_luna = kind == "Luna"
-    suit = M["pink"] if is_luna else M["blue"]
-    trim = M["pink_light"] if is_luna else M["blue_light"]
-    skin = M["skin"] if is_luna else M["skin_light"]
-    hair = M["hair"] if is_luna else M["hair_light"]
-    accent = M["gold"] if is_luna else M["gold_light"]
-
-    # Rounded, slightly oversized child proportions with layered suit geometry.
-    sphere(name + " rounded torso", root, (0, 0, 1.28), (0.53, 0.37, 0.68), suit, 28, 18)
-    sphere(name + " chest armor", root, (0, -0.315, 1.48), (0.38, 0.105, 0.43), trim, 24, 16)
-    sphere(name + " chest inset", root, (0, -0.398, 1.47), (0.30, 0.045, 0.34), suit, 22, 14)
-    sphere(name + " collar", root, (0, -0.015, 1.87), (0.28, 0.30, 0.13), M["gold_light"], 20, 12)
-    cube(name + " utility belt", root, (0, -0.01, 0.82), (0.93, 0.72, 0.16), M["gold"], 0.07)
-    cube(name + " belt buckle", root, (0, -0.385, 0.84), (0.23, 0.07, 0.16), M["gold_light"], 0.045)
-    for side, xx in (("L", -0.36), ("R", 0.36)):
-        cube(name + " belt pouch " + side, root, (xx, -0.33, 0.83), (0.18, 0.10, 0.21), trim, 0.05)
-        sphere(name + " shoulder armor " + side, root, (xx * 1.12, 0, 1.70), (0.23, 0.27, 0.21), trim, 18, 12)
-        sphere(name + " knee pad " + side, root, (xx * 0.60, -0.17, 0.36), (0.18, 0.08, 0.12), accent, 16, 10)
-
-    # Backpack and side equipment create a readable explorer silhouette.
-    cube(name + " explorer backpack", root, (0, 0.37, 1.38), (0.72, 0.34, 0.86), M["metal"], 0.16)
-    cube(name + " backpack color panel", root, (0, 0.555, 1.42), (0.48, 0.055, 0.54), suit, 0.09)
-    for side, xx in (("L", -0.23), ("R", 0.23)):
-        cylinder(name + " backpack thruster " + side, root, (xx, 0.48, 1.02), 0.10, 0.30, trim, (math.pi / 2, 0, 0), 14)
-    sphere(name + " backpack signal", root, (0, 0.60, 1.83), (0.10, 0.08, 0.11), M["gold_light"])
-
-    # Neck and independently animated head.
-    cylinder(name + " neck", root, (0, 0, 1.94), 0.18, 0.24, skin, vertices=20)
-    head = make_pivot(root, name + " head pivot", (0, -0.055, 2.34))
-    sphere(name + " soft face", head, (0, 0, 0), (0.66, 0.52, 0.69), skin, 32, 24)
-    sphere(name + " chin", head, (0, -0.28, -0.37), (0.35, 0.20, 0.19), skin, 20, 14)
-    for side, xx in (("L", -0.60), ("R", 0.60)):
-        sphere(name + " ear " + side, head, (xx, -0.035, -0.05), (0.14, 0.13, 0.22), skin, 18, 12)
-        sphere(name + " cheek " + side, head, (xx * 0.58, -0.405, -0.19), (0.17, 0.075, 0.13), M["pink_light"], 18, 12)
-
-    # Layered hair, with distinct silhouettes for Luna and Tomi.
-    sphere(name + " hair cap", head, (0, 0.055, 0.47), (0.68, 0.53, 0.36), hair, 28, 18)
-    sphere(name + " hair side L", head, (-0.56, 0.00, 0.04), (0.16, 0.40, 0.47), M["hair"], 18, 12)
-    sphere(name + " hair side R", head, (0.56, 0.00, 0.04), (0.16, 0.40, 0.47), M["hair"], 18, 12)
-    if is_luna:
-        for i, xx in enumerate((-0.34, -0.12, 0.12, 0.34)):
-            sphere(name + " soft fringe " + str(i), head, (xx, -0.355, 0.36 + (0.04 if i in (1, 2) else 0)), (0.19, 0.15, 0.19), M["hair_light"], 16, 12)
-        # Signature inventor band and a small glowing side star.
-        bpy.ops.mesh.primitive_torus_add(major_segments=40, minor_segments=12, major_radius=0.48, minor_radius=0.065, location=(0, 0, 0))
-        band = bpy.context.object
-        band.name = name + " pink inventor headband"
-        set_parent(band, head, (0, -0.435, 0.40), (1.12, 0.45, 0.78), (math.radians(90), 0, 0))
-        band.data.materials.append(M["pink_light"])
-        sphere(name + " golden headband star", head, (0.50, -0.45, 0.36), (0.13, 0.09, 0.13), M["gold"])
-        sphere(name + " tiny blue communicator", head, (-0.50, -0.20, 0.15), (0.10, 0.10, 0.13), M["blue_light"])
-    else:
-        # Swept hair locks give Tomi his own silhouette, not a crown/helmet copy.
-        for i, (xx, zz, tilt) in enumerate([
-            (-0.43, 0.42, -0.30), (-0.24, 0.56, -0.18), (0.00, 0.62, 0.02),
-            (0.24, 0.55, 0.18), (0.43, 0.40, 0.30)
-        ]):
-            lock = sphere(name + " swept hair lock " + str(i), head, (xx, -0.01, zz), (0.22, 0.23, 0.34), M["hair"], 18, 12)
-            lock.rotation_euler[1] = tilt
-        sphere(name + " blue ear communicator", head, (0.55, -0.15, 0.10), (0.12, 0.13, 0.16), M["blue_light"], 16, 10)
-
-    # Large, bright eyes with irises, pupils, brows and multiple catchlights.
-    iris = M["blue"] if is_luna else M["hair"]
-    for side, xx in (("L", -0.235), ("R", 0.235)):
-        sphere(name + " eye socket " + side, head, (xx, -0.444, 0.035), (0.175, 0.085, 0.235), M["skin_light"], 20, 14)
-        sphere(name + " eye white " + side, head, (xx, -0.505, 0.045), (0.145, 0.075, 0.195), M["white"], 24, 16)
-        sphere(name + " iris " + side, head, (xx, -0.566, 0.035), (0.082, 0.038, 0.125), iris, 20, 14)
-        sphere(name + " pupil " + side, head, (xx, -0.595, 0.03), (0.044, 0.025, 0.086), M["black"], 16, 12)
-        sphere(name + " eye sparkle large " + side, head, (xx - 0.026, -0.619, 0.083), (0.031, 0.018, 0.040), M["white"], 12, 8)
-        sphere(name + " eye sparkle small " + side, head, (xx + 0.030, -0.616, -0.005), (0.014, 0.012, 0.018), M["white"], 10, 8)
-        brow = sphere(name + " expressive brow " + side, head, (xx, -0.47, 0.30), (0.17, 0.055, 0.045), hair, 16, 10)
-        brow.rotation_euler[1] = -0.10 if side == "L" else 0.10
-
-    sphere(name + " button nose", head, (0, -0.565, -0.105), (0.075, 0.060, 0.065), skin, 16, 10)
-    mouth = sphere(name + " animated smile mouth", head, (0, -0.525, -0.285), (0.105, 0.052, 0.075), M["mouth"], 20, 12)
-    sphere(name + " lower lip", head, (0, -0.505, -0.355), (0.085, 0.035, 0.026), M["pink_light"], 16, 10)
-    tongue = sphere(name + " talking tongue", head, (0, -0.572, -0.335), (0.045, 0.022, 0.018), M["pink_light"], 12, 8)
-
-    # Articulated legs: suit trousers, rounded boots, soles and boot highlights.
-    legs = []
-    for side, xx in (("L", -0.23), ("R", 0.23)):
-        pivot = make_pivot(root, name + " leg pivot " + side, (xx, 0, 0.79))
-        sphere(name + " upper leg " + side, pivot, (0, 0, -0.30), (0.18, 0.20, 0.39), suit, 18, 12)
-        sphere(name + " boot cuff " + side, pivot, (0, -0.02, -0.55), (0.19, 0.22, 0.12), trim, 16, 10)
-        sphere(name + " rounded boot " + side, pivot, (0, -0.10, -0.68), (0.23, 0.30, 0.17), M["hair"] if is_luna else M["blue"], 20, 12)
-        cube(name + " boot sole " + side, pivot, (0, -0.10, -0.80), (0.43, 0.52, 0.055), M["gold"], 0.025)
-        legs.append(pivot)
-
-    # Articulated arms with shoulder caps, wrist cuffs and rounded explorer gloves.
-    arms = []
-    for side, xx in (("L", -0.49), ("R", 0.49)):
-        pivot = make_pivot(root, name + " arm pivot " + side, (xx, 0, 1.68))
-        sphere(name + " upper arm " + side, pivot, (0, 0, -0.25), (0.16, 0.18, 0.34), skin, 18, 12)
-        sphere(name + " forearm " + side, pivot, (0, -0.015, -0.49), (0.135, 0.15, 0.25), skin, 18, 12)
-        cylinder(name + " wrist cuff " + side, pivot, (0, -0.02, -0.57), 0.15, 0.15, trim, vertices=16)
-        sphere(name + " rounded glove " + side, pivot, (0, -0.04, -0.68), (0.19, 0.19, 0.17), M["gold"], 18, 12)
-        for finger in range(3):
-            sphere(name + " glove finger " + side + " " + str(finger), pivot,
-                   ((finger - 1) * 0.09, -0.10, -0.78),
-                   (0.055, 0.075, 0.075), M["gold_light"], 10, 8)
-        arms.append(pivot)
-
-    badge = sphere(name + " guardian badge", root, (0, -0.415, 1.34), (0.23, 0.075, 0.23), M["gold"], 24, 16)
-    star_mesh(name + " guardian star", root, 0, -0.485, 1.29, 0.18, M["gold_light"])
-    return {
-        "root": root, "head": head, "mouth": mouth, "tongue": tongue,
-        "arms": arms, "legs": legs, "kind": kind, "base_x": origin[0],
-        "base_z": origin[2],
-    }
+    return build_human(name, kind, origin, size, globals(), CHARACTER_PROFILES)
 
 
 def dog_character(origin, size=0.92):
-    """Friendly quadruped puppy with soft proportions and a custom explorer vest."""
-    root = empty("Pipo quadruped root", origin)
-    root.scale = (size, size, size)
-    profile = CHARACTER_PROFILES.get("Pipo", {})
-    root["character_profile_id"] = profile.get("id", "pipo-legacy")
-    root["rig_controls"] = json.dumps(profile.get("rig", []))
-    root["visemes"] = json.dumps(profile.get("visemes", []))
-    sphere("Pipo soft puppy body", root, (0, 0.06, 0.94), (0.48, 0.77, 0.43), M["dog"], 28, 18)
-    sphere("Pipo cream chest bib", root, (0, -0.45, 0.90), (0.35, 0.22, 0.34), M["dog_light"], 22, 14)
-    sphere("Pipo explorer vest", root, (0, -0.02, 1.02), (0.51, 0.69, 0.31), M["blue"], 24, 16)
-    sphere("Pipo vest side panel L", root, (-0.40, -0.08, 1.02), (0.12, 0.46, 0.27), M["blue_light"], 16, 10)
-    sphere("Pipo vest side panel R", root, (0.40, -0.08, 1.02), (0.12, 0.46, 0.27), M["blue_light"], 16, 10)
-    cube("Pipo gold rescue collar", root, (0, -0.51, 1.30), (0.68, 0.16, 0.17), M["gold"], 0.07)
-    sphere("Pipo round vest badge", root, (0, -0.535, 1.08), (0.19, 0.065, 0.19), M["gold"], 20, 12)
-    star_mesh("Pipo little guardian star", root, 0, -0.594, 1.03, 0.13, M["gold_light"])
-    cube("Pipo puppy pack", root, (0, 0.55, 1.03), (0.52, 0.38, 0.56), M["metal"], 0.13)
-    sphere("Pipo pack signal", root, (0, 0.77, 1.16), (0.10, 0.06, 0.10), M["gold_light"])
-
-    # Puppy head points toward the camera, with floppy ears and a broad muzzle.
-    head = make_pivot(root, "Pipo head pivot", (0, -0.62, 1.44))
-    sphere("Pipo rounded puppy head", head, (0, 0, 0), (0.55, 0.48, 0.52), M["dog"], 30, 20)
-    sphere("Pipo forehead marking", head, (0, -0.35, 0.26), (0.23, 0.12, 0.18), M["dog_light"], 18, 12)
-    for side, xx in (("L", -0.48), ("R", 0.48)):
-        ear = sphere("Pipo floppy ear " + side, head, (xx, 0.02, -0.04), (0.22, 0.25, 0.43), M["dog_dark"], 20, 14)
-        ear.rotation_euler[1] = -0.28 if side == "L" else 0.28
-        sphere("Pipo inner ear " + side, head, (xx, -0.19, -0.05), (0.12, 0.075, 0.27), M["dog_light"], 16, 10)
-        sphere("Pipo eye white " + side, head, (xx * 0.48, -0.405, 0.12), (0.125, 0.075, 0.17), M["white"], 20, 14)
-        sphere("Pipo iris " + side, head, (xx * 0.48, -0.466, 0.11), (0.065, 0.035, 0.105), M["hair"], 16, 10)
-        sphere("Pipo pupil " + side, head, (xx * 0.48, -0.493, 0.105), (0.035, 0.02, 0.072), M["black"], 14, 10)
-        sphere("Pipo eye sparkle " + side, head, (xx * 0.48 - 0.02, -0.513, 0.145), (0.025, 0.015, 0.03), M["white"], 10, 8)
-        sphere("Pipo brow " + side, head, (xx * 0.48, -0.405, 0.31), (0.13, 0.045, 0.035), M["dog_dark"], 12, 8)
-    sphere("Pipo left muzzle", head, (-0.14, -0.43, -0.18), (0.23, 0.19, 0.18), M["dog_light"], 18, 12)
-    sphere("Pipo right muzzle", head, (0.14, -0.43, -0.18), (0.23, 0.19, 0.18), M["dog_light"], 18, 12)
-    sphere("Pipo puppy nose", head, (0, -0.602, -0.11), (0.12, 0.08, 0.085), M["black"], 18, 12)
-    mouth = sphere("Pipo animated puppy mouth", head, (0, -0.535, -0.33), (0.11, 0.045, 0.06), M["mouth"], 18, 12)
-    sphere("Pipo pink tongue", head, (0, -0.58, -0.39), (0.075, 0.035, 0.045), M["pink_light"], 14, 10)
-
-    # Four separate articulated legs: front legs use the arm controls,
-    # rear legs use the leg controls, so a trot can alternate diagonally.
-    legs = []
-    for side, xx in (("L", -0.27), ("R", 0.27)):
-        pivot = make_pivot(root, "Pipo hind leg pivot " + side, (xx, 0.46, 0.72))
-        sphere("Pipo hind leg " + side, pivot, (0, 0.04, -0.26), (0.16, 0.19, 0.34), M["dog"], 16, 10)
-        sphere("Pipo hind paw " + side, pivot, (0, -0.06, -0.54), (0.20, 0.24, 0.15), M["dog"], 16, 10)
-        sphere("Pipo hind paw pad " + side, pivot, (0, -0.26, -0.55), (0.11, 0.035, 0.07), M["dog_light"], 12, 8)
-        legs.append(pivot)
-    arms = []
-    for side, xx in (("L", -0.27), ("R", 0.27)):
-        pivot = make_pivot(root, "Pipo front leg pivot " + side, (xx, -0.45, 0.78))
-        sphere("Pipo front leg " + side, pivot, (0, -0.03, -0.28), (0.15, 0.18, 0.36), M["dog"], 16, 10)
-        sphere("Pipo front paw " + side, pivot, (0, -0.13, -0.56), (0.20, 0.24, 0.15), M["dog"], 16, 10)
-        sphere("Pipo front paw pad " + side, pivot, (0, -0.32, -0.57), (0.11, 0.035, 0.07), M["dog_light"], 12, 8)
-        arms.append(pivot)
-    tail = make_pivot(root, "Pipo wagging tail", (0, 0.68, 1.06))
-    sphere("Pipo fluffy tail", tail, (0, 0.27, 0.08), (0.16, 0.38, 0.17), M["dog"], 16, 10)
-    return {
-        "root": root, "head": head, "mouth": mouth, "arms": arms,
-        "legs": legs, "tail": tail, "kind": "Pipo",
-        "base_x": origin[0], "base_z": origin[2],
-    }
+    return build_dog(origin, size, globals(), CHARACTER_PROFILES)
 
 
 def alien_character(origin, variant=0):
@@ -463,41 +295,9 @@ def make_stage(stage_index, plan, scene, portrait):
     cx = stage_index * STAGE_GAP
     biome = str(plan.get("biome", "")).lower()
     mission = plan.get("mission_object", "")
-    # Ground platform and a curved-looking backdrop.
-    ground_mat = M["water"] if any(k in biome for k in ("oceano", "mar", "água", "agua")) else M["sand"] if any(k in biome for k in ("deserto", "areia", "vulc")) else M["ice"] if any(k in biome for k in ("gelo", "neve", "polar", "montanha")) else M["leaf"] if any(k in biome for k in ("floresta", "jardim", "flor")) else M["stone"]
-    cube("Stage ground", None, (cx, 1.0, -0.35), (17, 16, 0.55), ground_mat, 0.3)
-    cube("Stage backdrop", None, (cx, 5.2, 3.6), (18, 0.35, 11), M["sky"], 0.25)
-    # Distant terrain silhouettes, using true 3D meshes with depth.
-    for j in range(7):
-        mx = cx - 8 + j * 2.6
-        mat = M["ice"] if "gelo" in biome or "neve" in biome else M["sand"] if "deserto" in biome else M["stone"]
-        cone("Distant mountain", None, (mx, 3.4, 1.2), 1.65 + (j % 3) * 0.3, 3.6 + (j % 2) * 1.1, mat, (0, (j % 2) * 0.17, 0), 7)
-    # A distinct biome layer is visible in every shot.
-    if any(k in biome for k in ("floresta", "jardim", "flor", "bosque")):
-        for j in range(8):
-            add_tree(cx - 7.0 + j * 2.0, 2.1 + (j % 2) * 0.5, 0, j % 2)
-    elif any(k in biome for k in ("oceano", "mar", "água", "agua")):
-        for j in range(8):
-            xx = cx - 7 + j * 2
-            cylinder("Ocean coral", None, (xx, 2.0, 0.7), 0.11, 1.4, M["pink_light"], (0.3, 0, (j % 2) * .2))
-            for a in (-0.6, 0.6):
-                cone("Coral branch", None, (xx + a, 2.0, 1.3), 0.22, 1.0, M["gold"], (0.0, 0.0, a))
-    elif any(k in biome for k in ("nuvem", "ilha flutuante", "arco-íris", "arco-iris")):
-        for j in range(6):
-            sphere("Floating cloud island", None, (cx - 7 + j * 2.8, 3.1, 2.1 + (j % 2) * 1.1), (1.3, 0.65, 0.55), M["white"])
-            cone("Island hanging rock", None, (cx - 7 + j * 2.8, 3.1, 1.45 + (j % 2) * 1.1), 0.65, 1.1, M["stone"])
-    elif any(k in biome for k in ("gelo", "neve", "polar")):
-        for j in range(8):
-            xx = cx - 7 + j * 2
-            cone("Ice spire", None, (xx, 2.3, 1.0), 0.58, 2.1 + (j % 3) * 0.5, M["ice"], (0, .12 * (j % 2), 0), 6)
-    else:
-        for j in range(9):
-            sphere("Scattered planet boulder", None, (cx - 7 + j * 1.8, 2.4, 0.25), (0.55, 0.45, 0.36 + (j % 2) * .2), M["stone"], 12, 8)
-    # Star points, rendered as small spheres rather than flat symbols.
-    for j in range(24):
-        xx = cx - 8 + ((j * 37) % 160) / 10
-        zz = 4.0 + ((j * 19) % 55) / 10
-        sphere("Distant star", None, (xx, 4.94, zz), (0.035, 0.035, 0.035), M["gold_light"], 8, 6)
+    # The entire former night-wall / low-poly planet set is retired.
+    # Each shot now receives an original pastel, daylit Storybook 3D environment.
+    dress_stage(cx, biome, globals())
     # Scene-specific set dressing.
     if stage_index in (1, 2, 8, 10, 11):
         add_landmark(cx, 2.7, plan.get("landmark", ""))
@@ -580,13 +380,13 @@ def make_stage(stage_index, plan, scene, portrait):
         resident_offset = 2.6 if portrait else 5.1
         natives.append(alien_character((cx + resident_offset, -0.1, 0), 0))
         natives.append(alien_character((cx - resident_offset, 0.7, 0), 1))
-    # The same hero designs are rebuilt for each shot but retain fixed shape, colors and costumes.
+    # Every scene uses the NEW Storybook v2 characters, not the deprecated toy cast.
     if portrait:
         positions = ((cx - 1.25, -1.0, 0), (cx + 1.25, -0.75, 0), (cx, -2.0, 0))
-        size_h, size_d = 1.48, 1.05
+        size_h, size_d = 1.24, 0.88
     else:
         positions = ((cx - 3.1, -0.8, 0), (cx + 2.5, -0.55, 0), (cx + 0.2, -2.0, 0))
-        size_h, size_d = 1.0, 0.78
+        size_h, size_d = 1.05, 0.80
     luna = human_character("Luna scene " + str(stage_index), "Luna", positions[0], size_h)
     tomi = human_character("Tomi scene " + str(stage_index), "Tomi", positions[1], size_h)
     pipo = dog_character(positions[2], size_d)
@@ -712,8 +512,8 @@ def create_camera(portrait, cx):
     camera.data.type = "PERSP"
     camera.data.sensor_fit = "VERTICAL" if portrait else "HORIZONTAL"
     camera.data.lens = 50
-    camera.location = (cx, -19.5, 5.5)
-    target = Vector((cx, 0.4, 2.25))
+    camera.location = (cx, -16.0 if portrait else -18.0, 4.8)
+    target = Vector((cx, 0.4, 1.85))
     camera.rotation_euler = (target - camera.location).to_track_quat("-Z", "Y").to_euler()
     return camera
 
@@ -752,19 +552,20 @@ def build_scene_schedule(scene_source_indices, voice_timeline, total_duration):
 
 
 def add_stage_lighting(stage_centers):
+    # Daytime studio lighting for original Storybook art: smooth warm bounce.
     # One directional sun plus soft key/fill area lights per set gives the
     # characters readable volume, rounded highlights and grounded shadows.
     bpy.ops.object.light_add(type="SUN", location=(0, -10, 14))
     sun = bpy.context.object
     sun.name = "Adventure studio sun"
-    sun.data.energy = 1.6
+    sun.data.energy = 2.0
     sun.data.angle = math.radians(18)
     sun.rotation_euler = (math.radians(28), math.radians(-22), math.radians(-24))
     for index, center in enumerate(stage_centers):
         bpy.ops.object.light_add(type="AREA", location=(center - 2.5, -8.0, 9.5))
         key = bpy.context.object
         key.name = "Soft key light " + str(index)
-        key.data.energy = 720
+        key.data.energy = 920
         key.data.shape = "DISK"
         key.data.size = 7.5
         key.data.color = (1.0, 0.82, 0.68)
@@ -772,7 +573,7 @@ def add_stage_lighting(stage_centers):
         bpy.ops.object.light_add(type="AREA", location=(center + 4.5, 1.0, 7.5))
         fill = bpy.context.object
         fill.name = "Soft blue fill " + str(index)
-        fill.data.energy = 360
+        fill.data.energy = 460
         fill.data.size = 8.5
         fill.data.color = (0.56, 0.75, 1.0)
         fill.rotation_euler = (math.radians(24), 0, math.radians(155))
@@ -791,7 +592,8 @@ def render(config: dict):
     out_dir = Path(config["frames_dir"])
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    report(5, "Carregando modelos 3D e materiais.")
+    report(5, "Carregando Cartoon Storybook 3D v2: novos personagens e cenários.")
+    print("ANIMA_ART_VERSION:" + ART_VERSION, flush=True)
     bpy.ops.object.select_all(action="SELECT")
     bpy.ops.object.delete(use_global=False)
     scene = bpy.context.scene
@@ -886,12 +688,12 @@ def render(config: dict):
     scene.render.resolution_percentage = render_scale
     # Eevee renders the original 3D models with studio lighting, material response and depth;
     # Workbench remains a compatibility fallback on Blender builds without Eevee.
-    scene.world.color = (0.018, 0.04, 0.11)
+    scene.world.color = (0.42, 0.63, 0.77)
     scene.world.use_nodes = True
     world_bg = scene.world.node_tree.nodes.get("Background")
     if world_bg:
-        world_bg.inputs["Color"].default_value = (0.025, 0.045, 0.10, 1)
-        world_bg.inputs["Strength"].default_value = 0.24
+        world_bg.inputs["Color"].default_value = (0.52, 0.72, 0.82, 1)
+        world_bg.inputs["Strength"].default_value = 0.65
 
     setup_started = time.perf_counter()
     stage_timings = []
@@ -934,8 +736,8 @@ def render(config: dict):
         first = stage_models[0]
         center = first["center"]
         camera.location.x = center
-        camera.location.z = 5.3
-        target = Vector((center, 0.25, 2.30))
+        camera.location.z = 4.8
+        target = Vector((center, 0.25, 1.92))
         camera.rotation_euler = (target - camera.location).to_track_quat("-Z", "Y").to_euler()
         for side, name in enumerate(("Luna", "Tomi", "Pipo")):
             animate_actor(first[name], 0.0, 0.0, "explore", False, side)
@@ -1003,7 +805,7 @@ def render(config: dict):
             if speaker_actor:
                 center = center * 0.72 + speaker_actor["root"].location.x * 0.28
         camera.location.x = center
-        camera.location.z = 5.3 + math.sin(local_progress * math.pi) * 0.12
+        camera.location.z = 4.8 + math.sin(local_progress * math.pi) * 0.12
         close = source_index in (4, 7, 10)
         camera.data.lens = 62 if close else (48 if portrait else 50)
         # A slight camera tilt and dolly-style scale change make the beat read
@@ -1015,7 +817,7 @@ def render(config: dict):
         elif action in {"converse", "talk"}:
             target_z = 2.15
         else:
-            target_z = 2.30
+            target_z = 1.92
         target = Vector((center, 0.25, target_z))
         camera.rotation_euler = (target - camera.location).to_track_quat("-Z", "Y").to_euler()
         camera.data.lens = 50 + (3 if action in {"discover", "surprise"} else 0)
