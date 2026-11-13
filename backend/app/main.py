@@ -18,7 +18,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from backend.app.worlds import WORLDS, build_episode_plan
-from backend.app.cartoon2d import render_preview as render_2d_preview
+from backend.app.runtime import blender_available, find_blender_runtime
 from backend.app.engines.registry import selected_render_engine
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -27,7 +27,7 @@ STORAGE = Path(os.getenv("ANIMA_STORAGE", "/data/jobs"))
 STORAGE.mkdir(parents=True, exist_ok=True)
 
 class Settings(BaseSettings):
-    app_name: str = "Anima Studio 2D"
+    app_name: str = "Anima Studio Cartoon 3D"
     youtube_client_id: str = ""
     youtube_client_secret: str = ""
     youtube_redirect_uri: str = "https://animacao2d.vps11710.panel.icontainer.work/api/youtube/callback"
@@ -40,7 +40,7 @@ app.include_router(comfy_router)
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=False, allow_methods=["*"], allow_headers=["*"])
 
 
-# O runtime 2D não depende de Blender, bpy, OpenGL ou Xvfb.
+# Runtime de produção: Blender 3D + FFmpeg; o renderizador 2D antigo não participa de episódios.
 
 class GenerateRequest(BaseModel):
     title: str = Field(min_length=2, max_length=140)
@@ -81,54 +81,41 @@ def _studio_settings():
         return DEFAULT_STUDIO_SETTINGS.copy()
 
 @app.post("/api/2d/preview")
-def create_2d_preview(planet: str = "AURORA-7"):
-    """Render a 10-second Cartoon 2D preview using the production artwork pipeline."""
-    safe_planet = "".join(ch for ch in planet if ch.isalnum() or ch in " -_")[:28].strip() or "AURORA-7"
-    filename = f"2d-preview-{uuid.uuid4().hex[:10]}.mp4"
-    output = STORAGE / filename
-    try:
-        result = render_2d_preview(output, safe_planet.upper())
-    except Exception as exc:
-        raise HTTPException(500, f"Falha na prévia 2D: {type(exc).__name__}: {exc}")
-    return {"status": "done", "engine": result["engine"], "seconds": result["seconds"],
-            "frames": result["frames"], "planet": result["planet"],
-            "video_url": f"/api/2d/preview/{filename}"}
+def disabled_2d_preview():
+    raise HTTPException(410, "O renderizador 2D foi desativado. O estúdio agora produz exclusivamente Cartoon 3D infantil.")
 
 
 @app.get("/api/2d/preview/{filename}")
-def get_2d_preview(filename: str):
-    if not filename.startswith("2d-preview-") or not filename.endswith(".mp4") or Path(filename).name != filename:
-        raise HTTPException(400, "Nome de arquivo inválido.")
-    target = STORAGE / filename
-    if not target.is_file():
-        raise HTTPException(404, "Prévia 2D não encontrada.")
-    return FileResponse(target, media_type="video/mp4", filename=filename)
+def disabled_2d_preview_file(filename: str):
+    raise HTTPException(410, "Prévia 2D desativada. Gere uma nova cena no motor Cartoon 3D.")
 
 
 @app.get("/api/health")
 def health():
     return {
         "status": "ok", "app": settings.app_name, "version": "1.0.0",
-        "runtime": "cartoon-2d-production",
+        "runtime": "cartoon-3d-production",
         "container_runtime": "docker" if Path("/.dockerenv").exists() else "unknown",
         "python_version": sys.version.split()[0], "port": int(os.getenv("PORT", "5000")),
         "ffmpeg": _has("ffmpeg"), "tts": _has("tts"),
         "storage_writable": os.access(STORAGE, os.W_OK),
-        "render_engine": "anima-cartoon-2d",
+        "render_engine": "anima-cartoon-3d",
     }
 
 
 @app.get("/api/health/2d")
-def health_2d():
-    if not _has("ffmpeg") or not _has("tts") or not os.access(STORAGE, os.W_OK):
-        raise HTTPException(503, "Motor 2D indisponível: confira FFmpeg, voz e armazenamento.")
-    return {"status": "ready", "engine": "anima-cartoon-2d", "fps": 24,
-            "formats": ["1920x1080", "1080x1920"], "audio": True}
+def legacy_health_2d():
+    raise HTTPException(410, "Motor 2D desativado. Utilize o motor Cartoon 3D.")
 
 
 @app.get("/api/health/3d")
-def legacy_health_3d():
-    raise HTTPException(410, "O motor 3D foi descontinuado. O estúdio agora utiliza o motor Cartoon 2D.")
+def health_3d():
+    runtime = find_blender_runtime()
+    if not _has("ffmpeg") or not _has("tts") or not os.access(STORAGE, os.W_OK) or not runtime:
+        raise HTTPException(503, "Motor Cartoon 3D indisponível: confira Blender, FFmpeg, voz e armazenamento.")
+    return {"status":"ready","engine":"anima-cartoon-3d","backend":runtime["backend"],
+            "blender":runtime.get("version") or runtime.get("executable"),"fps":24,
+            "formats":["1920x1080","1080x1920"],"audio":True}
 
 
 @app.get("/api/diagnostics")
@@ -146,7 +133,7 @@ def diagnostics():
         "tts_available": _has("tts"),
         "storage_path": str(STORAGE.resolve()),
         "storage_writable": os.access(STORAGE, os.W_OK),
-        "blender_required": False, "bpy_required": False,
+        "blender_required": True, "blender_available": blender_available(), "bpy_required": False,
         "gpu_rendering": "ComfyUI para ativos visuais; AMD AMF quando suportado pelo FFmpeg local",
     }
 
@@ -160,8 +147,8 @@ def config():
         ],
         "youtube_oauth_configured": bool(settings.youtube_client_id and settings.youtube_client_secret),
         "generation_enabled": _has("ffmpeg") and _has("tts"),
-        "media": {"ffmpeg": _has("ffmpeg"), "tts": _has("tts"), "blender_3d": False},
-        "engine": "Anima Studio — Motor Cartoon 2D de produção",
+        "media": {"ffmpeg": _has("ffmpeg"), "tts": _has("tts"), "blender_3d": blender_available()},
+        "engine": "Anima Studio — Cartoon 3D infantil",
     }
 
 @app.post("/api/stories/generate", status_code=201)
@@ -236,10 +223,10 @@ def render_story(job_id: str, payload: RenderRequest):
         raise HTTPException(400, "Formatos inválidos.")
     if not _has("ffmpeg") or not _has("tts"):
         raise HTTPException(503, "Motor de mídia incompleto. É necessário FFmpeg e voz (espeak-ng ou edge-tts).")
-    # Produção integral pelo motor Cartoon 2D; não há seleção de Blender.
+    # Produção integral pelo motor Blender Cartoon 3D; o pipeline 2D está bloqueado.
     selected_engine = selected_render_engine()
-    if selected_engine != "2d":
-        raise HTTPException(503, "Este estúdio utiliza exclusivamente o motor Cartoon 2D. Configure ANIMA_RENDER_ENGINE=2d.")
+    if selected_engine != "3d" or not blender_available():
+        raise HTTPException(503, "Motor Cartoon 3D indisponível. Instale/ative o Blender antes de iniciar a renderização.")
     _update(job_id, status="queued", stage="render_queued", progress=8,
             message="Roteiro aprovado. Preparando cenas e narração.", formats=formats,
             review_status="pending_review", outputs={}, error=None)
