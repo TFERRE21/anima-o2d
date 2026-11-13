@@ -199,6 +199,11 @@ async function loadDashboard(){
   const missing=[];
   if(!health.ffmpeg)missing.push('FFmpeg');
   if(!health.tts)missing.push('voz');
+  const bootstrap=health.blender_bootstrap||{};
+  if(health.status==='degraded'||(bootstrap.state&&bootstrap.state!=='ready')){
+   const installing=['starting','installing'].includes(bootstrap.state);
+   missing.push(installing?'Blender (instalação automática em andamento)':'Blender Cartoon 3D');
+  }
   if(!health.storage_writable)missing.push('armazenamento');
   $('systemStatus').textContent=missing.length?'● API online · falta '+missing.join(', '):'● Animação Cartoon 3D conectada · vozes e mídia prontas';
   $('systemStatus').style.color=missing.length?'#f5d28d':'#9ce8cb';
