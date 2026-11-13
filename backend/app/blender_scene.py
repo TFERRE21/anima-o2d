@@ -814,6 +814,13 @@ def render(config: dict):
         print("ANIMA_GPU_PROBE_WARNING:" + str(exc), flush=True)
     software_gl = any(token in gpu_renderer.lower() for token in
                       ("llvmpipe", "softpipe", "software", "swrast", "lavapipe"))
+    # Headless iContainer without a mapped GPU should not run the full Eevee
+    # pipeline when OpenGL device detection is unavailable.
+    has_render_device = Path("/dev/dri").is_dir() and any(Path("/dev/dri").glob("renderD*"))
+    nvidia_device = os.getenv("NVIDIA_VISIBLE_DEVICES", "").strip().lower()
+    has_nvidia_device = nvidia_device not in {"", "none", "void"}
+    if gpu_renderer == "unknown" and not (has_render_device or has_nvidia_device):
+        software_gl = True
     use_workbench = mode == "workbench" or (mode == "auto" and software_gl)
     if use_workbench:
         scene.render.engine = "BLENDER_WORKBENCH"
