@@ -474,6 +474,7 @@ def _render_blender_frames(frames: Path, fmt: str, width: int, height: int,
     reader.start()
     last_output = time.monotonic()
     last_heartbeat = 0.0
+    highest_reported_progress = 18
     idle_timeout = int(os.getenv("ANIMA_BLENDER_IDLE_TIMEOUT", "900"))
     total_timeout = int(os.getenv("ANIMA_BLENDER_TOTAL_TIMEOUT", "10800"))
     started = time.monotonic()
@@ -499,9 +500,14 @@ def _render_blender_frames(frames: Path, fmt: str, width: int, height: int,
                     )
                 if progress_callback and time.monotonic() - last_heartbeat >= 30:
                     last_heartbeat = time.monotonic()
+                    rendered_count = len(list(frames.glob("frame-*.png")))
+                    if rendered_count:
+                        mapped_frames = 18 + int(73 * rendered_count / max(1, total_frames))
+                        highest_reported_progress = max(highest_reported_progress, min(91, mapped_frames))
                     progress_callback(
-                        18,
+                        highest_reported_progress,
                         f"Blender trabalhando na montagem/renderização 3D; "
+                        f"{rendered_count}/{total_frames} quadros disponíveis; "
                         f"última saída há {int(idle)}s."
                     )
                 continue
@@ -519,12 +525,14 @@ def _render_blender_frames(frames: Path, fmt: str, width: int, height: int,
                     _, pct, message = line.split(":", 2)
                     if progress_callback:
                         mapped = 14 + int(float(pct) * 0.77)
-                        progress_callback(mapped, message)
+                        highest_reported_progress = max(highest_reported_progress, mapped)
+                        progress_callback(highest_reported_progress, message)
                 except (ValueError, TypeError):
                     pass
             elif line.startswith("ANIMA_BOOT:"):
                 if progress_callback:
-                    progress_callback(16, line.replace("ANIMA_BOOT:", "").strip())
+                    highest_reported_progress = max(highest_reported_progress, 16)
+                    progress_callback(highest_reported_progress, line.replace("ANIMA_BOOT:", "").strip())
         code = process.wait(timeout=30)
         if code:
             raise RuntimeError("Blender 3D falhou: " + " | ".join(tail[-12:]))
