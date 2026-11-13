@@ -53,5 +53,17 @@ O Anima Studio detecta automaticamente a ausência do Blender na inicialização
 
 Desative a recuperação automática com `ANIMA_AUTO_INSTALL_BLENDER=0`. A solução definitiva e mais rápida continua sendo configurar o iContainer para **construir e usar a imagem do Dockerfile**, que já contém o Blender pronto. Não remova o volume de episódios existente ao migrar a aplicação.
 
+## Diagnóstico e desempenho do Cartoon 3D no iContainer
+
+A renderização pode demorar muito com Eevee sem GPU. O motor detecta OpenGL por software (`llvmpipe`) e usa **Blender Workbench com materiais, luz de estúdio e geometria 3D real** quando `ANIMA_3D_RENDER_MODE=auto`. Workbench é um estilo de renderização 3D mais leve, visualmente diferente do Eevee; não é o antigo motor 2D. Para forçar a iluminação Eevee, configure `ANIMA_3D_RENDER_MODE=eevee` e providencie GPU/OpenGL compatíveis.
+
+- `ANIMA_CARTOON_CAPTURE_FPS=12`: gera doze poses 3D distintas por segundo e codifica o vídeo final a 24 fps (repetição de quadros). Aumentar para 24 melhora a fluidez, mas exige o dobro dos quadros. A qualidade espacial das imagens não muda com a taxa de poses.
+- `ANIMA_EARLY_PREVIEW=1`: renderiza uma primeira imagem 3D reduzida assim que a cena estiver montada e disponibiliza na prévia ao vivo.
+- `ANIMA_FIRST_FRAME_TIMEOUT=360`: encerra uma tentativa que não consegue produzir sequer o primeiro quadro dentro de seis minutos, com erro explicativo; `ANIMA_BLENDER_TOTAL_TIMEOUT` controla o limite total.
+- `GET /api/jobs/{id}/render-status`: retorna o estado da renderização, total de quadros disponíveis, indicação de prévia pronta e últimas mensagens técnicas.
+- Arquivos `render-log-9x16.txt` ou `render-log-16x9.txt` ficam no diretório persistente do episódio, facilitando o diagnóstico sem depender do fluxo de acessos HTTP do painel.
+
+A produção continua exclusivamente em Cartoon 3D. Este modo de recuperação prioriza conseguir renderizar na VPS, **não substitui uma GPU dedicada nem garante renderização de episódios completos em poucos minutos**. Alterações no GitHub só se aplicam à aplicação quando o iContainer recebe o novo código e reinicia seu container.
+
 ## Segurança
 Antes de expor o painel publicamente, configure autenticação, HTTPS, proteção dos endpoints e limites de uso. Nunca envie credenciais OAuth ou youtube-token.json para o Git.
