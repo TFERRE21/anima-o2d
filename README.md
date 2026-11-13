@@ -53,6 +53,17 @@ O Anima Studio detecta automaticamente a ausência do Blender na inicialização
 
 Desative a recuperação automática com `ANIMA_AUTO_INSTALL_BLENDER=0`. A solução definitiva e mais rápida continua sendo configurar o iContainer para **construir e usar a imagem do Dockerfile**, que já contém o Blender pronto. Não remova o volume de episódios existente ao migrar a aplicação.
 
+## Evolução do motor artístico: ilustração por IA + animação
+
+O motor atual Blender ainda cria modelos geométricos. A nova arquitetura separa **direção de arte** de **movimento**. `backend/app/art_director.py` já gera, para cada história, instruções de arte com referências oficiais e identidade travada de Luna, Tomi e Pipo. Consulte `GET /api/jobs/{job_id}/art-plan` depois de gerar um roteiro.
+
+A criação das imagens finais precisa de um gerador conectado (por exemplo, o agente ComfyUI da estação RX 580, descrito em `docs/integracao-comfyui.md`) e revisão visual. Essas imagens **ainda não são usadas automaticamente pelo renderizador de episódios**: nesta etapa implementamos a direção de arte, não um sistema completo de corte em camadas e rig. A qualidade e a identidade dos personagens precisam ser aprovadas antes da integração definitiva ao Blender. Uma imagem plana serve para parallax/câmera, mas não oferece movimentos realistas de braços, boca e pernas sem camadas, poses ou uma malha/rig próprio.
+
+### Blender 3.4 / falha nativa
+Se ocorrer `Segmentation fault` logo após `ANIMA_ART_VERSION`, há suspeita de incompatibilidade do Blender/OpenGL no container. Uma consulta nativa a `gpu.platform.renderer_get()` foi removida do processo em segundo plano, e a limpeza da cena não depende mais de operadores de seleção. Essa mudança reduz pontos de risco **mas não garante eliminar** outras falhas do Blender. Verifique `/tmp/blender.crash.txt` no container, os eventos `ANIMA_BOOT` e se a aplicação utiliza uma imagem Docker compatível com GPU/OpenGL.
+
+O acesso ao ChatGPT Plus não inclui créditos de API ou acesso automático à execução de modelos de geração de imagens na VPS.
+
 ## Diagnóstico e desempenho do Cartoon 3D no iContainer
 
 A renderização pode demorar muito com Eevee sem GPU. O motor detecta OpenGL por software (`llvmpipe`) e usa **Blender Workbench com materiais, luz de estúdio e geometria 3D real** quando `ANIMA_3D_RENDER_MODE=auto`. Workbench é um estilo de renderização 3D mais leve, visualmente diferente do Eevee; não é o antigo motor 2D. Para forçar a iluminação Eevee, configure `ANIMA_3D_RENDER_MODE=eevee` e providencie GPU/OpenGL compatíveis.
