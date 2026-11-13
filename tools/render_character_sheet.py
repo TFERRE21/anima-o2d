@@ -51,3 +51,12 @@ gd.text((58, HEADER_H + CARD_H + 43), "CENA DE GRUPO • MOTOR REAL", font=_font
 
 sheet.save(OUT, format="PNG", optimize=True)
 print(f"Imagem gerada pelo motor real: {OUT}")
+
+
+# Portrait proof: render through the same native 9:16 function used by Shorts.
+from backend.app.cartoon2d import _draw_portrait_story_scene
+
+shorts = _draw_portrait_story_scene(2.4, "AURORA-7", "aurora", 4, "walk", "Luna")
+shorts_path = ROOT / "docs" / "images" / "shorts-preview-native.png"
+shorts.save(shorts_path, format="PNG", optimize=True)
+print(f"Prévia vertical nativa gerada: {shorts_path}")
