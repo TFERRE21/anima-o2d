@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Central de Arte · Anima Studio</title><style>
+:root{color-scheme:dark;font:15px system-ui,-apple-system,sans-serif;background:#080e1c;color:#eff5ff}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at 80% -20%,#1b3868,transparent 45%),#080e1c}
+main{max-width:1050px;margin:auto;padding:24px}h1{font-size:27px;margin:0}h2{font-size:18px}p{line-height:1.6}
+.card{background:#111d31;border:1px solid #304462;border-radius:16px;padding:20px;margin:16px 0}
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.row{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+label{font-size:13px;color:#b8cbe8;display:block;margin-bottom:6px}input,select{width:100%;padding:11px;background:#091425;border:1px solid #415575;color:#f2f7ff;border-radius:9px}
+button,.link{display:inline-block;padding:11px 15px;border:0;border-radius:10px;background:#74b5ff;color:#07162c;font-weight:800;cursor:pointer;text-decoration:none}
+button.secondary,.link.secondary{background:#253c5b;color:#e5f0ff}button:disabled{opacity:.45;cursor:not-allowed}
+.status{border:1px solid #29476c;background:#0a1728;padding:14px;border-radius:10px;white-space:pre-wrap;line-height:1.5}
+.muted{color:#a0b5d1;font-size:13px}.ok{color:#8ef2ca}.missing{color:#ffd28c}
+.asset{padding:9px 12px;border:1px solid #314764;border-radius:10px;background:#0b182b;display:flex;justify-content:space-between;gap:12px;margin:5px 0}
+.task{padding:12px;border-top:1px solid #293c59}.task strong{display:block}.task .row{margin-top:8px}
+#artPreview{display:none;max-width:100%;max-height:440px;object-fit:contain;background:#223049;border-radius:10px;border:1px solid #485c7c}
+@media(max-width:690px){main{padding:12px}.grid{grid-template-columns:1fr}}
+</style></head><body><main>
+<div class="row" style="justify-content:space-between"><div><p class="muted">PEQUENOS GUARDIÕES · PRODUÇÃO DE ARTE</p><h1>Central de Arte Cartoon</h1><p class="muted">Primeiro a IA desenha; depois você aprova a identidade e o Blender anima as imagens.</p></div><a class="link secondary" href="/">Voltar ao estúdio</a></div>
+<div class="card"><h2>Conexão com o gerador</h2><div class="grid"><div><label>Token do agente ComfyUI (ANIMA_COMFY_TOKEN)</label><input id="token" type="password" autocomplete="off"></div><div><label>Episódio</label><select id="job"><option>Carregando episódios…</option></select></div><div><label>Formato visual</label><select id="fmt"><option value="9:16">Shorts vertical · 9:16</option><option value="16:9">YouTube horizontal · 16:9</option></select></div><div><label>Gerador no computador</label><div class="status" id="workerStatus">Ainda não verificado</div></div></div>
+<div class="row" style="margin-top:14px"><button id="refresh" class="secondary">Atualizar estado</button><button id="generate">Gerar imagens que faltam</button></div><p class="muted">O motor não inventa bonecos se faltar uma arte. Para gerar novas imagens, o agente ComfyUI precisa estar conectado. Personagens gerados com fundo branco são recortados na aprovação, quando possível.</p></div>
+<div class="grid"><div class="card"><h2>Materiais aprovados</h2><div id="assets">Selecione um episódio.</div></div>
+<div class="card"><h2>Enviar sua própria arte</h2><p class="muted">Personagem: PNG transparente de corpo inteiro. Cenário: PNG na proporção do vídeo.</p><label>Material a enviar</label><select id="asset"></select><label style="margin-top:14px">Arquivo PNG</label><input id="file" type="file" accept="image/png"><button id="upload" style="margin-top:15px">Aprovar e salvar imagem</button></div></div>
+<div class="card"><h2>Revisar artes criadas pelo ComfyUI</h2><p class="muted">As imagens geradas são candidatas. Veja o resultado antes de aprovar. Após aprovar os personagens e todos os cenários necessários, o episódio poderá ser renderizado.</p><div class="grid"><div id="tasks">Nenhuma tarefa.</div><div><img id="artPreview" alt="Imagem gerada para revisão"><p id="previewInfo" class="muted"></p></div></div></div>
+<div class="card"><h2>Andamento</h2><div class="status" id="message">Abra um episódio para consultar os materiais necessários.</div></div>
+</main><script>
+const $=id=>document.getElementById(id);
+let selectedJob=null;
+let currentState=null;
+let token=sessionStorage.getItem('anima_comfy_token')||'';
+$('token').value=token;
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function auth(){token=$('token').value.trim();if(!token)throw Error('Informe o token do ComfyUI.');sessionStorage.setItem('anima_comfy_token',token);return {'Authorization':'Bearer '+token}}
+async function fetchJson(url,opts={}){const res=await fetch(url,opts);const data=await res.json();if(!res.ok){let msg=data.detail??data.reason??'Falha ao consultar';if(typeof msg!=='string')msg=msg.reason||JSON.stringify(msg);throw Error(msg)}return data}
+function message(t){$('message').textContent=t}
+async function jobs(){const data=await fetchJson('/api/jobs');const all=data.jobs.filter(x=>x.story_plan);$('job').innerHTML=all.map(x=>'<option value="'+esc(x.id)+'">'+esc(x.title)+' · '+esc(x.id)+'</option>').join('');if(!all.length)$('job').innerHTML='<option>Crie um roteiro no painel principal primeiro</option>';const qs=new URLSearchParams(location.search);const wanted=qs.get('job');if(wanted&&all.some(x=>x.id===wanted))$('job').value=wanted;selectedJob=$('job').value||null}
+async function refresh(){selectedJob=$('job').value;if(!selectedJob)return;try{currentState=await fetchJson('/api/jobs/'+encodeURIComponent(selectedJob)+'/art/status?fmt='+encodeURIComponent($('fmt').value));
+ const state=currentState;$('assets').innerHTML=state.required.map(id=>'<div class="asset"><span>'+esc(id)+'</span><span class="'+(state.approved[id]?'ok':'missing')+'">'+(state.approved[id]?'APROVADO':'FALTANDO')+'</span></div>').join('');
+ $('asset').innerHTML=state.required.map(id=>'<option value="'+esc(id)+'">'+esc(id)+'</option>').join('');
+ message(state.ready?'TODAS AS IMAGENS ESTÃO APROVADAS. Pode voltar ao estúdio e renderizar.':'Ainda faltam '+state.missing.length+' imagens. Gere, revise e aprove antes do vídeo.');
+ try{const w=await fetchJson('/api/comfy/status',{headers:auth()});$('workerStatus').textContent=w.connected?'Conectado · '+w.workers.join(', '):'Desconectado · abra o agente no Windows';await tasks()}catch(e){$('workerStatus').textContent='ComfyUI: '+e.message}
+}catch(e){message(e.message)}}
+async function tasks(){const data=await fetchJson('/api/comfy/tasks',{headers:auth()});const relevant=data.tasks.filter(t=>t.job_id===selectedJob);$('tasks').innerHTML=relevant.length?relevant.map(t=>'<div class="task"><strong>'+esc(t.asset_id)+' · '+esc(t.status)+'</strong><div class="muted">'+esc(t.message||t.id)+'</div><div class="row">'+(t.image_file?'<button class="secondary" data-view="'+esc(t.id)+'">Ver imagem</button><button data-approve="'+esc(t.id)+'">Aprovar</button>':'')+'</div></div>').join(''):'Nenhuma imagem gerada para este episódio nesta sessão.';for(const b of $('tasks').querySelectorAll('[data-view]'))b.onclick=()=>view(b.dataset.view);for(const b of $('tasks').querySelectorAll('[data-approve]'))b.onclick=()=>approve(b.dataset.approve)}
+async function view(id){try{const response=await fetch('/api/comfy/tasks/'+encodeURIComponent(id)+'/image',{headers:auth()});if(!response.ok)throw Error('Imagem ainda não disponível.');const blob=await response.blob();const image=$('artPreview');if(image.dataset.objectUrl)URL.revokeObjectURL(image.dataset.objectUrl);image.dataset.objectUrl=URL.createObjectURL(blob);image.src=image.dataset.objectUrl;image.style.display='block';$('previewInfo').textContent='Confira rosto, roupa, proporções e cenário antes de aprovar.'}catch(e){message(e.message)}}
+async function approve(id){try{message('Validando e salvando imagem aprovada…');const d=await fetchJson('/api/jobs/'+encodeURIComponent(selectedJob)+'/art/approve/'+encodeURIComponent(id),{method:'POST',headers:auth()});message('Arte aprovada: '+d.record.asset_id);await refresh()}catch(e){message('Não foi possível aprovar: '+e.message)}}
+$('generate').onclick=async()=>{try{$('generate').disabled=true;message('Enviando imagens pendentes para o ComfyUI…');const d=await fetchJson('/api/jobs/'+encodeURIComponent(selectedJob)+'/art/generate',{method:'POST',headers:{...auth(),'Content-Type':'application/json'},body:JSON.stringify({format:$('fmt').value})});message(d.queued+' tarefas enviadas ao ComfyUI. Confira os resultados antes de aprovar.');await tasks()}catch(e){message(e.message)}finally{$('generate').disabled=false}};
+$('upload').onclick=async()=>{try{const file=$('file').files[0];if(!file)throw Error('Selecione um arquivo PNG.');const asset=$('asset').value;message('Verificando transparência e dimensões…');const data=await fetchJson('/api/jobs/'+encodeURIComponent(selectedJob)+'/art/upload/'+encodeURIComponent(asset)+'?fmt='+encodeURIComponent($('fmt').value),{method:'POST',headers:{...auth(),'Content-Type':'image/png'},body:file});message('Arte aprovada: '+data.record.asset_id);await refresh()}catch(e){message(e.message)}};
+$('refresh').onclick=refresh;$('job').onchange=refresh;$('fmt').onchange=refresh;
+(async()=>{try{await jobs();await refresh()}catch(e){message(e.message)}})();
+</script></body></html>
