@@ -46,8 +46,8 @@ def _scene_name(index: int) -> str:
 
 
 def _safe_text(value: object, limit: int = 450) -> str:
-    text = re.sub(r"[\\r\\n\\t]+", " ", str(value or "")).strip()
-    return re.sub(r"\\s{2,}", " ", text)[:limit]
+    text = re.sub(r"[\r\n\t]+", " ", str(value or "")).strip()
+    return re.sub(r"\s{2,}", " ", text)[:limit]
 
 
 def create_art_plan(story: dict, fmt: str = "9:16") -> dict:
