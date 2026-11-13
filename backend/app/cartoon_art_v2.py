@@ -77,12 +77,12 @@ def build_human(name, kind, origin, size, G, profiles):
 
     # Natural child shape, narrower shoulders, longer legs and smaller head
     # relative to body. No superhero breastplate, jetpack, gloves or bobble eyes.
-    sphere(name + " natural cotton jacket", root, (0, 0.02, 1.44), (0.38, 0.29, 0.56), jacket, 30, 20)
-    sphere(name + " cream inner shirt", root, (0, -0.259, 1.53), (0.22, 0.040, 0.43), shirt, 24, 14)
+    sphere(name + " natural cotton jacket", root, (0, 0.02, 1.44), (0.33, 0.26, 0.52), jacket, 30, 20)
+    sphere(name + " cream inner shirt", root, (0, -0.237, 1.76), (0.16, 0.030, 0.17), shirt, 24, 14)
     sphere(name + " jacket collar left", root, (-0.18, -0.22, 1.90), (0.12, 0.09, 0.18), jacket_edge, 18, 12)
     sphere(name + " jacket collar right", root, (0.18, -0.22, 1.90), (0.12, 0.09, 0.18), jacket_edge, 18, 12)
     if is_luna:
-        sphere(name + " soft flared tunic", root, (0, 0.01, 1.01), (0.47, 0.35, 0.27), jacket, 26, 16)
+        sphere(name + " soft flared tunic", root, (0, 0.01, 1.01), (0.40, 0.31, 0.23), jacket, 26, 16)
         _line(name + " jacket seam", root, [(0, -0.299, 1.88), (0, -0.304, 1.51), (0, -0.322, 1.23)], shirt, 0.008)
     else:
         # The short explorer scarf is a recognizable part of Tomi's outfit.
@@ -103,19 +103,19 @@ def build_human(name, kind, origin, size, G, profiles):
     arms = []
     for index, xx in enumerate((-0.395, 0.395)):
         arm = pivot(root, name + " animated arm " + str(index), (xx, 0.02, 1.78))
-        sphere(name + " fabric upper sleeve " + str(index), arm, (0, 0, -0.23), (0.17, 0.19, 0.33), jacket, 20, 14)
-        sphere(name + " fitted sleeve " + str(index), arm, (0, -0.01, -0.53), (0.135, 0.16, 0.29), jacket, 18, 12)
+        sphere(name + " continuous cloth sleeve " + str(index), arm, (0, -0.005, -0.40), (0.14, 0.155, 0.54), jacket, 24, 16)
         sphere(name + " cloth cuff " + str(index), arm, (0, -0.015, -0.74), (0.14, 0.165, 0.09), jacket_edge, 16, 12)
         sphere(name + " warm little hand " + str(index), arm, (0, -0.045, -0.82), (0.14, 0.14, 0.17), skin, 18, 12)
         arms.append(arm)
 
     sphere(name + " simple neck", root, (0, 0, 2.06), (0.16, 0.17, 0.23), skin, 20, 14)
     head = pivot(root, name + " expressive head", (0, -0.055, 2.49))
+    head.scale = (0.90, 0.90, 0.90)
     # One calm rounded face, not multiple protruding cheek/pupil balls.
     sphere(name + " smoothly rounded face", head, (0, 0, -0.07), (0.55, 0.44, 0.59), skin, 40, 28)
     sphere(name + " small chin shape", head, (0, -0.22, -0.39), (0.24, 0.15, 0.13), skin, 22, 14)
     for side, xx in ((-1, -0.54), (1, 0.54)):
-        sphere(name + " little ear " + str(side), head, (xx, -0.01, -0.12), (0.09, 0.085, 0.15), skin, 16, 12)
+        sphere(name + " little ear " + str(side), head, (xx, -0.01, -0.12), (0.065, 0.065, 0.11), skin, 16, 12)
 
     # Silhouette-led hair sculpt: chestnut bob with a swept bang / side part.
     sphere(name + " sculpted hair volume", head, (0, 0.075, 0.29), (0.565, 0.44, 0.38), hair, 34, 24)
@@ -143,19 +143,19 @@ def build_human(name, kind, origin, size, G, profiles):
     # of face width, without bulging eye rings or oversized sparkles.
     for side, xx in ((-1, -0.19), (1, 0.19)):
         sphere(name + " ivory almond eye " + str(side), head,
-               (xx, -0.432, 0.03), (0.107, 0.026, 0.079), whites, 24, 16)
+               (xx, -0.432, 0.03), (0.082, 0.020, 0.064), whites, 24, 16)
         sphere(name + " understated iris " + str(side), head,
-               (xx + 0.006, -0.460, 0.028), (0.050, 0.013, 0.055), iris, 20, 14)
+               (xx + 0.006, -0.460, 0.028), (0.035, 0.011, 0.039), iris, 20, 14)
         sphere(name + " fine pupil " + str(side), head,
-               (xx + 0.006, -0.475, 0.028), (0.024, 0.010, 0.034), pupil, 18, 12)
+               (xx + 0.006, -0.475, 0.028), (0.019, 0.008, 0.025), pupil, 18, 12)
         _line(name + " gentle upper eyelid " + str(side), head,
-              [(xx - 0.106, -0.441, 0.07), (xx, -0.464, 0.109), (xx + 0.10, -0.441, 0.069)],
+              [(xx - 0.088, -0.428, 0.067), (xx, -0.451, 0.090), (xx + 0.087, -0.428, 0.067)],
               hair, 0.010)
         _line(name + " eyebrows " + str(side), head,
-              [(xx - 0.105, -0.419, 0.205), (xx, -0.442, 0.22), (xx + 0.105, -0.419, 0.20)],
+              [(xx - 0.088, -0.411, 0.185), (xx, -0.428, 0.206), (xx + 0.088, -0.411, 0.185)],
               hair, 0.012)
-    sphere(name + " tiny natural nose", head, (0, -0.470, -0.17),
-           (0.045, 0.035, 0.045), skin_shadow, 16, 12)
+    sphere(name + " tiny natural nose", head, (0, -0.452, -0.17),
+           (0.026, 0.018, 0.026), skin, 16, 12)
     _line(name + " relaxed smiling mouth curve", head,
           [(-0.12, -0.399, -0.315), (-0.06, -0.439, -0.34),
            (0, -0.452, -0.347), (0.06, -0.439, -0.34), (0.12, -0.399, -0.315)],
@@ -167,9 +167,11 @@ def build_human(name, kind, origin, size, G, profiles):
                 sphere(name + " freckle " + str(sign) + str(i), head,
                        (sign * (0.29 + i * 0.036), -0.384 + i * 0.025, -0.16 + (i % 2) * 0.026),
                        (0.012, 0.006, 0.011), freckles, 10, 8)
-    # Animated low-profile vowel opening behind the static smile line.
+    # The speech mesh is invisible when the character is not speaking.
+    # A small curve supplies the resting smile without a circular lip blob.
     mouth = sphere(name + " speech viseme", head, (0, -0.451, -0.35),
-                   (0.056, 0.014, 0.025), smile_color, 18, 12)
+                   (0.044, 0.012, 0.023), smile_color, 18, 12)
+    mouth.hide_render = True
     tongue = None
     return {
         "root": root, "head": head, "mouth": mouth, "tongue": tongue,
@@ -206,7 +208,7 @@ def build_dog(origin, size, G, profiles):
 
     head = pivot(root, "Pipo expressive puppy head", (0, -0.47, 1.35))
     sphere("Pipo genuine rounded dog face", head, (0, 0, -0.045),
-           (0.43, 0.38, 0.43), fur, 32, 24)
+           (0.41, 0.38, 0.40), fur, 32, 24)
     sphere("Pipo white blaze", head, (0, -0.321, 0.07),
            (0.17, 0.065, 0.25), cream, 24, 16)
     for sign in (-1, 1):
@@ -273,7 +275,7 @@ def dress_stage(cx, biome, G):
         middle = _color("Storybook shore grass", (0.43, 0.67, 0.56, 1))
     if desert:
         ground = _color("Storybook desert clay", (0.84, 0.62, 0.43, 1))
-    cloud = _color("Storybook ivory clouds", (0.98, 0.96, 0.86, 1))
+    cloud = _color("Storybook ivory clouds", (0.99, 0.98, 0.94, 1))
     leaf = _color("Storybook jade canopy", (0.22, 0.53, 0.38, 1))
     leaf_alt = _color("Storybook chartreuse foliage", (0.48, 0.70, 0.42, 1))
     bark = _color("Storybook tree bark", (0.37, 0.25, 0.18, 1))
@@ -287,11 +289,11 @@ def dress_stage(cx, biome, G):
                (3.9, 1.15, 2.15), distant, 22, 16)
         sphere("Storybook meadow ridge " + str(i), None, (xx + 0.6, 5.8, 0.56 + (i % 3) * 0.2),
                (3.4, 1.2, 1.25), middle, 22, 16)
-    for i, (xx, zz) in enumerate(((-6.3, 5.9), (-3.0, 6.3), (2.7, 6.6), (6.5, 5.95))):
+    for i, (xx, zz) in enumerate(((-5.6, 6.2), (4.2, 6.3))):
         for j, offset in enumerate((-0.50, 0, 0.6)):
             sphere("Storybook drifting cloud " + str(i) + "-" + str(j), None,
-                   (cx + xx + offset, 9.1, zz + (0.1 if j == 1 else 0.0)),
-                   (0.72, 0.32, 0.31 + (0.13 if j == 1 else 0)), cloud, 18, 12)
+                   (cx + xx + offset, 9.65, zz + (0.1 if j == 1 else 0.0)),
+                   (0.53, 0.21, 0.23 + (0.08 if j == 1 else 0)), cloud, 18, 12)
     # Trees stay to the edges so actors and facial expressions remain readable.
     if not (desert or snow or sea):
         for i, xx in enumerate((-7.5, -5.1, 5.3, 7.7)):
