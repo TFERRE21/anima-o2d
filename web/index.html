@@ -290,8 +290,23 @@ function watchJob(id){
    preview.onerror=()=>{preview.style.display='none';$('activeJobPreviewPlaceholder').style.display='block';};
    preview.onload=()=>{preview.style.display='block';$('activeJobPreviewPlaceholder').style.display='none';};
    if(j.status==='processing'){
-    preview.src='/api/jobs/'+encodeURIComponent(id)+'/preview/'+encodeURIComponent(fmt)+'?t='+Date.now();
-    $('previewLiveBadge').textContent='AO VIVO';
+    $('previewLiveBadge').textContent='PROCESSANDO 3D';
+    try{
+     const sr=await fetch('/api/jobs/'+encodeURIComponent(id)+'/render-status',{cache:'no-store'});
+     if(sr.ok){
+      const state=await sr.json();
+      if(state.preview_ready){
+       preview.src='/api/jobs/'+encodeURIComponent(id)+'/preview/'+encodeURIComponent(fmt)+'?t='+Date.now();
+       $('previewLiveBadge').textContent='AO VIVO';
+      }else{
+       preview.style.display='none';
+       $('activeJobPreviewPlaceholder').style.display='block';
+       $('activeJobPreviewPlaceholder').textContent=state.frames_generated
+         ?'Blender renderizando · '+state.frames_generated+' quadros. Preparando prévia…'
+         :'Montando a primeira imagem Cartoon 3D. Nenhum quadro disponível ainda.';
+      }
+     }
+    }catch(err){console.warn('Diagnóstico de render indisponível:',err);}
    }else if(j.status==='done'){
     $('previewLiveBadge').textContent='FINALIZADO';
    }else if(j.status==='failed'){
