@@ -360,7 +360,7 @@ def _render_blender_frames_remote(frames: Path, config: dict, progress_callback=
 def _render_blender_frames(frames: Path, fmt: str, width: int, height: int,
                           total_frames: int, scene_list: list, scene_source_indices: list,
                           plan: dict, voice_timeline: list, progress_callback=None) -> None:
-    remote_worker = True  # Never fall back to VPS CPU/local rendering for episodes.
+    remote_worker = False  # Production now uses the installed Blender binary in the 3D Cartoon runtime.
     runtime = find_blender_runtime()
     if not runtime and not remote_worker:
         raise RuntimeError(
@@ -657,7 +657,7 @@ def render_episode(title: str, story: str, fmt: str, output: Path, workdir: Path
     for item in voice_timeline:
         item["start"] /= timeline_scale
         item["end"] /= timeline_scale
-    width, height = (360, 640) if portrait else (640, 360)
+    width, height = (480, 854) if portrait else (854, 480)
     frames = workdir / f"frames-{fmt.replace(':','x')}"
     frames.mkdir(parents=True, exist_ok=True)
 
@@ -689,7 +689,7 @@ def render_episode(title: str, story: str, fmt: str, output: Path, workdir: Path
 
     scene_count = len(render_scenes)
     total_frames = max(1, int(math.ceil(duration_seconds * FPS)))
-    engine = "2d"
+    engine = "3d"
     if engine == "3d":
         _render_blender_frames(
             frames, fmt, width, height, total_frames,
@@ -737,7 +737,7 @@ def render_episode(title: str, story: str, fmt: str, output: Path, workdir: Path
         "narration_seconds": round(fitted_duration, 2),
         "resolution": "1080x1920" if portrait else "1920x1080",
         "scene_count": scene_count,
-        "render_engine": "Cartoon 2D vetorial",
+        "render_engine": "Blender 3D Cartoon infantil",
         "narration_word_count": sum(len(str(item.get("text", "")).split()) for item in audio_segments),
         "speakers": sorted({str(item.get("speaker", "Narrador")) for item in audio_segments}),
         "voice_profiles_file": str(VOICE_PROFILE_FILE),
