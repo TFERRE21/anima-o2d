@@ -108,6 +108,10 @@ class RenderDurationTests(unittest.TestCase):
 
             self.assertTrue(long_video.exists())
             self.assertTrue(short_video.exists())
+            # An authentic low-resolution 3D still must be visible before the
+            # complete animation (both video formats) is finished.
+            self.assertTrue((root / "preview-16x9.jpg").is_file())
+            self.assertTrue((root / "preview-9x16.jpg").is_file())
             self.assertGreater(long_result["duration_seconds"], 300)
             self.assertLessEqual(long_result["duration_seconds"], 600)
             self.assertTrue({"Luna", "Tomi", "Pipo", "Narrador"}.issubset(set(long_result["speakers"])))
