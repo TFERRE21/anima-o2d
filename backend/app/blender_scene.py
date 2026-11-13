@@ -597,13 +597,15 @@ def render(config: dict):
 
     report(5, "Carregando Cartoon Storybook 3D v2: novos personagens e cenários.")
     print("ANIMA_ART_VERSION:" + ART_VERSION, flush=True)
-    bpy.ops.object.select_all(action="SELECT")
-    bpy.ops.object.delete(use_global=False)
+    # Background Blender 3.4 in generic iContainer runtimes may crash in
+    # OpenGL queries even before the first render. Keep this path context-free.
+    print("ANIMA_BOOT: preparing clean Blender data", flush=True)
+    for object_ in tuple(bpy.data.objects):
+        bpy.data.objects.remove(object_, do_unlink=True)
     scene = bpy.context.scene
-    engine_ids = {
-        item.identifier
-        for item in bpy.types.RenderSettings.bl_rna.properties["engine"].enum_items
-    }
+    print("ANIMA_BOOT: scene cleared, choosing renderer", flush=True)
+    # Avoid low-level enum and GPU queries on headless OpenGL drivers.
+    engine_ids = ("BLENDER_EEVEE_NEXT", "BLENDER_EEVEE")
     # A hosted VPS commonly exposes Mesa llvmpipe instead of a physical GPU.
     # Eevee may spend minutes compiling its first frame on software OpenGL.
     # Workbench is a genuine 3D mesh renderer and offers an optional lightweight
@@ -611,33 +613,27 @@ def render(config: dict):
     mode = os.getenv("ANIMA_3D_RENDER_MODE", "auto").strip().lower()
     if mode not in {"auto", "eevee", "workbench"}:
         raise ValueError("ANIMA_3D_RENDER_MODE deve ser auto, eevee ou workbench")
-    gpu_renderer = "unknown"
-    try:
-        import gpu
-        gpu_renderer = str(gpu.platform.renderer_get())
-    except Exception as exc:
-        print("ANIMA_GPU_PROBE_WARNING:" + str(exc), flush=True)
-    software_gl = any(token in gpu_renderer.lower() for token in
-                      ("llvmpipe", "softpipe", "software", "swrast", "lavapipe"))
-    # Headless iContainer without a mapped GPU should not run the full Eevee
-    # pipeline when OpenGL device detection is unavailable.
+    # Never import Blender's gpu module here: gpu.platform.renderer_get()
+    # can segfault (signal 11) in Blender 3.4 with Mesa and no GL context.
+    gpu_renderer = "not-probed-headless-safe"
     has_render_device = Path("/dev/dri").is_dir() and any(Path("/dev/dri").glob("renderD*"))
     nvidia_device = os.getenv("NVIDIA_VISIBLE_DEVICES", "").strip().lower()
     has_nvidia_device = nvidia_device not in {"", "none", "void"}
-    if gpu_renderer == "unknown" and not (has_render_device or has_nvidia_device):
-        software_gl = True
+    software_gl = not (has_render_device or has_nvidia_device)
+    print("ANIMA_BOOT: safe GPU path selected; software_gl=" + str(software_gl), flush=True)
     use_workbench = mode == "workbench" or (mode == "auto" and software_gl)
     if use_workbench:
         scene.render.engine = "BLENDER_WORKBENCH"
         report(7, "Renderizador 3D Cartoon leve: GPU física indisponível; usando Workbench com iluminação de estúdio.")
-    elif "BLENDER_EEVEE_NEXT" in engine_ids:
-        scene.render.engine = "BLENDER_EEVEE_NEXT"
-        report(7, "Renderizador Cartoon 3D Eevee selecionado.")
-    elif "BLENDER_EEVEE" in engine_ids:
-        scene.render.engine = "BLENDER_EEVEE"
-        report(7, "Renderizador Cartoon 3D Eevee selecionado.")
     else:
-        raise RuntimeError("Blender não possui Eevee. Configure ANIMA_3D_RENDER_MODE=workbench para renderização 3D leve.")
+        # Eevee's engine identifier differs between Blender 3.4 and 4.2+.
+        engine_id = "BLENDER_EEVEE_NEXT" if bpy.app.version >= (4, 2, 0) else "BLENDER_EEVEE"
+        try:
+            scene.render.engine = engine_id
+        except TypeError as exc:
+            raise RuntimeError("A versão instalada do Blender não suporta o Eevee esperado. "
+                               "Use ANIMA_3D_RENDER_MODE=workbench no iContainer.") from exc
+        report(7, "Renderizador Cartoon 3D Eevee selecionado.")
     print("ANIMA_RENDER_DEVICE:" + json.dumps({
         "opengl_renderer": gpu_renderer,
         "software_gl": software_gl,
