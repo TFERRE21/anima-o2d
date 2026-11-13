@@ -93,7 +93,7 @@ def disabled_2d_preview_file(filename: str):
 @app.get("/api/health")
 def health():
     return {
-        "status": "ok", "app": settings.app_name, "version": "1.0.0",
+        "status": "ready" if blender_available() else "degraded", "app": settings.app_name, "version": "1.0.0",
         "runtime": "cartoon-3d-production",
         "container_runtime": "docker" if Path("/.dockerenv").exists() else "unknown",
         "python_version": sys.version.split()[0], "port": int(os.getenv("PORT", "5000")),
@@ -134,7 +134,7 @@ def diagnostics():
         "storage_path": str(STORAGE.resolve()),
         "storage_writable": os.access(STORAGE, os.W_OK),
         "blender_required": True, "blender_available": blender_available(), "bpy_required": False,
-        "gpu_rendering": "ComfyUI para ativos visuais; AMD AMF quando suportado pelo FFmpeg local",
+        "gpu_rendering": "Blender Eevee; CPU no servidor por padrão. GPU somente após configuração e validação do dispositivo.",
     }
 
 
