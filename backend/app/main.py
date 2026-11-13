@@ -19,6 +19,7 @@ from pydantic import BaseModel, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from backend.app.worlds import WORLDS, build_episode_plan
 from backend.app.runtime import blender_available, find_blender_runtime
+from backend.app.blender_bootstrap import start_blender_bootstrap, blender_bootstrap_status
 from backend.app.engines.registry import selected_render_engine
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -100,6 +101,7 @@ def health():
         "ffmpeg": _has("ffmpeg"), "tts": _has("tts"),
         "storage_writable": os.access(STORAGE, os.W_OK),
         "render_engine": "anima-cartoon-3d",
+        "blender_bootstrap": blender_bootstrap_status(),
     }
 
 
@@ -112,7 +114,10 @@ def legacy_health_2d():
 def health_3d():
     runtime = find_blender_runtime()
     if not _has("ffmpeg") or not _has("tts") or not os.access(STORAGE, os.W_OK) or not runtime:
-        raise HTTPException(503, "Motor Cartoon 3D indisponível: confira Blender, FFmpeg, voz e armazenamento.")
+        raise HTTPException(503, {"reason": "Motor Cartoon 3D indisponível.",
+                                  "blender_bootstrap": blender_bootstrap_status(),
+                                  "ffmpeg": _has("ffmpeg"), "tts": _has("tts"),
+                                  "storage_writable": os.access(STORAGE, os.W_OK)})
     return {"status":"ready","engine":"anima-cartoon-3d","backend":runtime["backend"],
             "blender":runtime.get("version") or runtime.get("executable"),"fps":24,
             "formats":["1920x1080","1080x1920"],"audio":True}
@@ -134,6 +139,7 @@ def diagnostics():
         "storage_path": str(STORAGE.resolve()),
         "storage_writable": os.access(STORAGE, os.W_OK),
         "blender_required": True, "blender_available": blender_available(), "bpy_required": False,
+        "blender_bootstrap": blender_bootstrap_status(),
         "gpu_rendering": "Blender Eevee; CPU no servidor por padrão. GPU somente após configuração e validação do dispositivo.",
     }
 
@@ -226,7 +232,14 @@ def render_story(job_id: str, payload: RenderRequest):
     # Produção integral pelo motor Blender Cartoon 3D; o pipeline 2D está bloqueado.
     selected_engine = selected_render_engine()
     if selected_engine != "3d" or not blender_available():
-        raise HTTPException(503, "Blender não encontrado DENTRO do container da aplicação. Reconstrua a imagem Docker pelo Dockerfile do repositório (build sem cache) e verifique: docker exec <container> blender --version. Instalar Blender apenas na VPS não o instala no container.")
+        state = blender_bootstrap_status()
+        if state["state"] in {"starting", "installing"}:
+            explanation = "Blender está sendo instalado automaticamente neste container. Confira /api/diagnostics antes de tentar novamente."
+        elif state["state"] == "failed":
+            explanation = "Falha ao instalar o Blender neste container: " + str(state.get("error") or state["detail"])
+        else:
+            explanation = "Blender indisponível dentro do container. Confira /api/diagnostics e a configuração de inicialização no iContainer."
+        raise HTTPException(503, explanation)
     _update(job_id, status="queued", stage="render_queued", progress=8,
             message="Roteiro aprovado. Preparando cenas e narração.", formats=formats,
             review_status="pending_review", outputs={}, error=None)
@@ -412,6 +425,7 @@ def _recover_interrupted_jobs():
 
 @app.on_event("startup")
 def start_studio_scheduler():
+    start_blender_bootstrap()
     _recover_interrupted_jobs()
     _refresh_scheduler()
 
