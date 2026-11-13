@@ -1,54 +1,35 @@
-"""Registry do único motor de produção ativo: Cartoon 2D."""
+"""Registry do motor único de produção: Cartoon 3D infantil com Blender."""
 from __future__ import annotations
-
 from typing import Any
+from backend.app.runtime import blender_available
 
 ENGINE_CATALOG: dict[str, dict[str, Any]] = {
-    "2d": {
-        "id": "2d",
-        "name": "Anima Studio Cartoon 2D",
-        "purpose": "Produção integral de episódios infantis",
-        "worker": "server",
-        "render_backend": "cartoon2d-full-production",
-        "production": True,
-        "selected": True,
-        "ready": True,
-        "status": "ready",
-        "requires": ["FFmpeg", "Pillow", "Edge TTS ou espeak-ng"],
+    "3d": {
+        "id": "3d", "name": "Anima Studio Cartoon 3D",
+        "purpose": "Produção de animações infantis tridimensionais",
+        "worker": "blender-local", "render_backend": "blender-eevee-cartoon3d",
+        "production": True, "selected": True,
+        "ready": blender_available(), "status": "ready" if blender_available() else "unavailable",
+        "requires": ["Blender 3D", "Eevee", "FFmpeg", "Edge TTS ou espeak-ng"],
     }
 }
-
 MODULE_ENGINES = {
-    "characters": "character_profiles",
-    "motion": "cartoon2d",
-    "voice": "edge-tts",
-    "environment": "cartoon2d",
-    "music": "audio-mix",
-    "composition": "ffmpeg",
-    "render": "cartoon2d-full-production",
+    "characters": "blender_scene:3d-model-library",
+    "motion": "blender_scene:character-animation",
+    "voice": "edge-tts", "environment": "blender_scene:3d-worlds",
+    "music": "audio-mix", "composition": "blender-camera", "render": "blender-eevee",
 }
-
-
 def selected_render_engine() -> str:
-    # Blender/3D não pode ser reativado por variáveis antigas do deploy.
-    return "2d"
-
-
+    return "3d"
 def engine_catalog(worker_connected: bool = False) -> dict[str, Any]:
-    return {
-        "selected": "2d",
-        "engines": [dict(ENGINE_CATALOG["2d"])],
-        "modules": MODULE_ENGINES.copy(),
-        "separation": {
-            "production_engine": "cartoon-2d",
-            "blender_required": False,
-            "bpy_required": False,
-            "gpu_optional_for_assets_and_encoding": True,
-        },
-    }
-
-
+    ready = blender_available()
+    engine = dict(ENGINE_CATALOG["3d"])
+    engine.update(ready=ready, status="ready" if ready else "unavailable")
+    return {"selected":"3d","engines":[engine],"modules":MODULE_ENGINES.copy(),
+            "separation":{"production_engine":"cartoon-3d","blender_required":True,
+                          "bpy_required":False,"render_backend":"Blender executable",
+                          "gpu_optional_for_rendering":True}}
 def validate_engine(engine_id: str) -> str:
-    if str(engine_id or "").strip().lower() != "2d":
-        raise ValueError("O único motor ativo é o Anima Studio Cartoon 2D.")
-    return "2d"
+    if str(engine_id or "").strip().lower() != "3d":
+        raise ValueError("O único motor ativo é o Anima Studio Cartoon 3D infantil.")
+    return "3d"
