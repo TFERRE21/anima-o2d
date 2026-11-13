@@ -361,15 +361,18 @@ def _render_blender_frames_remote(frames: Path, config: dict, progress_callback=
 def _render_blender_frames(frames: Path, fmt: str, width: int, height: int,
                           total_frames: int, scene_list: list, scene_source_indices: list,
                           plan: dict, voice_timeline: list, progress_callback=None,
-                          capture_fps: float = FPS) -> None:
-    remote_worker = False  # Production now uses the installed Blender binary in the 3D Cartoon runtime.
+                          capture_fps: float = FPS,
+                          approved_art: dict | None = None) -> None:
+    remote_worker = False  # Only animate approved original illustrations in production.
+    if not approved_art or not approved_art.get("ready"):
+        raise RuntimeError("Arte aprovada indisponível. O motor de bonecos geométricos foi desativado.")
     runtime = find_blender_runtime()
     if not runtime and not remote_worker:
         raise RuntimeError(
             "Motor Blender 3D ausente. Instale o executável Blender no container "
             "ou disponibilize o executável Blender; não existe renderizador alternativo."
         )
-    script = Path(__file__).with_name("blender_scene.py")
+    script = Path(__file__).with_name("blender_illustration_scene.py")
     if not script.is_file():
         raise RuntimeError(f"Arquivo 3D obrigatório não encontrado: {script}")
     if frames.exists():
@@ -403,6 +406,7 @@ def _render_blender_frames(frames: Path, fmt: str, width: int, height: int,
             "palette": plan.get("palette", ""),
         },
         "voice_timeline": voice_timeline,
+        "approved_art": approved_art,
     }
     config_path.write_text(json.dumps(config, ensure_ascii=False), encoding="utf-8")
     # New attempt: do not show a stale frame from an earlier failed render.
@@ -604,6 +608,15 @@ def render_episode(title: str, story: str, fmt: str, output: Path, workdir: Path
     portrait = fmt == "9:16"
     if fmt not in {"16:9", "9:16"}:
         raise ValueError("Formato de renderização não reconhecido.")
+    from backend.app.art_assets import readiness
+    highlight_indices = plan.get("short_scene_indices") if portrait else None
+    art = readiness(workdir.parent, workdir.name, plan, fmt, highlight_indices)
+    if not art["ready"]:
+        raise RuntimeError(
+            "O Cartoon de ilustrações só renderiza com arte aprovada. Faltam: "
+            + ", ".join(art["missing"])
+            + ". Gere e aprove os PNGs na Central de Arte."
+        )
 
     # Horizontal episodes are kept between 5 and 10 minutes; Shorts are
     # a focused highlight (clue -> twist -> team solution), not a recap.
@@ -697,7 +710,7 @@ def render_episode(title: str, story: str, fmt: str, output: Path, workdir: Path
     _render_blender_frames(
         frames, fmt, width, height, total_frames,
         render_scenes, scene_source_indices, plan, voice_timeline, progress_callback,
-        capture_fps=capture_fps
+        capture_fps=capture_fps, approved_art=art
     )
     frame_pattern = frames / "frame-%06d.png"
 
@@ -737,7 +750,7 @@ def render_episode(title: str, story: str, fmt: str, output: Path, workdir: Path
         "resolution": "1080x1920" if portrait else "1920x1080",
         "scene_count": scene_count,
         "render_engine": "Blender 3D Cartoon infantil",
-        "art_version": "storybook-human-v2.0",
+        "art_version": art["art_version"],
         "narration_word_count": sum(len(str(item.get("text", "")).split()) for item in audio_segments),
         "speakers": sorted({str(item.get("speaker", "Narrador")) for item in audio_segments}),
         "voice_profiles_file": str(VOICE_PROFILE_FILE),
