@@ -525,7 +525,7 @@ def _render_blender_frames(frames: Path, fmt: str, width: int, height: int,
             # Every saved Blender PNG can update the existing live preview endpoint.
             # Publish atomically so the web dashboard never reads a partial JPEG.
             if "Saved:" in line and "frame-" in line:
-                match = re.search(r"(frame-\\d{6}\\.png)", line)
+                match = re.search(r"(frame-\d{6}\.png)", line)
                 if match and time.monotonic() - last_preview_written >= 2:
                     source = frames / match.group(1)
                     if source.is_file():
