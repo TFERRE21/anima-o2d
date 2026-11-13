@@ -32,7 +32,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: prancha-personagens-cartoon2d
-          path: |\n            docs/images/character-sheet-cartoon2d.png\n            docs/images/shorts-preview-native.png
+          path:
+            docs/images/character-sheet-cartoon2d.png
+            docs/images/shorts-preview-native.png
           retention-days: 7
       - name: Salvar imagem no GitHub
         run: |
