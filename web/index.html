@@ -270,7 +270,7 @@ $('approveStory').addEventListener('click',async()=>{
   const data=await r.json();if(!r.ok){const detail=data.detail||'Falha ao iniciar renderização.';if(typeof detail==='object'&&detail.missing_art){const url='/arte.html?job='+encodeURIComponent(pendingStoryId);$('renderMessage').innerHTML='Faltam artes aprovadas para este roteiro. <a style="color:#93c7ff" href="'+url+'">Abrir Central de Arte e gerar imagens</a>';throw new Error('Abra a Central de Arte para aprovar personagens e cenários antes do vídeo.')}throw new Error(typeof detail==='string'?detail:JSON.stringify(detail))}
   $('renderMessage').textContent='Roteiro aprovado. Renderizando os formatos selecionados.';
   $('activeJobCard').style.display='block';watchJob(data.job_id);
- }catch(err){$('renderMessage').textContent=err.message;btn.disabled=false;btn.textContent='✓ Tentar gerar vídeos novamente';}
+ }catch(err){if(err.message.startsWith('Abra a Central de Arte')){$('renderMessage').innerHTML='As imagens do episódio ainda não estão aprovadas. <a style="color:#93c7ff" href="/arte.html?job='+encodeURIComponent(pendingStoryId)+'">Gerar e aprovar imagens na Central de Arte</a>'}else{$('renderMessage').textContent=err.message}btn.disabled=false;btn.textContent='✓ Renderizar arte aprovada';}
 });
 $('discardStory').addEventListener('click',()=>{$('storyPreview').style.display='none';pendingStoryId=null;$('createMessage').textContent='Roteiro descartado. Crie uma nova história para outro planeta.';});
 function watchJob(id){
