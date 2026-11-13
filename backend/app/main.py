@@ -127,7 +127,7 @@ def diagnostics():
         "python_version": sys.version.split()[0],
         "working_directory": str(Path.cwd()),
         "app_file": str(Path(__file__).resolve()),
-        "render_engine": "anima-cartoon-2d",
+        "render_engine": "anima-cartoon-3d",
         "selected_engine": selected_render_engine(),
         "ffmpeg_available": _has("ffmpeg"), "ffmpeg_path": which("ffmpeg"),
         "tts_available": _has("tts"),
@@ -292,7 +292,7 @@ def youtube_callback(code: str = "", state: str = "", error: str = ""):
     flow.redirect_uri = settings.youtube_redirect_uri
     flow.fetch_token(code=code)
     YOUTUBE_TOKEN_FILE.write_text(flow.credentials.to_json(), encoding="utf-8")
-    return HTMLResponse("<h2>Canal conectado com sucesso!</h2><p>Volte ao Anima Studio 2D. Esta janela pode ser fechada.</p>")
+    return HTMLResponse("<h2>Canal conectado com sucesso!</h2><p>Volte ao Anima Studio Cartoon 3D. Esta janela pode ser fechada.</p>")
 
 @app.post("/api/jobs/{job_id}/publish")
 def publish_job(job_id: str, payload: PublishRequest):
