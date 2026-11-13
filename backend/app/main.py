@@ -556,6 +556,24 @@ def job_render_status(job_id: str):
     }
 
 
+@app.get("/api/jobs/{job_id}/art-plan")
+def get_episode_art_plan(job_id: str, fmt: str = "9:16"):
+    """Expose the image-first production bible for the existing approved story.
+
+    This does not make a generation claim: image creation is performed by a
+    separate model/worker. Blender only animates approved layered artwork.
+    """
+    from backend.app.art_director import create_art_plan
+    job = _get_job(job_id)
+    plan = job.get("story_plan")
+    if not plan:
+        raise HTTPException(409, "Este episódio ainda não possui roteiro para dirigir a arte.")
+    try:
+        return create_art_plan(plan, fmt=fmt)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+
+
 @app.get("/api/jobs/{job_id}/preview/{fmt}")
 def job_preview(job_id: str, fmt: str):
     """Return the latest rendered frame for the live studio preview."""
