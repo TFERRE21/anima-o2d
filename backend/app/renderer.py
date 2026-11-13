@@ -730,6 +730,7 @@ def render_episode(title: str, story: str, fmt: str, output: Path, workdir: Path
         "resolution": "1080x1920" if portrait else "1920x1080",
         "scene_count": scene_count,
         "render_engine": "Blender 3D Cartoon infantil",
+        "art_version": "storybook-human-v2.0",
         "narration_word_count": sum(len(str(item.get("text", "")).split()) for item in audio_segments),
         "speakers": sorted({str(item.get("speaker", "Narrador")) for item in audio_segments}),
         "voice_profiles_file": str(VOICE_PROFILE_FILE),
