@@ -284,8 +284,92 @@ def _character(d, x, floor, scale, palette, name, phase, pointing=False, dog=Fal
         line([((sx-17,-19),(sx,-15),(sx+17,-19))],"#f9d7a0",3)
 
 
+def _draw_portrait_story_scene(t: float, planet: str, palette: str = "aurora",
+                               scene_index: int = 0, action: str = "",
+                               active_speaker: str = ""):
+    """Compose Shorts directly at 720x1280; do not crop/stretch landscape art."""
+    pw, ph = 720, 1280
+    im = Image.new("RGB", (pw, ph))
+    d = ImageDraw.Draw(im)
+    worlds = {
+        "aurora": ((37,58,119),(171,139,203),"#58c8ae","#397d67"),
+        "red": ((112,55,58),(245,170,111),"#f2bd6b","#9b6653"),
+        "ocean": ((12,75,126),(113,195,215),"#69dce5","#277e91"),
+        "flora": ((42,94,73),(214,159,184),"#f28bb7","#4b9563"),
+        "cloud": ((84,119,183),(255,211,177),"#d8c4ff","#6d96bd"),
+        "ice": ((34,79,126),(165,219,239),"#b7f1ff","#5488ad"),
+        "volcano": ((78,48,66),(224,131,91),"#edbd67","#557c5d"),
+        "sapphire": ((34,48,112),(122,143,211),"#79d9e8","#5874ad"),
+        "petal": ((108,76,132),(255,190,201),"#f58fb7","#75ad79"),
+        "moon": ((34,42,78),(139,150,183),"#c5c9e9","#66718e"),
+    }
+    top, bottom, accent, ground = worlds.get(palette, worlds["aurora"])
+    for y in range(ph):
+        k = y / ph
+        col = tuple(int(top[i]*(1-k)+bottom[i]*k) for i in range(3))
+        d.line((0,y,pw,y), fill=col)
+    d.ellipse((465,105,650,290), fill="#fff0bd")
+    d.ellipse((495,135,620,260), fill="#fff8dc")
+    for i in range(34):
+        sx, sy, r = (i*137+31)%pw, (i*83+70)%570, 2+(i%3)
+        d.ellipse((sx-r,sy-r,sx+r,sy+r), fill="#fff4d6")
+    for cx,cy,s in [(65,250,1.0),(555,370,.8),(355,145,.55)]:
+        d.ellipse((cx-55*s,cy-12*s,cx+25*s,cy+34*s),fill="#fff4ed")
+        d.ellipse((cx-22*s,cy-38*s,cx+35*s,cy+40*s),fill="#fff4ed")
+        d.ellipse((cx+10*s,cy-8*s,cx+75*s,cy+32*s),fill="#fff4ed")
+    d.ellipse((-180,465,440,900),fill="#536e9d")
+    d.ellipse((230,410,900,875),fill="#607ba7")
+    d.ellipse((-120,625,520,1035),fill="#3d8b79")
+    d.ellipse((280,590,850,1015),fill="#347d70")
+    if scene_index in (3,4,5,9):
+        for tx,base,s in [(55,880,.85),(650,850,.9)]:
+            d.rounded_rectangle((tx-13*s,base-270*s,tx+13*s,base+80),radius=12,fill="#80513d")
+            for ox,oy,r in [(-34,-245,66),(20,-270,73),(55,-205,61),(-8,-165,65)]:
+                d.ellipse((tx+(ox-r)*s,base+(oy-r)*s,tx+(ox+r)*s,base+(oy+r)*s),
+                          fill=accent,outline="#356b56",width=4)
+    elif scene_index in (6,8):
+        d.polygon([(0,760),(720,700),(720,1080),(0,1080)],fill="#48b8d0")
+        for j in range(7):
+            yy=785+j*34+int((t*25)%34)
+            d.arc((60,yy,660,yy+38),5,175,fill="#d8fbff",width=4)
+    elif scene_index in (0,13):
+        d.rounded_rectangle((45,390,675,760),radius=65,fill="#203d68",outline="#a6e5f2",width=9)
+        d.rounded_rectangle((85,435,635,710),radius=45,fill="#122c50",outline="#70d5e8",width=5)
+        for j in range(7):
+            xx=130+j*77
+            d.ellipse((xx-6,555,xx+6,567),fill=("#fff2b0","#8ce7ef","#f8a9ce")[j%3])
+    d.ellipse((-150,875,870,1420),fill=ground)
+    d.ellipse((-80,930,820,1400),fill="#65ad70")
+    for j in range(26):
+        fx=(j*83+int(t*8))%pw
+        fy=1000+(j%4)*47
+        petal=("#ffdb72","#f48fbd","#fff0d4")[j%3]
+        for p in range(5):
+            a=p*math.tau/5
+            px,py=fx+math.cos(a)*8,fy+math.sin(a)*8
+            d.ellipse((px-5,py-5,px+5,py+5),fill=petal)
+        d.ellipse((fx-3,fy-3,fx+3,fy+3),fill="#ffbd45")
+    for cx,rx in [(160,76),(360,76),(560,68)]:
+        d.ellipse((cx-rx,1055,cx+rx,1095),fill="#356b58")
+        d.arc((cx-rx+8,1059,cx+rx-8,1090),5,175,fill="#b7e78c",width=3)
+    _character(d,160+int(math.sin(t*1.4)*7),1080,.66,
+               ("#e94e9b","#8f4e9a","#ffd04d"),"LUNA",t,
+               pointing=scene_index in (1,4,9),speaking=active_speaker=="Luna",
+               walking=action in ("walk","explore","run"))
+    _character(d,360+int(math.sin(t*1.3+1)*7),1080,.66,
+               ("#287cc6","#554d9a","#f2a34d"),"TOMI",t+1,
+               pointing=scene_index in (5,8,9),speaking=active_speaker=="Tomi",
+               walking=action in ("walk","explore","run"))
+    _character(d,560+int(math.sin(t*1.7+2)*6),1080,.61,
+               ("#d58a48","#fff","#287cc6"),"PIPO",t,dog=True,
+               walking=action in ("walk","explore","run"))
+    return im
+
+
 def _draw_frame(t: float, planet: str, portrait: bool = False):
     """Rich layered storybook world with parallax-like motion and an expressive hero group."""
+    if portrait:
+        return _draw_portrait_story_scene(t, planet)
     im=Image.new("RGB",(W,H))
     d=ImageDraw.Draw(im)
     _gradient(d,(52,91,171),(255,190,143))
@@ -357,7 +441,9 @@ def _draw_frame(t: float, planet: str, portrait: bool = False):
 def _draw_story_scene(t: float, planet: str, biome: str, palette: str,
                       scene_index: int, action: str = "", portrait: bool = False,
                       active_speaker: str = ""):
-    """Organic 2D cartoon world: curved landscapes, layered foliage and illustrated props."""
+    """Organic 2D cartoon world, with native portrait staging for Shorts."""
+    if portrait:
+        return _draw_portrait_story_scene(t, planet, palette, scene_index, action, active_speaker)
     im=Image.new("RGB",(W,H))
     d=ImageDraw.Draw(im)
     palettes={
