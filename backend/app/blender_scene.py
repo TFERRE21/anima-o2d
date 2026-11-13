@@ -799,14 +799,39 @@ def render(config: dict):
         item.identifier
         for item in bpy.types.RenderSettings.bl_rna.properties["engine"].enum_items
     }
-    if "BLENDER_EEVEE_NEXT" in engine_ids:
+    # A hosted VPS commonly exposes Mesa llvmpipe instead of a physical GPU.
+    # Eevee may spend minutes compiling its first frame on software OpenGL.
+    # Workbench is a genuine 3D mesh renderer and offers an optional lightweight
+    # studio-lighted cartoon look; it is NOT the retired 2D image pipeline.
+    mode = os.getenv("ANIMA_3D_RENDER_MODE", "auto").strip().lower()
+    if mode not in {"auto", "eevee", "workbench"}:
+        raise ValueError("ANIMA_3D_RENDER_MODE deve ser auto, eevee ou workbench")
+    gpu_renderer = "unknown"
+    try:
+        import gpu
+        gpu_renderer = str(gpu.platform.renderer_get())
+    except Exception as exc:
+        print("ANIMA_GPU_PROBE_WARNING:" + str(exc), flush=True)
+    software_gl = any(token in gpu_renderer.lower() for token in
+                      ("llvmpipe", "softpipe", "software", "swrast", "lavapipe"))
+    use_workbench = mode == "workbench" or (mode == "auto" and software_gl)
+    if use_workbench:
+        scene.render.engine = "BLENDER_WORKBENCH"
+        report(7, "Renderizador 3D Cartoon leve: GPU física indisponível; usando Workbench com iluminação de estúdio.")
+    elif "BLENDER_EEVEE_NEXT" in engine_ids:
         scene.render.engine = "BLENDER_EEVEE_NEXT"
+        report(7, "Renderizador Cartoon 3D Eevee selecionado.")
     elif "BLENDER_EEVEE" in engine_ids:
         scene.render.engine = "BLENDER_EEVEE"
+        report(7, "Renderizador Cartoon 3D Eevee selecionado.")
     else:
-        raise RuntimeError("Blender não possui Eevee disponível. Atualize o runtime Cartoon 3D.")
-    report(7, "Motor Blender Eevee selecionado; verificando disponibilidade gráfica do container.")
-    print("ANIMA_RENDER_DEVICE: EEVEE_OPENGL_BACKEND_UNVERIFIED", flush=True)
+        raise RuntimeError("Blender não possui Eevee. Configure ANIMA_3D_RENDER_MODE=workbench para renderização 3D leve.")
+    print("ANIMA_RENDER_DEVICE:" + json.dumps({
+        "opengl_renderer": gpu_renderer,
+        "software_gl": software_gl,
+        "selected_backend": scene.render.engine,
+        "requested_mode": mode,
+    }), flush=True)
     scene.render.resolution_x = int(width)
     scene.render.resolution_y = int(height)
     scene.render.resolution_percentage = 100
@@ -895,6 +920,38 @@ def render(config: dict):
         "stages": stage_timings,
     }), flush=True)
     report(18, "Personagens 3D, cenário e câmera preparados.")
+
+    # A small authentic 3D frame becomes visible on the existing live preview
+    # before the full-resolution frame sequence is rendered.
+    if stage_models and os.getenv("ANIMA_EARLY_PREVIEW", "1").strip().lower() in {"1", "true", "yes"}:
+        first = stage_models[0]
+        center = first["center"]
+        camera.location.x = center
+        camera.location.z = 5.3
+        target = Vector((center, 0.25, 2.30))
+        camera.rotation_euler = (target - camera.location).to_track_quat("-Z", "Y").to_euler()
+        for side, name in enumerate(("Luna", "Tomi", "Pipo")):
+            animate_actor(first[name], 0.0, 0.0, "explore", False, side)
+        preview_file = out_dir.parent / ("preview-" + config["format"].replace(":", "x") + ".jpg")
+        render_percent = scene.render.resolution_percentage
+        render_format = scene.render.image_settings.file_format
+        render_filepath = scene.render.filepath
+        try:
+            report(18, "Criando primeira prévia 3D em resolução reduzida.")
+            scene.render.resolution_percentage = min(render_percent, 35)
+            scene.render.image_settings.file_format = "JPEG"
+            scene.render.image_settings.quality = 78
+            scene.render.filepath = str(preview_file)
+            bpy.ops.render.render(write_still=True)
+            print("ANIMA_PREVIEW_READY:" + str(preview_file), flush=True)
+            report(19, "Primeira prévia Cartoon 3D disponível no painel.")
+        except Exception as exc:
+            raise RuntimeError("Não foi possível renderizar nem a prévia 3D. Verifique OpenGL, Xvfb, GPU e recursos do container: " + str(exc)) from exc
+        finally:
+            scene.render.resolution_percentage = render_percent
+            scene.render.image_settings.file_format = render_format
+            scene.render.filepath = render_filepath
+
     render_started = time.perf_counter()
 
     # Scene cuts follow the actual storyboard; actors move and interact inside each shot.
