@@ -67,14 +67,52 @@ def inspect_png(data: bytes, asset_id: str, fmt: str) -> dict:
         raise ValueError("Arquivo de imagem inválido ou corrompido.") from exc
 
 
+def cutout_white_background(data: bytes) -> bytes:
+    """Remove connected near-white border on an isolated character illustration.
+
+    If the source has complex background colors, do not invent a mask: request
+    a real transparent PNG instead. Does not imply a perfect hair matte.
+    """
+    from collections import deque
+    with Image.open(io.BytesIO(data)) as original:
+        original.load()
+        image = original.convert("RGBA")
+    w, h = image.size
+    if w * h > 3_000_000:
+        image.thumbnail((1600, 1600), Image.Resampling.LANCZOS)
+        w, h = image.size
+    px = image.load()
+    corners = (px[0, 0], px[w-1, 0], px[0, h-1], px[w-1, h-1])
+    if not all(min(p[0], p[1], p[2]) >= 228 for p in corners):
+        raise ValueError("Não foi possível isolar o personagem: fundo não é branco uniforme.")
+    mask = Image.new("L", (w, h), 255)
+    alpha = mask.load()
+    flood = deque([(0, 0), (w-1, 0), (0, h-1), (w-1, h-1)])
+    while flood:
+        x, y = flood.popleft()
+        if not 0 <= x < w or not 0 <= y < h or alpha[x, y] == 0:
+            continue
+        red, green, blue, _ = px[x, y]
+        if min(red, green, blue) < 224 or max(red, green, blue)-min(red, green, blue) > 25:
+            continue
+        alpha[x, y] = 0
+        flood.extend(((x+1, y), (x-1, y), (x, y+1), (x, y-1)))
+    image.putalpha(mask)
+    buf = io.BytesIO()
+    image.save(buf, format="PNG")
+    return buf.getvalue()
+
+
 def approve_art(storage: Path, job_id: str, asset_id: str, fmt: str,
-                data: bytes, story: dict) -> dict:
+                data: bytes, story: dict, auto_cutout: bool = False) -> dict:
     plan = create_art_plan(story, fmt)
     allowed = set(("luna", "tomi", "pipo"))
     allowed |= {f"scene-{scene['index']:02d}-background" for scene in plan["scenes"]}
     allowed |= {f"scene-{scene['index']:02d}-foreground" for scene in plan["scenes"]}
     if asset_id not in allowed:
         raise ValueError("Material não corresponde a uma cena deste roteiro.")
+    if auto_cutout and asset_id in {"luna", "tomi", "pipo"}:
+        data = cutout_white_background(data)
     meta = inspect_png(data, asset_id, fmt)
     destination = art_path(storage, job_id, asset_id, fmt)
     destination.parent.mkdir(parents=True, exist_ok=True)
