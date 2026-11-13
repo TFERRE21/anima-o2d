@@ -21,11 +21,11 @@ ENV PYTHONPATH=/app \
     ANIMA_STORAGE=/data/jobs \
     ANIMA_RENDER_ENGINE=3d \
     ANIMA_BLENDER_THREADS=6 \
-    ANIMA_RENDER_SCALE=85 \
+    ANIMA_RENDER_SCALE=100 \
     PORT=5000
 
 RUN mkdir -p /data/jobs && \
-    blender --background --factory-startup --python-expr "import bpy; print('ANIMA_BLENDER_READY=' + bpy.app.version_string)" && \
+    xvfb-run -a blender --background --factory-startup --python-expr "import bpy; print('ANIMA_BLENDER_READY=' + bpy.app.version_string)" && \
     python -c "from PIL import Image; import fastapi, edge_tts; print('ANIMA_CARTOON_3D_RUNTIME_READY')"
 
 EXPOSE 5000
