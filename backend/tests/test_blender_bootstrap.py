@@ -18,7 +18,7 @@ class BootstrapTests(unittest.TestCase):
         with mock.patch.object(bootstrap, "blender_available", return_value=True), \
              mock.patch.object(bootstrap.threading, "Thread") as thread:
             bootstrap.start_blender_bootstrap()
-        self.assertEqual(bootstrap.blender_bootstrap_status()["state"], "ready" if bootstrap.blender_available() else bootstrap._status["state"])
+        self.assertEqual(bootstrap._status["state"], "ready")
         thread.assert_not_called()
 
     def test_missing_blender_starts_one_background_install(self):
