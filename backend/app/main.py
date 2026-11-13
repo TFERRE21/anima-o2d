@@ -226,7 +226,7 @@ def render_story(job_id: str, payload: RenderRequest):
     # Produção integral pelo motor Blender Cartoon 3D; o pipeline 2D está bloqueado.
     selected_engine = selected_render_engine()
     if selected_engine != "3d" or not blender_available():
-        raise HTTPException(503, "Motor Cartoon 3D indisponível. Instale/ative o Blender antes de iniciar a renderização.")
+        raise HTTPException(503, "Blender não encontrado DENTRO do container da aplicação. Reconstrua a imagem Docker pelo Dockerfile do repositório (build sem cache) e verifique: docker exec <container> blender --version. Instalar Blender apenas na VPS não o instala no container.")
     _update(job_id, status="queued", stage="render_queued", progress=8,
             message="Roteiro aprovado. Preparando cenas e narração.", formats=formats,
             review_status="pending_review", outputs={}, error=None)
