@@ -364,7 +364,7 @@ def _render_blender_frames(frames: Path, fmt: str, width: int, height: int,
     runtime = find_blender_runtime()
     if not runtime and not remote_worker:
         raise RuntimeError(
-            "Motor Blender 3D ausente. Instale bpy==5.2.3 para Python 3.13 "
+            "Motor Blender 3D ausente. Instale o executável Blender no container "
             "ou disponibilize o executável Blender; não existe renderizador alternativo."
         )
     script = Path(__file__).with_name("blender_scene.py")
