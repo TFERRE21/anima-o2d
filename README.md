@@ -1,125 +1,48 @@
-# Anima Studio 2D — Pequenos Guardiões
+# Anima Studio Cartoon 3D — Pequenos Guardiões
 
-Estúdio web para produção exclusiva de episódios infantis em Cartoon 2D com Luna, Tomi, Pipo e moradores de planetas originais.
+Estúdio web para produção de histórias infantis em animação tridimensional Cartoon, com personagens recorrentes, cenários 3D, câmera cinematográfica, movimentos e vozes.
 
-## Painel do estúdio
+## Painel
+O painel mantém criação e revisão de roteiros, biblioteca de episódios, progresso da renderização em tempo real, prévia ao vivo, histórico, configurações e integração com YouTube.
 
-O painel possui:
-- Visão geral com indicadores de episódios criados, em produção, finalizados e aguardando revisão.
-- Biblioteca de episódios com status, formatos e downloads.
-- Criação de episódios e acompanhamento da renderização em tempo real.
-- Aprovação editorial de episódios finalizados.
-- Preferências de produção e rotina editorial.
-- Área de acompanhamento da integração com YouTube.
+## Motor exclusivo Cartoon 3D
+- O único motor autorizado para novos episódios é o Blender 3D com Eevee.
+- O renderizador 2D anterior está desativado nas rotas de prévia e não é chamado pelo pipeline de produção.
+- Luna e Tomi são personagens tridimensionais originais, com cabeça, rosto, cabelo, roupas, braços e pernas articulados.
+- Pipo é um companheiro canino tridimensional com corpo, focinho, orelhas, patas, colete e cauda.
+- Os cenários são montados como ambientes 3D por bioma e missão, com objetos, vegetação, construções, iluminação e câmeras.
+- As cenas são animadas por quadros-chave e ações; a fala continua sincronizada por linha do tempo de áudio e movimentos de boca.
+- Blender gera quadros PNG; FFmpeg compõe o vídeo e sincroniza o áudio.
 
-## Motor de histórias e durações
-
-- Cada episódio recebe um identificador de planeta não repetido, com bioma, habitantes, problema e solução próprios.
-- O motor escolhe uma missão e valor educativo diferentes, preservando Luna, Tomi e Pipo.
-- O roteiro tem 15 cenas de storyboard, falas próprias de Luna, Tomi e Pipo, narração do narrador e uma sequência curta construída a partir do clímax da história.
-- A criação do roteiro é uma etapa explícita anterior à renderização: `POST /api/stories/generate`; a prévia fica em `GET /api/jobs/{id}/story`; a animação começa em `POST /api/jobs/{id}/render`.
-- A agenda automática faz a mesma sequência internamente: grava a história completa e depois dispara a renderização.
-
-| Formato | Resolução | Duração exigida |
+## Formatos
+| Formato | Saída | Duração |
 |---|---:|---:|
-| Episódio 16:9 | 1920×1080 | Entre 5 e 10 minutos (301–600 s) |
-| Shorts 9:16 | 1080×1920 | Entre 1:00 e 1:30 |
+| YouTube | 1920×1080 | 5 a 10 minutos |
+| Shorts | 1080×1920 | 60 a 90 segundos |
 
-O renderizador mede a duração da faixa de áudio final e ajusta a velocidade dentro de limites para respeitar as duas faixas. O episódio longo alterna narrador e falas dos três personagens. O Shorts usa a pista, a virada e a solução da missão — a parte mais impactante — com áudio e seleção de cenas próprios. Se não conseguir cumprir a faixa, marca o job como falha em vez de entregar um vídeo com duração incorreta.
+## Runtime de produção
+Python 3.12, Blender (executável em modo background), Eevee, Xvfb, FFmpeg, Edge TTS ou espeak-ng. O Dockerfile instala o Blender e valida o executável durante o build.
+- Porta interna: 5000.
+- Volume persistente: /data/jobs.
+- Healthcheck: GET /api/health/3d.
+- Diagnóstico: GET /api/diagnostics.
+- Catálogo: GET /api/engines/catalog.
+- A rota antiga /api/health/2d e as rotas /api/2d/preview retornam 410 Gone.
 
-## Motor de animação Cartoon 2D
+## Renderização e hardware
+O pipeline atual executa Blender no servidor, em modo background, usando Eevee. A renderização pode ser limitada pela CPU e pela disponibilidade de OpenGL no container. A Radeon RX 580 local não é considerada conectada automaticamente: para utilizá-la como worker remoto será necessário configurar e validar um agente de renderização seguro na máquina que possui a GPU. Não afirmar aceleração por GPU sem comprovação no runtime.
 
-- Renderizador de produção **Cartoon 2D**, com cenários ilustrados em camadas, personagens recorrentes, animação de caminhada, gestos, expressões e composição infantil.
-- Luna, Tomi e Pipo são personagens 2D ilustrados com silhuetas orgânicas, figurinos, acessórios e identidade visual consistente. A direção visual é uma série infantil original de aventura, colorida e cinematográfica, sem reproduzir personagens, logotipo ou modelos de outra franquia.
-- Animação por cena: caminhada com ciclos de braços/pernas, exploração com deslocamento, apontar, gestos, surpresa, conversa virada entre os personagens, trabalho em equipe e comemoração.
-- Linha do tempo de voz por personagem: a boca do falante é animada durante a fala, incluindo moradores locais. As vozes ficam fixas em `/data/jobs/voice-profiles.json`.
-- Planetas têm cenários 2D ilustrados diferentes conforme bioma e missão: florestas, oceanos, gelo, desertos, ilhas flutuantes, vilas, pontes, faróis, bibliotecas, equipamentos e objetos da história.
-- Câmera acompanha a ação e muda o enquadramento em cada parte do storyboard. Não são usadas caixas de legenda ou títulos sobre a imagem.
-- Cartoon 2D é o renderizador principal. Blender, bpy, Eevee e Workbench não fazem parte do caminho de produção. A saída final é codificada em 24 fps e em 1920×1080 ou 1080×1920.
-- Cada parágrafo da narradora está ligado à cena correspondente por marcação de tempo real do áudio; o vídeo troca de cena junto com a fala. Atores fazem a ação descrita (pouso, exploração, investigação, descoberta, conversa com moradores, trabalho em equipe, diário e retorno). Durante diálogos, a câmera favorece quem fala, o personagem falante gesticula e os demais reagem como ouvintes. A boca é animada conforme os intervalos das falas; ainda não é sincronização fonema a fonema nem rig facial profissional.
-
-### Runtime necessário
-
-### Motor 2D e diagnóstico do runtime
-
-- O runtime principal usa Python 3.12, Pillow, FFmpeg e Edge TTS/espeak-ng. Não requer Blender nem `bpy`.
-- A API disponibiliza `/api/health`, `/api/health/2d` e `/api/diagnostics` para verificar FFmpeg, voz, armazenamento e motor Cartoon 2D.
-- `GET /api/diagnostics` informa a versão do Python, disponibilidade do FFmpeg, voz, armazenamento e o motor Cartoon 2D ativo.
-- O pipeline Cartoon 2D é o único caminho de produção. Não existe fallback silencioso para Blender ou vídeo de demonstração.
-
-**Runtime necessário:** Python 3.12, Pillow, FFmpeg, fontes DejaVu e Edge TTS/espeak-ng. O Dockerfile instala apenas as dependências do motor 2D.
-
-- Engine exclusiva: Anima Studio Cartoon 2D.
-- Porta interna: `5000`.
-- Volume persistente: `/data/jobs` para roteiros, perfis de voz, vídeos e tokens.
-- Healthcheck Docker: `/api/health/2d`, que valida FFmpeg, voz e armazenamento.
-
-## Automação e publicação — estado real
-
-O painel salva preferências de formatos, revisão obrigatória e rotina editorial sugerida. O motor sempre escreve e salva a história antes de iniciar qualquer renderização. Na criação manual, o roteiro e o storyboard são apresentados para revisão; a animação só começa após aprovação. No calendário automático, o roteiro é criado primeiro e depois segue para renderização em segundo plano.
-
-**A integração de upload e agendamento via YouTube Data API foi adicionada ao backend.** É necessário configurar `YOUTUBE_CLIENT_ID`, `YOUTUBE_CLIENT_SECRET` e `YOUTUBE_REDIRECT_URI`, autorizar o canal no painel e aprovar editorialmente cada episódio. O painel permite enviar cada formato e agendar a publicação pelo YouTube. A produção recorrente de roteiros e vídeos pode ser ativada no calendário do estúdio. A publicação automática sem revisão ainda não está habilitada; o upload e o agendamento no YouTube exigem autorização do canal e aprovação editorial.
-
-## Série original
-
-**Pequenos Guardiões — A Liga do Bem**
-- Luna: inventora corajosa.
-- Tomi: estrategista leal.
-- Pipo: cão companheiro.
-
-A série ensina honestidade, amizade, empatia, responsabilidade, cidadania e segurança. **Todos os episódios levam Luna, Tomi e Pipo a um planeta diferente**, onde conhecem os habitantes e ajudam a resolver um desafio com diálogo, raciocínio e cooperação, sem violência gráfica. O gerador mantém um catálogo de mundos e cria novos identificadores para não repetir destinos.
-
-Documentos criativos:
-- [Bíblia da série](docs/biblia-da-serie.md)
-- [Episódio 01 — O Mistério das Mochilas](docs/episodio-01-o-misterio-das-mochilas.md)
-- [Pipeline de animação](docs/pipeline-de-animacao.md)
+## Histórias e publicação
+O roteiro é criado antes da renderização e passa por revisão editorial. As falas mantêm perfis de voz estáveis. O upload/agendamento no YouTube requer OAuth configurado e aprovação editorial.
 
 ## Executar com Docker
-
 ```bash
-cp .env.example .env
 docker compose up -d --build
 ```
 
 Painel: http://localhost:5000  
 API: http://localhost:5000/docs  
-Saúde: http://localhost:5000/api/health/2d
+Saúde: http://localhost:5000/api/health/3d
 
-Vídeos, histórico e preferências ficam persistidos em `./data`.
-
-## Publicar no iContainer (runtime Docker)
-
-Publique a imagem Docker construída a partir do Dockerfile do motor Cartoon 2D. O runtime não instala Blender, bpy, Xvfb ou bibliotecas OpenGL.
-
-- Build: `docker build -t anima-studio-2d .`.
-- Inicialização: Uvicorn executa a API e o pipeline Cartoon 2D; FFmpeg monta e codifica os episódios.
-- Porta interna: `5000` (defina `PORT` para outro valor se o painel exigir).
-- Volume persistente: montar em `/data/jobs` para preservar vídeos, roteiros, vozes e token OAuth do YouTube.
-- Voz neural: Edge TTS exige conexão de saída à internet.
-
-## Endpoints
-
-- `GET /api/health`
-- `GET /api/config`
-- `GET /api/dashboard`
-- `GET /api/youtube/status`
-- `GET /api/youtube/connect` (inicia OAuth)
-- `GET /api/youtube/callback` (retorno OAuth)
-- `POST /api/jobs/{id}/publish` (upload ou agendamento após aprovação)
-- `GET/PUT /api/studio-settings`
-- `POST /api/stories/generate` (cria a história antes do vídeo)
-- `GET /api/jobs/{id}/story` (prévia do roteiro)
-- `POST /api/jobs/{id}/render` (renderiza após aprovação)
-- `POST /api/generate` (compatibilidade; também cria roteiro primeiro)
-- `GET /api/jobs`
-- `GET /api/jobs/{id}`
-- `POST /api/jobs/{id}/review`
-- `GET /api/jobs/{id}/download/{fmt}`
-
-## Motor e estação local
-
-A rota de produção usa `ANIMA_RENDER_ENGINE=2d` e não consulta Blender. A Radeon RX 580 pode ser usada pelo ComfyUI local para gerar ativos visuais e pelo FFmpeg com AMD AMF quando o encoder estiver disponível no Windows. A composição dos quadros 2D no servidor permanece no pipeline Cartoon 2D.
-
-## Segurança antes de publicar em VPS
-
-O MVP ainda não tem autenticação de usuário. Não o exponha publicamente sem colocar autenticação, HTTPS, proteção de endpoints e limites de uso. Nunca envie chaves OAuth ou o arquivo `youtube-token.json` para o Git. Configure credenciais em secrets do ambiente. Cadastre a URL de callback no Google Cloud Console. O OAuth deve ser testado em domínio HTTPS real antes de uso público.
+## Segurança
+Antes de expor o painel publicamente, configure autenticação, HTTPS, proteção dos endpoints e limites de uso. Nunca envie credenciais OAuth ou youtube-token.json para o Git.
