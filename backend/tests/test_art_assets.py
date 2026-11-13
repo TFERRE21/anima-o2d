@@ -42,7 +42,7 @@ class ApprovedArtTests(unittest.TestCase):
         self.tmp.cleanup()
 
     def test_cast_transparency_and_scene_ratio_required(self):
-        with self.assertRaisesRegex(ValueError, "transparência"):
+        with self.assertRaisesRegex(ValueError, "transparente|transparência"):
             inspect_png(png(320, 480), "luna", "9:16")
         with self.assertRaisesRegex(ValueError, "vertical"):
             inspect_png(png(768, 432), "scene-00-background", "9:16")
