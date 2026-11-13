@@ -70,6 +70,13 @@ def create_art_plan(story: dict, fmt: str = "9:16") -> dict:
                 "full-body views, front and three-quarter, consistent costume and scale, "
                 "bright flat reference background, no captions"
             ),
+            "render_prompt": (
+                f"{ART_STYLE}; one and only one original full-body character, {identity}; "
+                "facing camera in neutral standing pose, all limbs visible, consistent design, "
+                "clean clearly separated silhouette, no other people or viewpoints, "
+                "uniform white RGB 255 255 255 backdrop in all four corners, "
+                "no ground, no background shadows, no text"
+            ),
             "negative_prompt": NEGATIVE,
         })
     scenes = []
