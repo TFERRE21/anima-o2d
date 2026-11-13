@@ -360,7 +360,8 @@ def _render_blender_frames_remote(frames: Path, config: dict, progress_callback=
 
 def _render_blender_frames(frames: Path, fmt: str, width: int, height: int,
                           total_frames: int, scene_list: list, scene_source_indices: list,
-                          plan: dict, voice_timeline: list, progress_callback=None) -> None:
+                          plan: dict, voice_timeline: list, progress_callback=None,
+                          capture_fps: float = FPS) -> None:
     remote_worker = False  # Production now uses the installed Blender binary in the 3D Cartoon runtime.
     runtime = find_blender_runtime()
     if not runtime and not remote_worker:
@@ -378,7 +379,7 @@ def _render_blender_frames(frames: Path, fmt: str, width: int, height: int,
     config = {
         "format": fmt,
         "resolution": [int(width), int(height)],
-        "fps": float(FPS),
+        "fps": float(capture_fps),
         "total_frames": int(total_frames),
         "frames_dir": str(frames.resolve()),
         "scenes": [
@@ -404,6 +405,10 @@ def _render_blender_frames(frames: Path, fmt: str, width: int, height: int,
         "voice_timeline": voice_timeline,
     }
     config_path.write_text(json.dumps(config, ensure_ascii=False), encoding="utf-8")
+    # New attempt: do not show a stale frame from an earlier failed render.
+    (frames.parent / f"preview-{fmt.replace(':', 'x')}.jpg").unlink(missing_ok=True)
+    render_log_path = frames.parent / f"render-log-{fmt.replace(':', 'x')}.txt"
+    render_log_path.write_text("ANIMA: starting new Cartoon 3D render\n", encoding="utf-8")
     if remote_worker:
         _render_blender_frames_remote(frames, config, progress_callback)
         return
@@ -458,7 +463,7 @@ def _render_blender_frames(frames: Path, fmt: str, width: int, height: int,
         print("ANIMA_BLENDER_WORKER_READY: " + probe.stdout.strip(), flush=True)
     process = subprocess.Popen(
         command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-        text=True, bufsize=1, env=env,
+        text=True, errors="replace", bufsize=1, env=env,
     )
     tail: list[str] = []
     lines: queue.Queue = queue.Queue()
@@ -479,6 +484,7 @@ def _render_blender_frames(frames: Path, fmt: str, width: int, height: int,
     highest_reported_progress = 18
     idle_timeout = int(os.getenv("ANIMA_BLENDER_IDLE_TIMEOUT", "900"))
     total_timeout = int(os.getenv("ANIMA_BLENDER_TOTAL_TIMEOUT", "10800"))
+    first_frame_timeout = max(60, int(os.getenv("ANIMA_FIRST_FRAME_TIMEOUT", "360")))
     started = time.monotonic()
     try:
         finished_reading = False
@@ -490,6 +496,13 @@ def _render_blender_frames(frames: Path, fmt: str, width: int, height: int,
                 idle = time.monotonic() - last_output
                 if process.poll() is not None and not reader.is_alive():
                     break
+                if elapsed > first_frame_timeout and not next(frames.glob("frame-*.png"), None):
+                    raise RuntimeError(
+                        f"Blender não produziu o primeiro quadro após {int(elapsed)}s. "
+                        "O renderizador 3D da VPS está travado ou lento demais; "
+                        "verifique render-log-9x16.txt/16x9.txt, OpenGL e RAM. "
+                        "Defina ANIMA_3D_RENDER_MODE=workbench se estiver usando Eevee sem GPU."
+                    )
                 if elapsed > total_timeout:
                     raise RuntimeError(
                         f"Tempo máximo de renderização Blender excedido ({total_timeout}s). "
@@ -522,6 +535,8 @@ def _render_blender_frames(frames: Path, fmt: str, width: int, height: int,
                 if len(tail) > 40:
                     tail.pop(0)
                 print("ANIMA_BLENDER_LOG: " + line, flush=True)
+                with render_log_path.open("a", encoding="utf-8") as audit:
+                    audit.write(line + "\n")
             # Every saved Blender PNG can update the existing live preview endpoint.
             # Publish atomically so the web dashboard never reads a partial JPEG.
             if "Saved:" in line and "frame-" in line:
@@ -661,20 +676,28 @@ def render_episode(title: str, story: str, fmt: str, output: Path, workdir: Path
             raise RuntimeError("O roteiro não contém cenas para o destaque do Shorts.")
 
     scene_count = len(render_scenes)
-    total_frames = max(1, int(math.ceil(duration_seconds * FPS)))
+    # Traditional Cartoon animation often uses drawings on twos (12 unique
+    # frames per second). Render only those true 3D poses, then encode at
+    # 24 fps to reduce CPU-only VPS render work without reducing image detail.
+    configured_fps = float(os.getenv("ANIMA_CARTOON_CAPTURE_FPS", "12"))
+    if not 1 <= configured_fps <= 24:
+        raise ValueError("ANIMA_CARTOON_CAPTURE_FPS deve ficar entre 1 e 24.")
+    capture_fps = min(float(FPS), configured_fps)
+    total_frames = max(1, int(math.ceil(duration_seconds * capture_fps)))
     engine = "3d"
     if engine != "3d":
         raise RuntimeError("O motor 2D foi removido. Apenas Cartoon 3D pode renderizar episódios.")
     _render_blender_frames(
         frames, fmt, width, height, total_frames,
-        render_scenes, scene_source_indices, plan, voice_timeline, progress_callback
+        render_scenes, scene_source_indices, plan, voice_timeline, progress_callback,
+        capture_fps=capture_fps
     )
     frame_pattern = frames / "frame-%06d.png"
 
     low_video = workdir / f"silent-{fmt.replace(':','x')}.mp4"
     if progress_callback:
         progress_callback(93, "Montando sequência de imagens em vídeo.")
-    _run(["ffmpeg", "-y", "-loglevel", "error", "-framerate", str(FPS),
+    _run(["ffmpeg", "-y", "-loglevel", "error", "-framerate", str(capture_fps),
           "-start_number", "1",
           "-i", str(frame_pattern), "-c:v", "libx264",
           "-preset", "ultrafast", "-crf", "20", "-pix_fmt", "yuv420p",
