@@ -16,6 +16,7 @@ import subprocess
 import sys
 from pathlib import Path
 from typing import Callable
+from PIL import Image
 from backend.app.runtime import find_blender_runtime
 
 FPS = 24
@@ -474,6 +475,7 @@ def _render_blender_frames(frames: Path, fmt: str, width: int, height: int,
     reader.start()
     last_output = time.monotonic()
     last_heartbeat = 0.0
+    last_preview_written = 0.0
     highest_reported_progress = 18
     idle_timeout = int(os.getenv("ANIMA_BLENDER_IDLE_TIMEOUT", "900"))
     total_timeout = int(os.getenv("ANIMA_BLENDER_TOTAL_TIMEOUT", "10800"))
@@ -520,6 +522,24 @@ def _render_blender_frames(frames: Path, fmt: str, width: int, height: int,
                 if len(tail) > 40:
                     tail.pop(0)
                 print("ANIMA_BLENDER_LOG: " + line, flush=True)
+            # Every saved Blender PNG can update the existing live preview endpoint.
+            # Publish atomically so the web dashboard never reads a partial JPEG.
+            if "Saved:" in line and "frame-" in line:
+                match = re.search(r"(frame-\\d{6}\\.png)", line)
+                if match and time.monotonic() - last_preview_written >= 2:
+                    source = frames / match.group(1)
+                    if source.is_file():
+                        preview_path = frames.parent / f"preview-{fmt.replace(':', 'x')}.jpg"
+                        temporary = preview_path.with_suffix(".partial.jpg")
+                        try:
+                            with Image.open(source) as still:
+                                still = still.convert("RGB")
+                                still.thumbnail((480, 854) if fmt == "9:16" else (854, 480))
+                                still.save(temporary, format="JPEG", quality=80)
+                            os.replace(temporary, preview_path)
+                            last_preview_written = time.monotonic()
+                        except (OSError, ValueError) as exc:
+                            print("ANIMA_PREVIEW_WARNING: " + str(exc), flush=True)
             if line.startswith("ANIMA_PROGRESS:"):
                 try:
                     _, pct, message = line.split(":", 2)
