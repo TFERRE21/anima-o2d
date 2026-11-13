@@ -662,7 +662,11 @@ def render(config: dict):
     scene.display.shading.cavity_type = "BOTH"
     scene.display.shading.curvature_ridge_factor = 1.25
     scene.display.shading.curvature_valley_factor = 1.15
-    scene.display.shading.show_specular_highlight = True
+    # A drawn-book outline distinguishes the output from shiny plastic toys.
+    scene.display.shading.show_specular_highlight = False
+    if hasattr(scene.display.shading, "show_object_outline"):
+        scene.display.shading.show_object_outline = True
+        scene.display.shading.object_outline_color = (0.20, 0.23, 0.25)
     if hasattr(scene, "eevee"):
         # Six temporal samples are a quality/speed compromise for the 3D Shorts.
         # Keep this configurable so a higher-quality render can be requested later.
