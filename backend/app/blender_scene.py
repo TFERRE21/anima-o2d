@@ -13,6 +13,9 @@ import sys
 import time
 from pathlib import Path
 
+# Make the canonical character bible importable inside Blender background mode.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
 import bpy
 from mathutils import Vector
 
