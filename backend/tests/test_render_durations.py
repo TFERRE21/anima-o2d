@@ -56,7 +56,7 @@ class RenderDurationTests(unittest.TestCase):
         self.assertIn("_render_blender_frames(", source)
         self.assertNotIn("draw_scene_frame", source)
         self.assertNotIn('engine == "2d"', source)
-        self.assertNotIn("from PIL", source)
+        self.assertNotIn("from backend.app.cartoon2d", source)
         self.assertEqual(
             {name: profile["voice"] for name, profile in VOICE_PROFILE.items()},
             {
