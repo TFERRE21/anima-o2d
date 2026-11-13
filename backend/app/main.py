@@ -101,6 +101,7 @@ def health():
         "ffmpeg": _has("ffmpeg"), "tts": _has("tts"),
         "storage_writable": os.access(STORAGE, os.W_OK),
         "render_engine": "anima-cartoon-3d",
+        "art_version": "storybook-human-v2.0",
         "blender_bootstrap": blender_bootstrap_status(),
     }
 
@@ -652,7 +653,7 @@ def _run_job(job_id: str, payload: GenerateRequest):
             outputs[fmt] = str(output)
             durations = dict(current.get("rendered_durations", {}))
             durations[fmt] = metadata.get("duration_seconds")
-            _update(job_id, outputs=outputs, rendered_durations=durations,
+            _update(job_id, art_version=metadata.get("art_version", "storybook-human-v2.0"), outputs=outputs, rendered_durations=durations,
                     progress=int((index + 1) * 100 / total_formats),
                     message=f"Versão {fmt} pronta ({metadata.get('duration_seconds', 0):.0f} segundos).")
         _update(job_id, status="done", stage="ready_for_review", progress=100,
