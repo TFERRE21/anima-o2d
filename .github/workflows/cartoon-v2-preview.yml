@@ -62,8 +62,13 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch origin main
+          if [ "$(git rev-parse HEAD)" != "$(git rev-parse origin/main)" ]; then
+            echo "A newer change already exists; keep this preview as a workflow artifact."
+            exit 0
+          fi
           git add docs/images/cartoon-v2-preview.png
           if ! git diff --cached --quiet; then
             git commit -m "Publish rendered Storybook Cartoon 3D art proof"
-            git push
+            git push origin HEAD:main
           fi
