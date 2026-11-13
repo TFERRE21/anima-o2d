@@ -570,6 +570,13 @@ def _render_blender_frames(frames: Path, fmt: str, width: int, height: int,
                     progress_callback(highest_reported_progress, line.replace("ANIMA_BOOT:", "").strip())
         code = process.wait(timeout=30)
         if code:
+            if code in (-11, 139):
+                raise RuntimeError(
+                    "O Blender encerrou com SEGMENTATION FAULT (falha nativa de memória/OpenGL). "
+                    "Nenhum ajuste de prompt resolve isso. Revise a versão do Blender, "
+                    "o driver de vídeo e /tmp/blender.crash.txt no container. "
+                    "Logs: " + " | ".join(tail[-14:])
+                )
             raise RuntimeError("Blender 3D falhou: " + " | ".join(tail[-12:]))
     except Exception:
         if process.poll() is None:
