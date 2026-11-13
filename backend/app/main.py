@@ -233,7 +233,7 @@ def get_episode_art_status(job_id: str, fmt: str = "9:16"):
     plan = job.get("story_plan")
     if not plan:
         raise HTTPException(409, "Crie o roteiro antes de gerar arte.")
-    indices = plan.get("short_scene_indices") if fmt == "9:16" else None
+    indices = (plan.get("short_scene_indices") or None) if fmt == "9:16" else None
     try:
         return readiness(STORAGE, job_id, plan, fmt, indices)
     except ValueError as exc:
