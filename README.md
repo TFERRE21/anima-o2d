@@ -44,5 +44,14 @@ Painel: http://localhost:5000
 API: http://localhost:5000/docs  
 Saúde: http://localhost:5000/api/health/3d
 
+
+## Implantação no iContainer (imagem Python genérica)
+
+O iContainer pode iniciar a aplicação usando uma imagem `python:3.13.0` em vez de construir o `Dockerfile` do repositório. Nesse caso, instalar Blender via `docker exec` é temporário: uma recriação do container desfaz os pacotes instalados.
+
+O Anima Studio detecta automaticamente a ausência do Blender na inicialização da API. Se estiver dentro de Docker, com usuário root e `apt-get`, instala Blender, Xvfb, FFmpeg e espeak-ng **em segundo plano, apenas nesse container**, sem bloquear a API. A instalação é repetida quando uma imagem genérica é recriada. O progresso e eventuais falhas aparecem em `GET /api/diagnostics`, no campo `blender_bootstrap`, e nos logs prefixados por `[cartoon3d-blender]`. Enquanto a instalação estiver em andamento, a produção continua indisponível, sem retornar para 2D.
+
+Desative a recuperação automática com `ANIMA_AUTO_INSTALL_BLENDER=0`. A solução definitiva e mais rápida continua sendo configurar o iContainer para **construir e usar a imagem do Dockerfile**, que já contém o Blender pronto. Não remova o volume de episódios existente ao migrar a aplicação.
+
 ## Segurança
 Antes de expor o painel publicamente, configure autenticação, HTTPS, proteção dos endpoints e limites de uso. Nunca envie credenciais OAuth ou youtube-token.json para o Git.
