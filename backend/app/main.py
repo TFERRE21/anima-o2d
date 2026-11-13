@@ -256,7 +256,7 @@ def queue_episode_art(job_id: str, payload: ArtQueueRequest,
     for asset_id in desired:
         if asset_id in {"luna", "tomi", "pipo"}:
             actor = next(x for x in plan["characters"] if x["id"] == asset_id)
-            prompt = actor["prompt"] + (
+            prompt = actor["render_prompt"] + (
                 "; single character alone, pure white uniform (#ffffff) background "
                 "touching all four corners, no shadows, no floor, no other characters, "
                 "full body fully inside canvas, readable natural silhouette"
