@@ -545,61 +545,6 @@ def _render_blender_frames(frames: Path, fmt: str, width: int, height: int,
         progress_callback(92, "Cenas 3D renderizadas. Preparando o vídeo.")
 
 
-def _render_cartoon2d_frames(frames: Path, fmt: str, width: int, height: int,
-                              total_frames: int, scene_list: list,
-                              plan: dict, progress_callback=None, scene_source_indices=None, voice_timeline=None) -> None:
-    """Render full-resolution 2D storybook frames; no Blender or RX580 dependency."""
-    from PIL import ImageDraw
-    from backend.app.cartoon2d import _draw_story_scene, _font
-    frames.mkdir(parents=True, exist_ok=True)
-    portrait = fmt == "9:16"
-    fps = FPS
-    duration = total_frames / fps
-    count = max(1, len(scene_list))
-    planet = str(plan.get("planet", "AURORA-7")).upper()
-    for frame in range(total_frames):
-        t = frame / fps
-        scene_index = min(count - 1, int(t / max(.001, duration) * count))
-        scene_title, caption, action = scene_list[scene_index]
-        story_scene_index = (scene_source_indices[scene_index]
-                             if scene_source_indices and scene_index < len(scene_source_indices)
-                             else scene_index)
-        active_speaker = next((str(item.get("speaker", "")) for item in (voice_timeline or [])
-                               if float(item.get("start", 0)) <= t < float(item.get("end", 0))), "")
-        image = _draw_story_scene(
-            t, planet, str(plan.get("biome", "")),
-            str(plan.get("palette", "aurora")), story_scene_index,
-            str(action or ""), portrait=portrait, active_speaker=active_speaker
-        )
-        draw = ImageDraw.Draw(image)
-        # Readable, restrained lower-third captions preserve the artwork.
-        if portrait:
-            draw.rounded_rectangle((22, 24, image.width-22, 82), radius=18,
-                                   fill="#203a66", outline="#fff1c7", width=3)
-            draw.text((42, 39), str(scene_title)[:36], font=_font(26, True), fill="#ffffff")
-            subtitle = str(caption or action or "").strip()[:54]
-            if subtitle:
-                draw.rounded_rectangle((20, image.height-142, image.width-20, image.height-28),
-                                       radius=18, fill="#17243c", outline="#ffffff", width=3)
-                draw.text((38, image.height-116), subtitle, font=_font(22, True), fill="#fff8df")
-        else:
-            draw.rounded_rectangle((24, 18, image.width-24, 68), radius=16,
-                                   fill="#203a66", outline="#fff1c7", width=3)
-            draw.text((44, 28), str(scene_title)[:52], font=_font(24, True), fill="#ffffff")
-            subtitle = str(caption or action or "").strip()[:96]
-            if subtitle:
-                draw.rounded_rectangle((24, image.height-84, image.width-24, image.height-18),
-                                       radius=16, fill="#17243c", outline="#ffffff", width=3)
-                draw.text((42, image.height-68), subtitle, font=_font(21, True), fill="#fff8df")
-        image.save(frames / f"frame-{frame+1:06d}.png", compress_level=1)
-        # Publish a lightweight live JPEG preview every ~2 seconds for the studio monitor.
-        if frame % max(1, fps * 2) == 0 or frame == total_frames - 1:
-            preview_path = frames.parent / f"preview-{fmt.replace(':', 'x')}.jpg"
-            image.convert("RGB").save(preview_path, format="JPEG", quality=82, optimize=True)
-        if progress_callback and (frame % max(1, fps * 5) == 0 or frame == total_frames-1):
-            progress_callback(14 + int((frame+1) / total_frames * 77),
-                              f"Animação 2D: cena {scene_index+1}/{count} · quadro {frame+1}/{total_frames}")
-
 
 def render_episode(title: str, story: str, fmt: str, output: Path, workdir: Path,
                    planet_name: str = "Aurora-7", story_plan: dict | None = None,
@@ -690,16 +635,12 @@ def render_episode(title: str, story: str, fmt: str, output: Path, workdir: Path
     scene_count = len(render_scenes)
     total_frames = max(1, int(math.ceil(duration_seconds * FPS)))
     engine = "3d"
-    if engine == "3d":
-        _render_blender_frames(
-            frames, fmt, width, height, total_frames,
-            render_scenes, scene_source_indices, plan, voice_timeline, progress_callback
-        )
-    else:
-        _render_cartoon2d_frames(
-            frames, fmt, width, height, total_frames,
-            render_scenes, plan, progress_callback, scene_source_indices, voice_timeline
-        )
+    if engine != "3d":
+        raise RuntimeError("O motor 2D foi removido. Apenas Cartoon 3D pode renderizar episódios.")
+    _render_blender_frames(
+        frames, fmt, width, height, total_frames,
+        render_scenes, scene_source_indices, plan, voice_timeline, progress_callback
+    )
     frame_pattern = frames / "frame-%06d.png"
 
     low_video = workdir / f"silent-{fmt.replace(':','x')}.mp4"
