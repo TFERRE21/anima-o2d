@@ -477,9 +477,18 @@ def _draw_story_scene(t: float, planet: str, biome: str, palette: str,
         d.ellipse((fx-3,fy-3,fx+3,fy+3),fill="#ffbd45")
     # Cast staging; organic illustrated characters remain consistent between scenes.
     positions=[(350,665,.91),(640,665,.91),(930,665,.83)]
-    if portrait: positions=[(445,665,.68),(640,665,.68),(835,665,.63)]
+    if portrait:
+        # Shorts are a character-led composition: use most of the safe frame
+        # instead of shrinking the cast to fit a wide 16:9 staging layout.
+        positions=[(425,665,.94),(640,665,.94),(855,665,.82)]
+        # A wider crop preserves breathing room around hands, ears and tails.
     if idx in (0,1,12,13): positions=[(px,py-42,sc) for px,py,sc in positions]
     if idx==7: positions=[(px,py+5,sc) for px,py,sc in positions]
+    if portrait:
+        # Ground contact and soft shadows make the enlarged cast sit in the scene.
+        for cx,rx in [(positions[0][0],78),(positions[1][0],78),(positions[2][0],66)]:
+            d.ellipse((cx-rx,650,cx+rx,680),fill="#356b58")
+            d.arc((cx-rx+8,653,cx+rx-8,675),5,175,fill="#b7e78c",width=3)
     _character(d,positions[0][0]+int(math.sin(t*1.4)*18),positions[0][1],positions[0][2],
                ("#e94e9b","#8f4e9a","#ffd04d"),"LUNA",t,pointing=idx in (1,4,9),
                speaking=active_speaker=="Luna",walking=action in ("walk","explore","run"))
@@ -488,7 +497,7 @@ def _draw_story_scene(t: float, planet: str, biome: str, palette: str,
                speaking=active_speaker=="Tomi",walking=action in ("walk","explore","run"))
     _character(d,positions[2][0]+int(math.sin(t*1.7+2)*12),positions[2][1],positions[2][2],
                ("#d58a48","#fff","#287cc6"),"PIPO",t,dog=True,walking=action in ("walk","explore","run"))
-    if portrait: im=im.crop((360,0,920,720)).resize((720,1280),Image.Resampling.LANCZOS)
+    if portrait: im=im.crop((300,0,980,720)).resize((720,1280),Image.Resampling.LANCZOS)
     return im
 
 
