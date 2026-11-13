@@ -583,7 +583,9 @@ def _run_job(job_id: str, payload: GenerateRequest):
 
             def report(local_progress: int, message: str):
                 overall = min(99, int((index * 100 + max(0, min(100, local_progress))) / total_formats))
-                _update(job_id, status="processing", stage=stage, progress=overall, message=message)
+                previous = int(_get_job(job_id).get("progress", 0))
+                _update(job_id, status="processing", stage=stage,
+                        progress=max(previous, overall), message=message)
 
             metadata = render_episode(
                 payload.title, payload.story, fmt, output, STORAGE / job_id,
