@@ -1,0 +1,69 @@
+name: Cartoon 3D Storybook visual approval
+on:
+  push:
+    branches: [main]
+    paths:
+      - backend/app/cartoon_art_v2.py
+      - backend/app/blender_scene.py
+      - .github/workflows/cartoon-v2-preview.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  preview:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Blender, headless display and fonts
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y blender xvfb xauth libgl1 libegl1 fonts-dejavu-core
+      - name: Compose one authentic Storybook Cartoon 3D frame
+        run: |
+          mkdir -p /tmp/anima-v2-preview
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          root = Path("/tmp/anima-v2-preview")
+          conf = {
+              "format": "9:16", "resolution": [480, 854],
+              "fps": 12, "total_frames": 1,
+              "frames_dir": str(root / "frames"),
+              "scenes": [{"title": "Pequenos Guardiões",
+                          "caption": "A aventura começa com amizade.",
+                          "action": "explore",
+                          "visual_action": "Um jardim encantado colorido e acolhedor"}],
+              "scene_source_indices": [7],
+              "story_plan": {
+                 "planet": "Aurora-7", "biome": "floresta encantada",
+                 "mission_object": "jardim das estrelas",
+                 "landmark": "árvore dos sonhos",
+                 "palette": "pastel"
+              },
+              "voice_timeline": []
+          }
+          (root / "config.json").write_text(json.dumps(conf), encoding="utf-8")
+          PY
+          ANIMA_3D_RENDER_MODE=workbench ANIMA_EARLY_PREVIEW=0 ANIMA_RENDER_SCALE=100 \
+            xvfb-run -a blender -b -t 4 --python backend/app/blender_scene.py \
+            -- --config /tmp/anima-v2-preview/config.json
+          test -s /tmp/anima-v2-preview/frames/frame-000001.png
+          mkdir -p docs/images
+          cp /tmp/anima-v2-preview/frames/frame-000001.png docs/images/cartoon-v2-preview.png
+      - name: Publish visual QA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: storybook-cartoon-3d-preview
+          path: docs/images/cartoon-v2-preview.png
+      - name: Commit latest rendered preview for visual review
+        if: github.event_name == 'push'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/images/cartoon-v2-preview.png
+          if ! git diff --cached --quiet; then
+            git commit -m "Publish rendered Storybook Cartoon 3D art proof"
+            git push
+          fi
