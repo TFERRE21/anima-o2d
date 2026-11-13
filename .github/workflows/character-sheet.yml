@@ -32,13 +32,13 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: prancha-personagens-cartoon2d
-          path: docs/images/character-sheet-cartoon2d.png
+          path: |\n            docs/images/character-sheet-cartoon2d.png\n            docs/images/shorts-preview-native.png
           retention-days: 7
       - name: Salvar imagem no GitHub
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add docs/images/character-sheet-cartoon2d.png
+          git add docs/images/character-sheet-cartoon2d.png docs/images/shorts-preview-native.png
           if git diff --cached --quiet; then
             echo "A prancha já está atualizada."
           else
