@@ -10,7 +10,7 @@ services:
       ANIMA_RENDER_ENGINE: 3d
       PORT: 5000
     volumes:
-      - anima_studio_data:/data/jobs
+      - anima2d_data:/data/jobs
     shm_size: "2gb"
     restart: unless-stopped
     healthcheck:
