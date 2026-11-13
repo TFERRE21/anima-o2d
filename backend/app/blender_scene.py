@@ -339,11 +339,11 @@ def make_stage(stage_index, plan, scene, portrait):
     elif stage_index == 7:
         # The twist is a cinematic reveal, not a repeated copy of the mission prop.
         for j in range(4):
-            bpy.ops.mesh.primitive_torus_add(major_segments=40, minor_segments=8, major_radius=0.7 + j * 0.34, minor_radius=0.045, location=(cx, 1.9, 2.0))
+            bpy.ops.mesh.primitive_torus_add(major_segments=40, minor_segments=8, major_radius=0.40 + j * 0.16, minor_radius=0.026, location=(cx, 3.55, 2.85))
             ring = bpy.context.object
             ring.name = "Surprise energy ring"
             ring.data.materials.append(M["purple"] if j % 2 else M["blue_light"])
-        sphere("Surprise energy core", None, (cx, 1.8, 2.0), (0.48, 0.48, 0.48), M["gold"])
+        sphere("Surprise energy core", None, (cx, 3.55, 2.85), (0.28, 0.28, 0.28), M["gold"])
     elif stage_index == 12:
         # A holographic mission journal makes the narrated reflection visible.
         cube("Mission journal tablet", None, (cx, -0.7, 1.25), (2.4, 0.18, 1.55), M["purple"], 0.12)
@@ -382,8 +382,8 @@ def make_stage(stage_index, plan, scene, portrait):
         natives.append(alien_character((cx - resident_offset, 0.7, 0), 1))
     # Every scene uses the NEW Storybook v2 characters, not the deprecated toy cast.
     if portrait:
-        positions = ((cx - 1.25, -1.0, 0), (cx + 1.25, -0.75, 0), (cx, -2.0, 0))
-        size_h, size_d = 1.24, 0.88
+        positions = ((cx - 0.93, -0.65, 0), (cx + 0.93, -0.50, 0), (cx, -1.80, 0))
+        size_h, size_d = 1.12, 0.84
     else:
         positions = ((cx - 3.1, -0.8, 0), (cx + 2.5, -0.55, 0), (cx + 0.2, -2.0, 0))
         size_h, size_d = 1.05, 0.80
@@ -493,6 +493,9 @@ def animate_actor(actor, global_time, local_time, action, speaking=False, side=0
         actor["root"].rotation_euler[2] = -0.10 if action in {"talk", "converse"} else -math.sin(global_time * .9) * .025
     # Dialogue-driven mouth: each saved voice interval activates only its speaker.
     mouth = actor["mouth"]
+    # Hide the lip mesh entirely at rest, preserving the fine sculpted smile.
+    # Only display the 3D viseme opening while a line is spoken.
+    mouth.hide_render = not (speaking and math.sin(global_time * 18.0) > -0.25)
     if speaking and math.sin(global_time * 18.0) > -0.25:
         mouth.scale.z = 0.125
         if actor.get("tongue"):
@@ -512,7 +515,7 @@ def create_camera(portrait, cx):
     camera.data.type = "PERSP"
     camera.data.sensor_fit = "VERTICAL" if portrait else "HORIZONTAL"
     camera.data.lens = 50
-    camera.location = (cx, -16.0 if portrait else -18.0, 4.8)
+    camera.location = (cx, -18.6 if portrait else -19.2, 4.65)
     target = Vector((cx, 0.4, 1.85))
     camera.rotation_euler = (target - camera.location).to_track_quat("-Z", "Y").to_euler()
     return camera
@@ -736,8 +739,8 @@ def render(config: dict):
         first = stage_models[0]
         center = first["center"]
         camera.location.x = center
-        camera.location.z = 4.8
-        target = Vector((center, 0.25, 1.92))
+        camera.location.z = 4.65
+        target = Vector((center, 0.25, 1.85))
         camera.rotation_euler = (target - camera.location).to_track_quat("-Z", "Y").to_euler()
         for side, name in enumerate(("Luna", "Tomi", "Pipo")):
             animate_actor(first[name], 0.0, 0.0, "explore", False, side)
@@ -805,7 +808,7 @@ def render(config: dict):
             if speaker_actor:
                 center = center * 0.72 + speaker_actor["root"].location.x * 0.28
         camera.location.x = center
-        camera.location.z = 4.8 + math.sin(local_progress * math.pi) * 0.12
+        camera.location.z = 4.65 + math.sin(local_progress * math.pi) * 0.12
         close = source_index in (4, 7, 10)
         camera.data.lens = 62 if close else (48 if portrait else 50)
         # A slight camera tilt and dolly-style scale change make the beat read
@@ -817,7 +820,7 @@ def render(config: dict):
         elif action in {"converse", "talk"}:
             target_z = 2.15
         else:
-            target_z = 1.92
+            target_z = 1.85
         target = Vector((center, 0.25, target_z))
         camera.rotation_euler = (target - camera.location).to_track_quat("-Z", "Y").to_euler()
         camera.data.lens = 50 + (3 if action in {"discover", "surprise"} else 0)
