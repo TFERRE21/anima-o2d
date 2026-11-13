@@ -4,7 +4,10 @@ import tempfile
 import unittest
 from unittest import mock
 from pathlib import Path
+from io import BytesIO
+from PIL import Image, ImageDraw
 
+from backend.app.art_assets import approve_art
 from backend.app.worlds import build_episode_plan
 import backend.app.renderer as renderer
 from backend.app.renderer import render_episode, VOICE_PROFILE
@@ -89,7 +92,31 @@ class RenderDurationTests(unittest.TestCase):
             {"speaker": "Pipo", "text": "Au! Conseguimos!", "scene": 0},
         ]
         with tempfile.TemporaryDirectory(prefix="anima3d-test-") as tmp:
-            root = Path(tmp)
+            root = Path(tmp) / "a1b2c3d4e5f6"
+            root.mkdir(parents=True, exist_ok=True)
+            # Fake PNG artwork is ONLY for technical CI tests. Production never
+            # replaces missing approved assets with these placeholder shapes.
+            for who in ("luna", "tomi", "pipo"):
+                image = Image.new("RGBA", (300, 450), (0, 0, 0, 0))
+                draw = ImageDraw.Draw(image)
+                color = {"luna": (225, 96, 147, 255),
+                         "tomi": (58, 146, 197, 255),
+                         "pipo": (193, 125, 66, 255)}[who]
+                draw.ellipse((70, 30, 230, 190), fill=color)
+                draw.rounded_rectangle((75, 175, 225, 425), radius=45, fill=color)
+                stream = BytesIO()
+                image.save(stream, format="PNG")
+                approve_art(root.parent, root.name, who, "9:16",
+                            stream.getvalue(), sample_plan)
+            for fmt, dims in (("16:9", (768, 432)), ("9:16", (432, 768))):
+                image = Image.new("RGBA", dims, (126, 185, 217, 255))
+                draw = ImageDraw.Draw(image)
+                draw.rectangle((0, int(dims[1]*.72), dims[0], dims[1]),
+                               fill=(93, 167, 117, 255))
+                stream = BytesIO()
+                image.save(stream, format="PNG")
+                approve_art(root.parent, root.name, "scene-00-background",
+                            fmt, stream.getvalue(), sample_plan)
             long_video = root / "episode-16x9.mp4"
             short_video = root / "episode-9x16.mp4"
             original_fps = renderer.FPS
