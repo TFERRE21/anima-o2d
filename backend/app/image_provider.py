@@ -9,6 +9,7 @@ from __future__ import annotations
 import base64
 import io
 import json
+import hashlib
 import os
 import threading
 import time
@@ -25,48 +26,118 @@ _wake = threading.Event()
 _stop = threading.Event()
 _MAX_RESPONSE = 32 * 1024 * 1024
 _ERR_LIMIT = 350
+_block_lock = threading.RLock()
+_CREDIT_MARKERS = ('you do not have enough credits', 'not enough credits', 'insufficient_quota', 'billing_hard_limit_reached', 'insufficient credits', 'credit balance is too low')
+
+
+
+def is_credit_error(error: object) -> bool:
+    message = str(error).lower()
+    return any(marker in message for marker in _CREDIT_MARKERS)
+
+
+def _credential(provider: str) -> str:
+    if provider == "runway":
+        return (os.getenv("RUNWAYML_API_SECRET") or os.getenv("RUNWAY_API_KEY") or "").strip()
+    if provider == "openai":
+        return os.getenv("OPENAI_API_KEY", "").strip()
+    return ""
+
+
+def _block_file() -> Path:
+    from backend.app import comfy_worker
+    return comfy_worker._store.parent / "provider-blocks.json"
+
+
+def _read_blocks() -> dict:
+    path = _block_file()
+    try:
+        return json.loads(path.read_text(encoding="utf-8")) if path.is_file() else {}
+    except (OSError, ValueError):
+        return {}
+
+
+def _blocked(provider: str) -> bool:
+    key = _credential(provider)
+    if not key:
+        return False
+    with _block_lock:
+        state = _read_blocks().get(provider) or {}
+    fingerprint = hashlib.sha256(key.encode("utf-8")).hexdigest()
+    return (state.get("key_fingerprint") == fingerprint
+            and float(state.get("blocked_until", 0)) > time.time())
+
+
+def _mark_out_of_credits(provider: str) -> None:
+    key = _credential(provider)
+    if not key:
+        return
+    try:
+        delay = int(os.getenv("ANIMA_CREDIT_RECHECK_SECONDS", "1800"))
+    except ValueError:
+        delay = 1800
+    delay = max(300, min(delay, 86400))
+    with _block_lock:
+        blocks = _read_blocks()
+        blocks[provider] = {
+            "reason": "insufficient_credits",
+            "key_fingerprint": hashlib.sha256(key.encode("utf-8")).hexdigest(),
+            "blocked_until": time.time() + delay,
+        }
+        path = _block_file()
+        path.parent.mkdir(parents=True, exist_ok=True)
+        temp = path.with_suffix(".tmp")
+        temp.write_text(json.dumps(blocks), encoding="utf-8")
+        temp.replace(path)
 
 
 def configured_provider() -> str:
-    """Return a real configured provider, or 'comfyui'/'unavailable'."""
+    """Select a configured, not-yet-credit-blocked provider."""
     mode = os.getenv("ANIMA_IMAGE_PROVIDER", "auto").strip().lower()
-    runway = bool(os.getenv("RUNWAYML_API_SECRET", "").strip()
-                  or os.getenv("RUNWAY_API_KEY", "").strip())
-    openai = bool(os.getenv("OPENAI_API_KEY", "").strip())
     if mode not in {"auto", "runway", "openai", "comfyui"}:
         return "unavailable"
     if mode == "runway":
-        return "runway" if runway else "unavailable"
+        return "runway" if _credential("runway") and not _blocked("runway") else "unavailable"
     if mode == "openai":
-        return "openai" if openai else "unavailable"
+        return "openai" if _credential("openai") and not _blocked("openai") else "unavailable"
     if mode == "comfyui":
         return "comfyui"
-    if runway:
+    if _credential("runway") and not _blocked("runway"):
         return "runway"
-    if openai:
+    if _credential("openai") and not _blocked("openai"):
         return "openai"
-    return "comfyui"
+    from backend.app import comfy_worker
+    return "comfyui" if comfy_worker.worker_online() else "unavailable"
 
 
 def engine_state() -> dict:
     from backend.app import comfy_worker
     provider = configured_provider()
-    available = provider in {"runway", "openai"} or (
-        provider == "comfyui" and comfy_worker.worker_online()
-    )
+    exhausted = [p for p in ("runway", "openai") if _blocked(p)]
+    online = comfy_worker.worker_online()
+    available = provider in {"runway", "openai"} or (provider == "comfyui" and online)
+    if available:
+        detail = ("Runway sem créditos; motor alternativo " + provider + " selecionado."
+                  if "runway" in exhausted and provider != "runway"
+                  else "Motor de imagens pronto para produzir automaticamente.")
+    elif exhausted:
+        detail = ("Créditos de geração de imagens esgotados: "
+                  + ", ".join(exhausted)
+                  + ". As tarefas estão salvas. Configure outra API com créditos "
+                    "ou conecte o agente ComfyUI.")
+    else:
+        detail = ("Nenhum motor de imagens disponível. Configure uma API de imagens "
+                  "com créditos ou conecte o agente ComfyUI à VPS.")
     return {
-        "provider": provider, "ready": available,
+        "provider": provider,
+        "ready": available,
+        "credits_exhausted": exhausted,
         "image_model": (
             os.getenv("ANIMA_RUNWAY_IMAGE_MODEL", "nano_banana_2.1") if provider == "runway"
             else os.getenv("ANIMA_OPENAI_IMAGE_MODEL", "gpt-image-1.5") if provider == "openai"
-            else "ComfyUI workstation" if provider == "comfyui" else "not configured"
+            else "ComfyUI workstation" if provider == "comfyui" else "none"
         ),
-        "detail": (
-            "Motor de imagens pronto para produzir automaticamente."
-            if available else
-            "Configure RUNWAYML_API_SECRET ou OPENAI_API_KEY no container; "
-            "ou conecte o agente ComfyUI. A assinatura Plus não fornece chave de API."
-        ),
+        "detail": detail,
     }
 
 
