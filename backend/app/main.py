@@ -347,6 +347,23 @@ def queue_episode_art(job_id: str, payload: ArtQueueRequest,
     return {"queued": len(results), "tasks": results}
 
 
+@app.get("/api/jobs/{job_id}/art/candidate/{task_id}")
+def preview_generated_candidate(job_id: str, task_id: str):
+    """Display an image candidate inside the existing editor (read only)."""
+    from backend.app import comfy_worker
+    _get_job(job_id)
+    task = comfy_worker.get_art_task(task_id, job_id)
+    image_file = task.get("image_file")
+    if not image_file:
+        raise HTTPException(404, "A IA ainda está gerando esta imagem.")
+    candidate = Path(image_file).resolve()
+    comfy_storage = (STORAGE / "comfyui").resolve()
+    if not candidate.is_relative_to(comfy_storage) or not candidate.is_file():
+        raise HTTPException(404, "Imagem ainda não está disponível.")
+    return FileResponse(candidate, media_type="image/png",
+                        headers={"Cache-Control": "no-store", "X-Content-Type-Options": "nosniff"})
+
+
 @app.get("/api/jobs/{job_id}/art/approved/{asset_id}")
 def view_approved_art(job_id: str, asset_id: str, fmt: str = "9:16"):
     from backend.app.art_assets import approved_path
