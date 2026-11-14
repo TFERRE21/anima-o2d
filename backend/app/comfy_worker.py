@@ -53,7 +53,8 @@ def worker_online() -> bool:
 def art_tasks(job_id: str) -> list[dict]:
     return sorted([
         {"id": t["id"], "asset_id": t.get("asset_id"), "format": t.get("format"),
-         "status": t.get("status"), "has_image": bool(t.get("image_file")
+         "status": t.get("status"), "approved": bool(t.get("approved")),
+         "has_image": bool(t.get("image_file")
                        and Path(t["image_file"]).is_file()),
          "message": t.get("message", ""), "created_at": t.get("created_at")}
         for t in _tasks.values() if t.get("job_id") == job_id
