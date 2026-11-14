@@ -382,6 +382,8 @@ def approve_comfy_art(job_id: str, task_id: str,
         )
     except (ValueError, OSError) as exc:
         raise HTTPException(422, str(exc)) from exc
+    task["approved"] = True
+    comfy_worker._save_tasks()
     return {"approved": True, "record": record,
             "art_status": get_episode_art_status(job_id, fmt)}
 
