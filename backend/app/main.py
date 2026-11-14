@@ -261,6 +261,10 @@ def _queue_art_for_episode(job_id: str, formats: list[str],
             raise HTTPException(400, "O material não pertence ao roteiro aprovado.")
         for item in desired:
             if item in CAST_IDS:
+                if item in state["approved"]:
+                    if asset_id:
+                        raise HTTPException(409, "Este personagem é oficial e fixo. Não é possível regenerá-lo em um episódio.")
+                    continue
                 if item in included_cast:
                     continue
                 included_cast.add(item)
