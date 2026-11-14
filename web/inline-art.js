@@ -80,7 +80,7 @@ function renderBoard(data){
     }
   }
   el('inlineScenes').innerHTML=scenes.join('')||'<p class="muted">Nenhum cenário selecionado.</p>';
-  if(data.ready){
+  if(data.ready && data.story_approved){
     el('inlineArtBadge').textContent='ARTES APROVADAS';
     el('inlineArtBadge').className='badge ready';
     el('inlineArtRender').disabled=false;
