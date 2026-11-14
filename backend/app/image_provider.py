@@ -220,11 +220,11 @@ def _claim_one() -> dict | None:
         if mode not in {"runway", "openai"}:
             return None
         # Cloud service also rescues legacy queued image jobs created when only
-        # ComfyUI was configured.
+        # ComfyUI was configured or no image API key was previously available.
         for task in comfy_worker._tasks.values():
             if not task.get("asset_id") or task.get("status") != "queued":
                 continue
-            if task.get("provider") not in (None, "comfyui", mode):
+            if task.get("provider") not in (None, "comfyui", "unavailable", mode):
                 continue
             task["provider"] = mode
             task["status"] = "running"
