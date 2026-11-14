@@ -300,6 +300,7 @@ def _queue_art_for_episode(job_id: str, formats: list[str],
 def approve_story_generate_images(job_id: str):
     """Approve script and automatically queue cast (if missing) and all new planets."""
     from backend.app import comfy_worker
+    from backend.app.image_provider import engine_state
     job = _get_job(job_id)
     if job.get("status") not in {"story_ready", "failed"}:
         raise HTTPException(409, "Só é possível aprovar roteiros ainda não renderizados.")
@@ -312,10 +313,19 @@ def approve_story_generate_images(job_id: str):
                      "cenários; a montagem do vídeo começará automaticamente."))
     from backend.app.auto_production import notify
     notify()
+    state = engine_state()
     return {"job_id": job_id, "status": "art_generation",
-            "worker_connected": comfy_worker.worker_online(),
+            "worker_connected": state["ready"], "image_engine": state,
             "queued": len(art_queue), "tasks": art_queue,
-            "message": "Imagens iniciadas automaticamente, no mesmo painel."}
+            "message": ("Motor de imagens iniciado: " + state["provider"]
+                        if state["ready"] else "Roteiro aprovado; " + state["detail"])}
+
+
+@app.get("/api/image-engine/status")
+def image_engine_status():
+    """Public readiness without disclosing provider keys or secret values."""
+    from backend.app.image_provider import engine_state
+    return engine_state()
 
 
 @app.get("/api/jobs/{job_id}/art/board")
@@ -323,15 +333,19 @@ def get_episode_art_board(job_id: str):
     """One API payload for inline script, shared characters and scene review."""
     from backend.app import comfy_worker
     from backend.app.art_assets import CAST_IDS
+    from backend.app.image_provider import engine_state
     job = _get_job(job_id)
     formats = job.get("formats") or ["9:16"]
     boards = {fmt: get_episode_art_status(job_id, fmt) for fmt in formats}
     missing = sum(len(x["missing"]) for x in boards.values())
+    required = sum(len(x["required"]) for x in boards.values())
     identity_lock = next(iter(boards.values()))["identity_lock"]
     unique_tasks = comfy_worker.art_tasks(job_id, identity_lock)
     return {
         "job_id": job_id, "formats": formats, "story_approved": job.get("story_approved", False),
-        "worker_connected": comfy_worker.worker_online(),
+        "worker_connected": engine_state()["ready"],
+        "image_engine": engine_state(),
+        "total_artworks": required, "approved_artworks": required - missing,
         "series_cast_fixed": [item for item in CAST_IDS
                              if all(item in state["approved"] for state in boards.values())],
         "formats_status": boards, "missing_count": missing,
@@ -664,11 +678,15 @@ def start_studio_scheduler():
     _recover_interrupted_jobs()
     _refresh_scheduler()
     from backend.app.auto_production import start
+    from backend.app.image_provider import start as start_image_engine
     start()
+    start_image_engine()
 
 @app.on_event("shutdown")
 def stop_studio_scheduler():
     from backend.app.auto_production import stop
+    from backend.app.image_provider import stop as stop_image_engine
+    stop_image_engine()
     stop()
     if scheduler:
         scheduler.shutdown(wait=False)
