@@ -9,6 +9,9 @@ import hashlib
 import re
 
 ART_PIPELINE_VERSION = "illustration-first-v1"
+# This identifier is deliberately constant. Changing prompt wording cannot
+# silently replace the recurring heroes; a new official version is explicit.
+SERIES_CAST_VERSION = "pequenos-guardioes-temporada-01-oficial-v1"
 ART_STYLE = (
     "original professional children's cartoon series illustration, premium hand-painted "
     "storybook look, expressive recognizable faces, beautifully painted environmental "
@@ -102,9 +105,7 @@ def create_art_plan(story: dict, fmt: str = "9:16") -> dict:
             ),
             "negative_prompt": NEGATIVE,
         })
-    identity = hashlib.sha256(
-        ("|".join(CAST.values()) + ART_STYLE).encode("utf-8")
-    ).hexdigest()[:16]
+    identity = hashlib.sha256(SERIES_CAST_VERSION.encode("utf-8")).hexdigest()[:16]
     return {
         "version": ART_PIPELINE_VERSION,
         "format": fmt,
