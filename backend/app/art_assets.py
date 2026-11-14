@@ -154,9 +154,18 @@ def approve_art(storage: Path, job_id: str, asset_id: str, fmt: str,
             "migração administrativa da biblioteca, não aprovação de episódio."
         )
     destination.parent.mkdir(parents=True, exist_ok=True)
-    tmp = destination.with_suffix(".tmp")
-    tmp.write_bytes(data)
-    tmp.replace(destination)
+    if is_cast:
+        # File-level O_EXCL ensures even simultaneous approvals cannot replace
+        # an existing official hero across FastAPI threads or app processes.
+        try:
+            with destination.open("xb") as output:
+                output.write(data)
+        except FileExistsError as exc:
+            raise ValueError("Personagem oficial já existe e está bloqueado na série.") from exc
+    else:
+        tmp = destination.with_suffix(".tmp")
+        tmp.write_bytes(data)
+        tmp.replace(destination)
     record = dict(meta, asset_id=asset_id, identity_lock=plan["identity_lock"],
                   format="series" if is_cast else fmt,
                   official=bool(is_cast), approved=True)
