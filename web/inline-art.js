@@ -47,7 +47,7 @@ function statusName(task){
 function tile(asset,format,state,tasks,official=false){
   const approved=Boolean(state.approved?.[asset]);
   const task=taskFor(tasks,asset,format);
-  const candidate=Boolean(task?.has_image && task?.status==='done');
+  const candidate=Boolean(task?.has_image && task?.status==='done' && !task?.approved);
   const stamp=(official&&approved?' · FIXO NA SÉRIE':approved?' · Aprovado':' · '+statusName(task));
   const image=(candidate&&!official
       ?'<img data-inline-candidate="'+clean(task.id)+'" alt="Nova imagem criada para '+clean(asset)+'" style="display:none">'
