@@ -168,9 +168,9 @@ def approve_art(storage: Path, job_id: str, asset_id: str, fmt: str,
 def approved_path(storage: Path, job_id: str, asset_id: str, fmt: str,
                   identity_lock: str) -> Path | None:
     if asset_id in CAST_IDS:
-        official = locked_cast_path(storage, asset_id, identity_lock)
-        if official:
-            return official
+        # Never accept an episode-local protagonist: only the locked
+        # season-wide file is valid, independent of planet, edit or job.
+        return locked_cast_path(storage, asset_id, identity_lock)
     candidate = art_path(storage, job_id, asset_id, fmt)
     record_file = candidate.with_suffix(".json")
     if not candidate.is_file() or not record_file.is_file():
