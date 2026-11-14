@@ -4,7 +4,7 @@
 (()=>{
 'use strict';
 const el=id=>document.getElementById(id);
-let activeJob=null, pollTimer=null, board=null, refreshing=false, lastArtDigest=null;
+let activeJob=null, pollTimer=null, board=null, refreshing=false, lastArtDigest=null, pendingUpload=null;
 const clean=x=>String(x??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
 const castNames={luna:'Luna',tomi:'Tomi',pipo:'Pipo'};
 const titleFor=id=>castNames[id]||'Cena '+(Number((id.match(/scene-(\d+)/)||[])[1]||0)+1);
@@ -59,10 +59,12 @@ function tile(asset,format,state,tasks,official=false){
        ?'<button class="btn good" type="button" data-inline-approve="'+clean(task.id)+'">✓ Aprovar</button>':'');
   const retryBtn=(official&&approved?'':task?.status==='queued'||task?.status==='running'?''
       :'<button class="btn ghost" type="button" data-inline-regenerate="'+clean(asset)+'" data-format="'+clean(format)+'">↻ Refazer</button>');
+  const uploadBtn=(official&&approved?''
+      :'<button class="btn secondary" type="button" data-inline-upload="'+clean(asset)+'" data-format="'+clean(format)+'">↑ PNG</button>');
   return '<div class="inline-art-tile" data-inline-asset="'+clean(asset)+'"><div class="inline-art-head"><b>'+clean(titleFor(asset))+'</b>'+
     '<span class="inline-art-tag">'+clean(format)+'</span></div>'+image+
     '<div class="'+(approved?'inline-art-confirm':'inline-art-tag')+'">'+clean(stamp)+'</div>'+
-    '<div class="inline-art-actions">'+approveBtn+retryBtn+'</div></div>';
+    '<div class="inline-art-actions">'+approveBtn+retryBtn+uploadBtn+'</div></div>';
 }
 
 function renderBoard(data){
@@ -174,6 +176,22 @@ async function regenerate(asset,format){
   }catch(e){textMessage('Não foi possível regenerar: '+e.message)}
 }
 
+async function uploadArtwork(){
+  const file=el('inlineArtFileInput').files[0];
+  if(!file||!pendingUpload||!activeJob)return;
+  const item=pendingUpload;
+  pendingUpload=null;
+  try{
+    if(file.type!=='image/png')throw new Error('A arte deve ser um PNG.');
+    textMessage('Validando e salvando arte de '+titleFor(item.asset)+'…');
+    await jsonRequest(apiRoot(activeJob)+'/art/upload/'+encodeURIComponent(item.asset)+'?fmt='+encodeURIComponent(item.format),{
+      method:'POST',headers:{...authorize(),'Content-Type':'image/png'},body:file
+    });
+    await refresh();
+  }catch(e){textMessage('Erro no envio de PNG: '+e.message)}
+  finally{el('inlineArtFileInput').value=''}
+}
+
 async function renderVideo(){
   if(!activeJob||!board?.ready)return;
   const button=el('inlineArtRender');
@@ -211,12 +229,18 @@ function init(){
     }catch(e){textMessage('Falha na fila: '+e.message)}
   });
   el('inlineArtRender').addEventListener('click',renderVideo);
+  el('inlineArtFileInput').addEventListener('change',uploadArtwork);
   el('inlineArtPanel').addEventListener('click',event=>{
     const approve=event.target.closest('[data-inline-approve]');
     const regen=event.target.closest('[data-inline-regenerate]');
     const view=event.target.closest('[data-inline-view]');
+    const upload=event.target.closest('[data-inline-upload]');
     if(approve)approveTask(approve.dataset.inlineApprove);
     else if(regen)regenerate(regen.dataset.inlineRegenerate,regen.dataset.format);
+    else if(upload){
+      pendingUpload={asset:upload.dataset.inlineUpload,format:upload.dataset.format};
+      el('inlineArtFileInput').click();
+    }
     else if(view){
       el('inlineArtModalImage').src=view.dataset.inlineView;
       el('inlineArtModal').showModal();
