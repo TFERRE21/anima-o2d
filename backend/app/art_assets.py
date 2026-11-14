@@ -16,6 +16,32 @@ from backend.app.art_director import create_art_plan
 _JOB = re.compile(r"^[a-f0-9]{12}$")
 _ASSET = re.compile(r"^(luna|tomi|pipo|scene-\d{2}-background|scene-\d{2}-foreground)$")
 _MAX_BYTES = 25 * 1024 * 1024
+CAST_IDS = frozenset(("luna", "tomi", "pipo"))
+
+
+def official_cast_path(storage: Path, asset_id: str) -> Path:
+    """Season-wide canonical cast shared by ALL planets and episodes."""
+    if asset_id not in CAST_IDS:
+        raise ValueError("Somente protagonistas podem ter aparência oficial fixa.")
+    return storage / "series" / "characters" / "official" / (asset_id + ".png")
+
+
+def locked_cast_path(storage: Path, asset_id: str, identity_lock: str) -> Path | None:
+    try:
+        candidate = official_cast_path(storage, asset_id)
+    except ValueError:
+        return None
+    manifest = candidate.with_suffix(".json")
+    if not candidate.is_file() or not manifest.is_file():
+        return None
+    try:
+        record = json.loads(manifest.read_text(encoding="utf-8"))
+        if (not record.get("approved") or record.get("identity_lock") != identity_lock
+                or hashlib.sha256(candidate.read_bytes()).hexdigest() != record.get("sha256")):
+            return None
+    except (OSError, ValueError, TypeError):
+        return None
+    return candidate
 
 
 def art_root(storage: Path, job_id: str) -> Path:
@@ -114,16 +140,26 @@ def approve_art(storage: Path, job_id: str, asset_id: str, fmt: str,
     if auto_cutout and asset_id in {"luna", "tomi", "pipo"}:
         data = cutout_white_background(data)
     meta = inspect_png(data, asset_id, fmt)
-    destination = art_path(storage, job_id, asset_id, fmt)
+    is_cast = asset_id in CAST_IDS
+    destination = (official_cast_path(storage, asset_id) if is_cast
+                   else art_path(storage, job_id, asset_id, fmt))
+    if is_cast and locked_cast_path(storage, asset_id, plan["identity_lock"]):
+        raise ValueError(
+            "Personagem oficial já está aprovado e fixo para toda a série. "
+            "Não é permitido recriá-lo em outro episódio."
+        )
+    if is_cast and destination.exists():
+        raise ValueError(
+            "Já existe uma versão oficial deste personagem. Atualização exige "
+            "migração administrativa da biblioteca, não aprovação de episódio."
+        )
     destination.parent.mkdir(parents=True, exist_ok=True)
     tmp = destination.with_suffix(".tmp")
     tmp.write_bytes(data)
     tmp.replace(destination)
-    # Keep the original identity lock with approvals; changing the bible
-    # invalidates old approvals instead of silently mixing character styles.
     record = dict(meta, asset_id=asset_id, identity_lock=plan["identity_lock"],
-                  format="shared" if asset_id in ("luna", "tomi", "pipo") else fmt,
-                  approved=True)
+                  format="series" if is_cast else fmt,
+                  official=bool(is_cast), approved=True)
     destination.with_suffix(".json").write_text(
         json.dumps(record, ensure_ascii=False, indent=2), encoding="utf-8")
     return record
@@ -131,6 +167,10 @@ def approve_art(storage: Path, job_id: str, asset_id: str, fmt: str,
 
 def approved_path(storage: Path, job_id: str, asset_id: str, fmt: str,
                   identity_lock: str) -> Path | None:
+    if asset_id in CAST_IDS:
+        official = locked_cast_path(storage, asset_id, identity_lock)
+        if official:
+            return official
     candidate = art_path(storage, job_id, asset_id, fmt)
     record_file = candidate.with_suffix(".json")
     if not candidate.is_file() or not record_file.is_file():
