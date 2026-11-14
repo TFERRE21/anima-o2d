@@ -11,20 +11,34 @@ A primeira integração de animação usa **planos ilustrados em Blender (2.5D, 
 ## Produção automática no painel único
 
 1. Clique em **Criar roteiro**: a história, o planeta, as falas e o storyboard aparecem no próprio painel.
-2. Clique em **Aprovar roteiro e produzir vídeo**: o servidor dispara imediatamente a fila ComfyUI, sem abrir outra página. A fila é persistida em `ANIMA_STORAGE/comfyui/task-state.json`; se a estação RX 580 estiver desligada, as tarefas aguardam a próxima conexão.
+2. Clique em **Aprovar roteiro e produzir vídeo**: o servidor inicia a geração pelo primeiro motor configurado (Runway API, OpenAI Images API ou ComfyUI local). A fila é persistida em `ANIMA_STORAGE/comfyui/task-state.json`; se nenhum motor estiver disponível, o painel explica por que o processamento não começou, sem pedir fotos.
 3. **Luna, Tomi e Pipo** são gerados e fixados automaticamente **uma única vez** na série. Os PNGs oficiais ficam em `ANIMA_STORAGE/series/characters/official/`, com hash SHA-256 e trava de identidade. Nenhum episódio pode regenerá-los ou substituí-los pela interface comum.
 4. Cada novo planeta produz somente as artes dos **cenários do episódio**; 16:9 e 9:16 usam fundos próprios, mas os mesmos personagens oficiais. O sistema mostra automaticamente as miniaturas embaixo do roteiro e permite ampliar a imagem sem sair da página.
-5. O gerador ComfyUI envia os PNGs para o servidor. Um coordenador persistente valida formato, tamanho, transparência e hash, recorta automaticamente o fundo branco uniforme dos protagonistas, solicita nova tentativa quando a imagem é tecnicamente inválida (até duas tentativas adicionais) e salva os arquivos aprovados. **Essas verificações não substituem uma avaliação estética por visão computacional.**
+5. O motor de imagens configurado entrega PNGs ao servidor. Um coordenador persistente valida formato, tamanho, transparência e hash, recorta automaticamente o fundo branco uniforme dos protagonistas, solicita nova tentativa quando a imagem é tecnicamente inválida (até duas tentativas adicionais) e salva os arquivos aprovados. **Essas verificações não substituem uma avaliação estética por visão computacional.**
 6. Quando os personagens oficiais e cenários estão prontos, o sistema inicia **automaticamente o Blender Cycles CPU e FFmpeg**, sem botão de montagem. A tela mostra o andamento e os arquivos MP4 disponíveis. Se o Blender falhar, o erro fica visível; o sistema não reinicia vídeos pesados indefinidamente.
 7. O usuário não precisa enviar imagens, digitar token na tela, aprovar uma por uma nem abrir outra página. O token do agente ComfyUI fica configurado como segredo do servidor e no computador que executa o agente.
 
-O motor não cria bonecos geométricos como substitutos. Se o gerador de imagens estiver offline, o painel mostra **Aguardando o agente ComfyUI** e mantém a fila salva; não afirma que uma imagem foi gerada antes de receber o arquivo verdadeiro. ComfyUI roda na sua estação Windows/RX 580; não é um recurso incluído na assinatura ChatGPT Plus.
+O motor não cria bonecos geométricos como substitutos. Quando nenhuma API de imagem ou estação ComfyUI está online, o painel mostra **Motor de imagens indisponível** e mantém a fila salva; não afirma que uma imagem foi gerada antes de receber o arquivo verdadeiro.
 
-Uma primeira configuração precisa conectar o agente ComfyUI, instalar um checkpoint adequado e definir `ANIMA_COMFY_TOKEN` na aplicação. Veja `docs/integracao-comfyui.md`. O modelo de imagem utilizado pode afetar bastante a qualidade. O sistema valida tecnicamente o arquivo recebido, mas não pode garantir que a imagem gerada tenha qualidade artística profissional ou consistência perfeita antes de renderizar.
+### Motores de imagem — seleção automática
+
+No painel iContainer, configure **uma vez** as variáveis de ambiente do container da aplicação (não no terminal do host sem repassá-las ao Docker):
+
+- `ANIMA_IMAGE_PROVIDER=auto` (padrão): usa `RUNWAYML_API_SECRET` ou `RUNWAY_API_KEY` quando presente; caso contrário, `OPENAI_API_KEY`; sem nenhuma, usa o agente ComfyUI se estiver conectado.
+- `ANIMA_IMAGE_PROVIDER=runway` + `RUNWAYML_API_SECRET`: usa diretamente a API Runway (modelo padrão `nano_banana_2.1`; selecione com `ANIMA_RUNWAY_IMAGE_MODEL`).
+- `ANIMA_IMAGE_PROVIDER=openai` + `OPENAI_API_KEY`: usa a API de imagens da OpenAI (modelo padrão `gpt-image-1.5`; selecione com `ANIMA_OPENAI_IMAGE_MODEL`, qualidade com `ANIMA_IMAGE_QUALITY`).
+- `ANIMA_IMAGE_PROVIDER=comfyui`: usa somente o agente local Windows/RX 580, com token `ANIMA_COMFY_TOKEN` configurado no servidor e na estação.
+
+**As APIs Runway e OpenAI podem cobrar a cada imagem gerada.** Uma assinatura ChatGPT Plus não fornece chave de API nem créditos de geração na VPS. O sistema nunca tenta acessar as conversas do ChatGPT como substituto da API. Não coloque chaves no GitHub nem na página pública.
+
+O endpoint `GET /api/image-engine/status` mostra qual motor está selecionado e se está pronto **sem revelar chaves**. Após alterar as variáveis no iContainer, recrie a aplicação preservando `/data/jobs`. Tarefas antigas pendentes podem ser retomadas pelo motor recém-conectado.
+
+Para operar sem API paga, conecte o agente ComfyUI, instale um checkpoint adequado e defina `ANIMA_COMFY_TOKEN` na aplicação. Veja `docs/integracao-comfyui.md`. O modelo de imagem utilizado pode afetar bastante a qualidade. O sistema valida tecnicamente o arquivo recebido, mas não pode garantir que a imagem gerada tenha qualidade artística profissional ou consistência perfeita antes de renderizar.
 
 ## Endpoints para integrar/diagnosticar
 
-- `POST /api/jobs/{id}/story/approve`: aprovar roteiro, persistir tarefas ComfyUI e habilitar a montagem automática quando as imagens estiverem prontas.
+- `POST /api/jobs/{id}/story/approve`: aprovar roteiro, enfileirar as imagens no motor selecionado e habilitar a montagem automática quando estiverem prontas.
+- `GET /api/image-engine/status`: disponibilidade e modelo selecionado do motor de imagens.
 - `GET /api/jobs/{id}/art/board`: estado de todos os personagens oficiais, cenários, aprovações e tarefas em fila.
 - `GET /api/jobs/{id}/art/candidate/{task_id}`: imagem candidata para revisão na própria página.
 - `GET /api/jobs/{id}/art/approved/{asset_id}?fmt=9:16`: imagem oficial aprovada.
