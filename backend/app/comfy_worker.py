@@ -167,6 +167,8 @@ def result(task_id: str, payload: dict, authorization: str | None=Header(default
     task.update(status=payload.get("status","failed"),message=str(payload.get("message",""))[:2000],
                 output=payload.get("output"),completed_at=datetime.now(timezone.utc).isoformat())
     _save_tasks()
+    from backend.app.auto_production import notify
+    notify()
     return {"ok":True}
 
 @router.get("/tasks")
@@ -189,6 +191,8 @@ async def upload_image(task_id: str, request: Request, authorization: str | None
     task["image_file"]=str(target)
     task["image_url"]="/api/comfy/tasks/"+task_id+"/image"
     _save_tasks()
+    from backend.app.auto_production import notify
+    notify()
     return {"ok":True,"image_url":task["image_url"],"bytes":len(data)}
 
 @router.get("/tasks/{task_id}/image")
