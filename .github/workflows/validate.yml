@@ -18,6 +18,8 @@ jobs:
         run: pip install -r backend/requirements.txt
       - name: Compile Python
         run: python -m compileall -q backend
+      - name: Compile Windows ComfyUI agent
+        run: python -m py_compile tools/windows-gpu-agent/comfyui-agent.py
       - name: Validate dashboard JavaScript
         run: |
           python - <<'PY'
