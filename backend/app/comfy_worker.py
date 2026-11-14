@@ -50,14 +50,18 @@ def worker_online() -> bool:
     return any(time.time() - seen < 75 for seen in _workers.values())
 
 
-def art_tasks(job_id: str) -> list[dict]:
+def art_tasks(job_id: str, identity_lock: str | None = None) -> list[dict]:
+    """Current planet scenes plus once-per-series protagonist candidates."""
     return sorted([
         {"id": t["id"], "asset_id": t.get("asset_id"), "format": t.get("format"),
          "status": t.get("status"), "approved": bool(t.get("approved")),
          "has_image": bool(t.get("image_file")
                        and Path(t["image_file"]).is_file()),
          "message": t.get("message", ""), "created_at": t.get("created_at")}
-        for t in _tasks.values() if t.get("job_id") == job_id
+        for t in _tasks.values()
+        if t.get("job_id") == job_id
+        or (identity_lock and t.get("asset_id") in {"luna", "tomi", "pipo"}
+            and t.get("identity_lock") == identity_lock)
     ], key=lambda t: t.get("created_at") or "", reverse=True)
 
 
@@ -143,9 +147,14 @@ def queue_art_image(payload: dict, job_id: str, asset_id: str, fmt: str,
             "message": "Imagem agendada; aguardando o agente ComfyUI se estiver offline."}
 
 
-def get_art_task(task_id: str, job_id: str) -> dict:
+def get_art_task(task_id: str, job_id: str, identity_lock: str | None = None) -> dict:
     task = _tasks.get(task_id)
-    if not task or task.get("job_id") != job_id:
+    allowed = bool(task and (
+        task.get("job_id") == job_id or
+        (identity_lock and task.get("asset_id") in {"luna", "tomi", "pipo"}
+         and task.get("identity_lock") == identity_lock)
+    ))
+    if not allowed:
         raise HTTPException(404, "Tarefa de arte não encontrada neste episódio.")
     return task
 
