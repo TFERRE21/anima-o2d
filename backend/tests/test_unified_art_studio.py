@@ -1,11 +1,15 @@
 """Integration tests for inline approval and automatic image queue (offline-safe)."""
 from __future__ import annotations
+import os
 import queue
 import tempfile
 import unittest
 from pathlib import Path
 from unittest import mock
 
+# Importing FastAPI main initializes its persistent store. Keep CI isolated
+# from the VPS-only /data volume, which is not writable on GitHub Actions.
+os.environ.setdefault("ANIMA_STORAGE", str(Path(tempfile.gettempdir()) / "anima-studio-ci-jobs"))
 from backend.app import comfy_worker, main
 
 
