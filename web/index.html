@@ -19,6 +19,18 @@
 @media(max-width:760px){.active-job-layout{grid-template-columns:1fr}.live-preview-frame{aspect-ratio:16/9}}
 @media(max-width:1100px){.metrics{grid-template-columns:repeat(3,minmax(0,1fr))}}@media(max-width:950px){.shell{grid-template-columns:76px minmax(0,1fr)}.sidebar{padding:20px 9px}.logo{font-size:0;text-align:center}.logo:first-letter{font-size:22px}.logo span{display:none}.series,.navlabel,.nav button .txt,.sidebottom{display:none}.nav button{justify-content:center;font-size:18px}.layout{grid-template-columns:1fr}.welcomeart{max-width:28%}}
 @media(max-width:650px){.main{padding:18px 13px}.metrics{grid-template-columns:repeat(2,1fr)}.welcome{padding:20px}.welcomeart{display:none}.topbar h1{font-size:20px}.statuspill{display:none}.formgrid{grid-template-columns:1fr}.field.full{grid-column:auto}.charactergrid{gap:6px}.character{padding:7px}.character svg{height:85px}.episode{grid-template-columns:54px minmax(0,1fr)}.thumb{width:54px;height:50px}.episode .epactions{grid-column:2}.topright{gap:6px}}
+
+.inline-art-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(165px,1fr));gap:12px}
+.inline-art-tile{min-width:0;border:1px solid #2e4567;border-radius:13px;background:#0b172a;padding:10px;display:flex;flex-direction:column;gap:8px}
+.inline-art-tile img{width:100%;height:145px;object-fit:contain;border-radius:8px;background:linear-gradient(145deg,#1b2e4b,#111c2d)}
+.inline-art-placeholder{height:145px;display:grid;place-items:center;border:1px dashed #3a5372;border-radius:8px;color:#8fa7c8;text-align:center;padding:12px;font-size:12px}
+.inline-art-tag{font-size:11px;color:#96afd2;word-break:break-word}
+.inline-art-actions{display:flex;flex-wrap:wrap;gap:6px}
+.inline-art-actions .btn{padding:7px 9px;font-size:11px;flex:1}
+.inline-art-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.inline-art-token{background:#091529;color:#dae8ff;border:1px solid #344967;border-radius:9px;padding:9px 12px;max-width:330px;width:100%}
+.inline-art-status{font-size:12px;color:#b8c9e3;margin:12px 0;line-height:1.5}
+.inline-art-confirm{color:#85e8ba;font-size:12px;font-weight:700}
 </style>
 </head>
 <body>
@@ -88,7 +100,24 @@
 <div class="card" style="background:#0a1527;margin-top:12px"><div class="cardhead"><h3>Falas dos personagens</h3><span class="badge ready">VOZES SEPARADAS</span></div><div id="dialogueList" style="display:grid;gap:8px"></div></div>
 <div class="card" style="background:#0a1527;margin-top:12px"><div class="cardhead"><h3>Short — momento mais impactante</h3><span class="badge">9:16 · 1:00–1:30</span></div><p class="muted" id="shortWordCount"></p><p class="muted" id="shortFocus"></p><div id="shortStoryText" style="font-size:13px;line-height:1.7;max-height:140px;overflow:auto;white-space:pre-wrap;color:#dce8fa"></div></div>
 <div class="card" style="background:#0a1527;margin-top:12px"><div class="cardhead"><h3>Storyboard</h3><span class="muted">cena por cena</span></div><div id="storyboardList"></div></div>
-<div class="toolbar" style="margin-top:16px"><a class="btn ghost" id="openArtStudio" href="/arte.html">✦ Gerar e aprovar artes</a><button class="btn good" id="approveStory">✓ Renderizar arte aprovada</button><button class="btn ghost" id="discardStory">Descartar e criar outra história</button><span class="muted" id="renderMessage">Confira o planeta, a aventura e a lição antes de renderizar.</span></div>
+<div class="card" id="inlineArtPanel" style="margin-top:16px;background:#0b1628">
+  <div class="cardhead"><h3>✦ Imagens do episódio · geração automática</h3><span class="badge pending" id="inlineArtBadge">AGUARDANDO ROTEIRO</span></div>
+  <p class="muted">Após aprovar o roteiro, o motor de imagens inicia os cenários do novo planeta. Luna, Tomi e Pipo ficam fixos para toda a série.</p>
+  <p class="inline-art-status" id="inlineArtStatus">Aprove o roteiro para iniciar as imagens nesta mesma tela.</p>
+  <h4 style="margin:18px 0 10px">Personagens oficiais · não mudam entre episódios</h4>
+  <div id="inlineCast" class="inline-art-grid"><div class="muted">Carregando biblioteca oficial…</div></div>
+  <h4 style="margin:20px 0 10px">Cenários deste planeta · aprovação por cena</h4>
+  <div id="inlineScenes" class="inline-art-grid"><div class="muted">Os cenários aparecerão aqui automaticamente.</div></div>
+  <div class="toolbar" style="margin-top:18px">
+   <button class="btn ghost small" id="inlineArtRefresh" type="button">↻ Atualizar imagens</button>
+   <button class="btn secondary small" id="inlineArtRetry" type="button">↻ Retentar pendentes</button>
+   <button class="btn good" id="inlineArtRender" type="button" disabled>▶ Montar vídeo com artes aprovadas</button>
+  </div>
+  <div style="margin-top:12px"><label for="inlineArtToken" class="muted">Token de aprovação artística (necessário uma vez para aprovar ou regenerar)</label>
+   <input class="inline-art-token" id="inlineArtToken" type="password" autocomplete="off" placeholder="ANIMA_COMFY_TOKEN · somente nesta sessão"></div>
+  <p class="muted" style="font-size:11px;margin-top:8px">A geração começa sem exigir token na tela. O agente ComfyUI precisa estar conectado para produzir as imagens. As aprovações são salvas no servidor.</p>
+ </div>
+ <div class="toolbar" style="margin-top:16px"><button class="btn good" id="approveStory">✓ Aprovar roteiro e gerar imagens</button><button class="btn ghost" id="discardStory">Descartar e criar outra história</button><span class="muted" id="renderMessage">Confira o planeta, a aventura e a lição antes de renderizar.</span></div>
 </div>
 <div class="card" id="activeJobCard" style="margin-top:16px;display:none">
 <div class="cardhead"><h3 id="activeJobTitle">Produção iniciada</h3><span class="badge pending" id="activeJobBadge">EM FILA</span></div>
@@ -229,7 +258,7 @@ async function openStory(id){
   $('shortFocus').textContent=story.short_highlight?'Destaque escolhido: '+story.short_highlight+'.':'O Short usa a parte central da aventura.';
   $('dialogueList').innerHTML=(story.dialogues||[]).map(line=>'<div style="padding:9px 11px;border:1px solid #263c5c;border-radius:10px;background:#101e33"><b style="color:'+(line.speaker==='Luna'?'#ff9bd2':line.speaker==='Tomi'?'#8dbdff':'#ffc978')+'">'+esc(line.speaker)+'</b><div class="muted" style="margin-top:4px">'+esc(line.text)+'</div></div>').join('')||'<p class="muted">Este roteiro antigo não possui falas separadas.</p>';
   $('storyboardList').innerHTML=(story.scenes||[]).map((scene,i)=>'<div class="episode"><div class="thumb">'+String(i+1).padStart(2,'0')+'</div><div><div class="epname">'+esc(scene.title)+'</div><div class="epmeta">'+esc(scene.caption)+'</div><p class="muted">'+esc(scene.visual_action||'')+'</p></div></div>').join('');
-  $('storyPreview').style.display='block';$('renderMessage').textContent='Roteiro recuperado. Revise e aprove para renderizar.';
+  $('storyPreview').style.display='block';$('renderMessage').textContent='Roteiro recuperado. Aprove para gerar imagens na mesma tela.';window.prepareInlineArt?.(pendingStoryId);
   go('create');
  }catch(e){alert(e.message);}
 }
@@ -256,23 +285,17 @@ async function createEpisode(e){
   $('shortFocus').textContent=story.short_highlight?'Destaque escolhido: '+story.short_highlight+'.':'O Short usa a parte central da aventura.';
   $('dialogueList').innerHTML=(story.dialogues||[]).map(line=>'<div style="padding:9px 11px;border:1px solid #263c5c;border-radius:10px;background:#101e33"><b style="color:'+(line.speaker==='Luna'?'#ff9bd2':line.speaker==='Tomi'?'#8dbdff':'#ffc978')+'">'+esc(line.speaker)+'</b><div class="muted" style="margin-top:4px">'+esc(line.text)+'</div></div>').join('')||'<p class="muted">Este roteiro antigo não possui falas separadas.</p>';
   $('storyboardList').innerHTML=(story.scenes||[]).map((scene,i)=>'<div class="episode"><div class="thumb">'+String(i+1).padStart(2,'0')+'</div><div><div class="epname">'+esc(scene.title)+'</div><div class="epmeta">'+esc(scene.caption)+'</div><p class="muted">'+esc(scene.visual_action||'')+'</p></div></div>').join('');
-  $('storyPreview').style.display='block';$('renderMessage').textContent='Roteiro salvo. Aprove primeiro as imagens na Central de Arte.';$('openArtStudio').href='/arte.html?job='+encodeURIComponent(pendingStoryId);
+  $('storyPreview').style.display='block';$('renderMessage').textContent='Roteiro pronto! Clique em Aprovar roteiro e as imagens começam automaticamente abaixo.';window.prepareInlineArt?.(pendingStoryId);
   $('createMessage').textContent='História pronta! Nenhum vídeo foi criado ainda.';
  }catch(err){$('createMessage').textContent=err.message;}
  finally{btn.disabled=false;btn.textContent='✦ Criar outra história';}
 }
 $('createForm').addEventListener('submit',createEpisode);
 $('approveStory').addEventListener('click',async()=>{
- if(!pendingStoryId)return;
- const btn=$('approveStory');btn.disabled=true;btn.textContent='Preparando animação…';
- try{
-  const r=await fetch('/api/jobs/'+encodeURIComponent(pendingStoryId)+'/render',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({formats:pendingFormats})});
-  const data=await r.json();if(!r.ok){const detail=data.detail||'Falha ao iniciar renderização.';if(typeof detail==='object'&&detail.missing_art){const url='/arte.html?job='+encodeURIComponent(pendingStoryId);$('renderMessage').innerHTML='Faltam artes aprovadas para este roteiro. <a style="color:#93c7ff" href="'+url+'">Abrir Central de Arte e gerar imagens</a>';throw new Error('Abra a Central de Arte para aprovar personagens e cenários antes do vídeo.')}throw new Error(typeof detail==='string'?detail:JSON.stringify(detail))}
-  $('renderMessage').textContent='Roteiro aprovado. Renderizando os formatos selecionados.';
-  $('activeJobCard').style.display='block';watchJob(data.job_id);
- }catch(err){if(err.message.startsWith('Abra a Central de Arte')){$('renderMessage').innerHTML='As imagens do episódio ainda não estão aprovadas. <a style="color:#93c7ff" href="/arte.html?job='+encodeURIComponent(pendingStoryId)+'">Gerar e aprovar imagens na Central de Arte</a>'}else{$('renderMessage').textContent=err.message}btn.disabled=false;btn.textContent='✓ Renderizar arte aprovada';}
-});
-$('discardStory').addEventListener('click',()=>{$('storyPreview').style.display='none';pendingStoryId=null;$('createMessage').textContent='Roteiro descartado. Crie uma nova história para outro planeta.';});
+  if(!pendingStoryId)return;
+  await window.startInlineArt?.(pendingStoryId);
+ });
+ $('discardStory').addEventListener('click',()=>{$('storyPreview').style.display='none';window.stopInlineArt?.();pendingStoryId=null;$('createMessage').textContent='Roteiro descartado. Crie uma nova história para outro planeta.';});
 function watchJob(id){
  if(poll)clearInterval(poll);
  const tick=async()=>{
@@ -347,4 +370,5 @@ $('saveSettings').addEventListener('click',()=>saveSettings());
 $('saveSchedule').addEventListener('click',()=>saveSettings({production_days:[...document.querySelectorAll('.productionDay:checked')].map(x=>x.value),production_time:$('productionTime').value}));
 loadDashboard();loadSettings();setInterval(loadDashboard,8000);
 </script>
+<script src="/inline-art.js"></script>
 </body></html>
