@@ -190,12 +190,13 @@ def _process_job(job_id: str) -> None:
                 main._update(job_id, art_stage="error", art_error=reason,
                              message="Motor de imagens encontrou uma falha: " + reason)
             return
-        stage = "waiting_image_engine" if not comfy_worker.worker_online() else "generating_images"
+        from backend.app.image_provider import engine_state
+        service = engine_state()
+        stage = "generating_images" if service["ready"] else "waiting_image_engine"
         if job.get("art_stage") != stage:
             main._update(job_id, art_stage=stage, art_error=None,
-                         message=("Aguardando motor de imagens conectado para continuar."
-                                  if stage == "waiting_image_engine" else
-                                  "Gerando imagens e cenários do planeta automaticamente."))
+                         message=("Gerando imagens pelo motor " + service["provider"] + "."
+                                  if service["ready"] else service["detail"]))
         return
 
     # All season heroes and all required scenes are technically valid.
