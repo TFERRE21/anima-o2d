@@ -111,13 +111,58 @@ def generate(task):
     raise TimeoutError("ComfyUI excedeu o limite de 15 minutos para esta imagem.")
 
 
+def check_local_comfy():
+    """Do not claim a GPU connection before the local HTTP server responds."""
+    try:
+        response = requests.get(COMFY + "/system_stats", timeout=10)
+        response.raise_for_status()
+        data = response.json()
+        devices = data.get("devices") or []
+        if devices:
+            print("ComfyUI detectou dispositivo(s):", ", ".join(
+                str(device.get("name") or device.get("type") or "sem nome")
+                for device in devices if isinstance(device, dict)
+            ), flush=True)
+        return True
+    except (requests.RequestException, ValueError) as error:
+        print(
+            "ComfyUI local indisponível em " + COMFY
+            + " (" + type(error).__name__ + ": " + str(error)[:300] + ").",
+            flush=True,
+        )
+        print(
+            "Abra o ComfyUI-ZLUDA primeiro e confirme no navegador "
+            "http://127.0.0.1:8188/system_stats. "
+            "Este agente tentará conectar novamente em 5 segundos.",
+            flush=True,
+        )
+        return False
+
+
 def main():
-    print("Anima Studio / ComfyUI conectado:", COMFY, flush=True)
-    requests.get(COMFY + "/system_stats", timeout=15).raise_for_status()
+    print("Iniciando agente de imagens do Anima Studio.", flush=True)
+    print("ComfyUI local:", COMFY, flush=True)
+    print("VPS do Anima Studio:", SERVER, flush=True)
+    was_ready = False
     while True:
         try:
-            SESSION.post(SERVER + "/api/comfy/heartbeat", params={"worker_id": WORKER}, timeout=20).raise_for_status()
-            response = SESSION.get(SERVER + "/api/comfy/next", params={"worker_id": WORKER}, timeout=35)
+            if not was_ready and not check_local_comfy():
+                time.sleep(5)
+                continue
+            if not was_ready:
+                print("ComfyUI local respondeu com sucesso. Conectando ao Anima Studio...", flush=True)
+                was_ready = True
+            SESSION.post(
+                SERVER + "/api/comfy/heartbeat",
+                params={"worker_id": WORKER}, timeout=20,
+            ).raise_for_status()
+            if not getattr(main, "_registered", False):
+                print("Agente conectado à VPS: pronto para receber imagens.", flush=True)
+                main._registered = True
+            response = SESSION.get(
+                SERVER + "/api/comfy/next",
+                params={"worker_id": WORKER}, timeout=35,
+            )
             response.raise_for_status()
             task = response.json().get("task")
             if not task:
@@ -125,14 +170,34 @@ def main():
             try:
                 generate(task)
             except Exception as error:
-                report(task["id"], "failed", f"{type(error).__name__}: {error}")
-                print("Falha na tarefa:", error, flush=True)
+                try:
+                    report(task["id"], "failed", f"{type(error).__name__}: {error}")
+                except requests.RequestException as upload_error:
+                    print("Falha ao reportar erro à VPS:", upload_error, flush=True)
+                print("Falha na geração da imagem:", type(error).__name__, str(error)[:400], flush=True)
         except KeyboardInterrupt:
+            print("Agente encerrado pelo operador.", flush=True)
             raise
-        except Exception as error:
-            print("Falha de conexão/ComfyUI:", error, flush=True)
+        except requests.RequestException as error:
+            main._registered = False
+            print(
+                "Falha de comunicação com a VPS ("
+                + type(error).__name__ + "): " + str(error)[:450],
+                flush=True,
+            )
+            print(
+                "Confira ANIMA_STUDIO_URL, HTTPS, ANIMA_COMFY_TOKEN "
+                "e se a aplicação animacao2d está ativa.",
+                flush=True,
+            )
             time.sleep(5)
-
+        except Exception as error:
+            main._registered = False
+            print(
+                "Falha no agente (" + type(error).__name__ + "): "
+                + str(error)[:450], flush=True
+            )
+            time.sleep(5)
 
 if __name__ == "__main__":
     main()
