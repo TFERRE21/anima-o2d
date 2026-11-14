@@ -30,6 +30,7 @@ jobs:
           Path("/tmp/anima-dashboard.js").write_text(scripts[-1], encoding="utf-8")
           PY
           node --check /tmp/anima-dashboard.js
+          node --check web/inline-art.js
       - name: Check Blender executable
         run: blender --background --factory-startup --python-expr "import bpy; print('Blender 3D disponível:', bpy.app.version_string)"
       - name: Check portable media dependencies
