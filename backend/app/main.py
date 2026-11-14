@@ -324,7 +324,8 @@ def get_episode_art_board(job_id: str):
     formats = job.get("formats") or ["9:16"]
     boards = {fmt: get_episode_art_status(job_id, fmt) for fmt in formats}
     missing = sum(len(x["missing"]) for x in boards.values())
-    unique_tasks = comfy_worker.art_tasks(job_id)
+    identity_lock = next(iter(boards.values()))["identity_lock"]
+    unique_tasks = comfy_worker.art_tasks(job_id, identity_lock)
     return {
         "job_id": job_id, "formats": formats, "story_approved": job.get("story_approved", False),
         "worker_connected": comfy_worker.worker_online(),
@@ -351,8 +352,10 @@ def queue_episode_art(job_id: str, payload: ArtQueueRequest,
 def preview_generated_candidate(job_id: str, task_id: str):
     """Display an image candidate inside the existing editor (read only)."""
     from backend.app import comfy_worker
-    _get_job(job_id)
-    task = comfy_worker.get_art_task(task_id, job_id)
+    from backend.app.art_director import create_art_plan
+    job = _get_job(job_id)
+    identity_lock = create_art_plan(job["story_plan"])["identity_lock"]
+    task = comfy_worker.get_art_task(task_id, job_id, identity_lock)
     image_file = task.get("image_file")
     if not image_file:
         raise HTTPException(404, "A IA ainda está gerando esta imagem.")
@@ -382,10 +385,12 @@ def view_approved_art(job_id: str, asset_id: str, fmt: str = "9:16"):
 def approve_comfy_art(job_id: str, task_id: str,
                       authorization: str | None = Header(default=None)):
     from backend.app import comfy_worker
+    from backend.app.art_director import create_art_plan
     from backend.app.art_assets import approve_art
     comfy_worker._auth(authorization)
     job = _get_job(job_id)
-    task = comfy_worker.get_art_task(task_id, job_id)
+    identity_lock = create_art_plan(job["story_plan"])["identity_lock"]
+    task = comfy_worker.get_art_task(task_id, job_id, identity_lock)
     if not task.get("image_file"):
         raise HTTPException(409, "O ComfyUI ainda não enviou a imagem desta tarefa.")
     fmt = task["format"]
