@@ -5,7 +5,6 @@
 'use strict';
 const el=id=>document.getElementById(id);
 let activeJob=null, pollTimer=null, board=null, refreshing=false;
-const thumbnails=new Map();
 const clean=x=>String(x??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
 const castNames={luna:'Luna',tomi:'Tomi',pipo:'Pipo'};
 const titleFor=id=>castNames[id]||'Cena '+(Number((id.match(/scene-(\d+)/)||[])[1]||0)+1);
@@ -49,13 +48,13 @@ function tile(asset,format,state,tasks,official=false){
   const task=taskFor(tasks,asset,format);
   const candidate=Boolean(task?.has_image && task?.status==='done' && !task?.approved);
   const stamp=(official&&approved?' · FIXO NA SÉRIE':approved?' · Aprovado':' · '+statusName(task));
-  const image=(candidate&&!official
-      ?'<img data-inline-candidate="'+clean(task.id)+'" alt="Nova imagem criada para '+clean(asset)+'" style="display:none">'
-      :approved
-       ?'<img src="'+apiRoot(activeJob)+'/art/approved/'+encodeURIComponent(asset)+'?fmt='+encodeURIComponent(format)+'" alt="Arte aprovada de '+clean(asset)+'">'
-       :candidate
-         ?'<img data-inline-candidate="'+clean(task.id)+'" alt="Arte de personagem candidata" style="display:none">'
-         :'<div class="inline-art-placeholder">'+(task?.status==='running'?'Gerando imagem…':task?.status==='failed'?'Erro no gerador':'Aguardando imagem')+'</div>');
+  const candidateUrl=candidate?apiRoot(activeJob)+'/art/candidate/'+encodeURIComponent(task.id):'';
+  const approvedUrl=apiRoot(activeJob)+'/art/approved/'+encodeURIComponent(asset)+'?fmt='+encodeURIComponent(format);
+  const image=(candidate && (!official || !approved)
+       ?'<img src="'+candidateUrl+'" alt="Imagem IA de '+clean(asset)+'" title="Clique para ampliar" data-inline-view="'+candidateUrl+'">'
+       :approved
+        ?'<img src="'+approvedUrl+'" alt="Arte oficial de '+clean(asset)+'" title="Clique para ampliar" data-inline-view="'+approvedUrl+'">'
+        :'<div class="inline-art-placeholder">'+(task?.status==='running'?'Gerando imagem…':task?.status==='failed'?'Erro no gerador':'Aguardando imagem')+'</div>');
   const approveBtn=(candidate && (!official||!approved)
        ?'<button class="btn good" type="button" data-inline-approve="'+clean(task.id)+'">✓ Aprovar</button>':'');
   const retryBtn=(official&&approved?'':task?.status==='queued'||task?.status==='running'?''
@@ -64,24 +63,6 @@ function tile(asset,format,state,tasks,official=false){
     '<span class="inline-art-tag">'+clean(format)+'</span></div>'+image+
     '<div class="'+(approved?'inline-art-confirm':'inline-art-tag')+'">'+clean(stamp)+'</div>'+
     '<div class="inline-art-actions">'+approveBtn+retryBtn+'</div></div>';
-}
-
-async function candidateImages(){
-  const pictures=[...el('inlineArtPanel').querySelectorAll('[data-inline-candidate]')];
-  for(const picture of pictures){
-    if(!activeJob)return;
-    const id=picture.dataset.inlineCandidate;
-    if(thumbnails.has(id)){
-      picture.src=thumbnails.get(id);picture.style.display='block';continue;
-    }
-    if(!token){picture.insertAdjacentHTML('afterend','<div class="muted">Informe o token para visualizar a imagem gerada.</div>');continue;}
-    try{
-      const response=await fetch('/api/comfy/tasks/'+encodeURIComponent(id)+'/image',{headers:{Authorization:'Bearer '+token},cache:'no-store'});
-      if(!response.ok)throw Error('Imagem indisponível');
-      const url=URL.createObjectURL(await response.blob());
-      thumbnails.set(id,url);picture.src=url;picture.style.display='block';
-    }catch(e){picture.insertAdjacentHTML('afterend','<span class="muted">Prévia pendente ou token inválido.</span>');}
-  }
 }
 
 function renderBoard(data){
@@ -116,7 +97,7 @@ function renderBoard(data){
   }
   el('approveStory').disabled=!!data.story_approved;
   el('approveStory').textContent=data.story_approved?'✓ Roteiro aprovado · imagens iniciadas':'✓ Aprovar roteiro e gerar imagens';
-  candidateImages();
+  // Artwork thumbnails are read-only files served by this same panel.
 }
 
 async function refresh(){
@@ -131,8 +112,7 @@ async function refresh(){
 
 function stop(){
   if(pollTimer){clearInterval(pollTimer);pollTimer=null;}
-  for(const url of thumbnails.values())URL.revokeObjectURL(url);
-  thumbnails.clear();board=null;activeJob=null;
+  board=null;activeJob=null;
 }
 
 window.stopInlineArt=stop;
@@ -228,9 +208,15 @@ function init(){
   el('inlineArtPanel').addEventListener('click',event=>{
     const approve=event.target.closest('[data-inline-approve]');
     const regen=event.target.closest('[data-inline-regenerate]');
+    const view=event.target.closest('[data-inline-view]');
     if(approve)approveTask(approve.dataset.inlineApprove);
     else if(regen)regenerate(regen.dataset.inlineRegenerate,regen.dataset.format);
+    else if(view){
+      el('inlineArtModalImage').src=view.dataset.inlineView;
+      el('inlineArtModal').showModal();
+    }
   });
+  el('inlineArtModalClose').addEventListener('click',()=>el('inlineArtModal').close());
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);
 else init();
