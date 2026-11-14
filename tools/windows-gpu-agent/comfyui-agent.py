@@ -2,6 +2,7 @@
 import json
 import os
 import pathlib
+import threading
 import time
 import uuid
 
@@ -17,6 +18,86 @@ OUT = pathlib.Path(os.getenv("ANIMA_COMFY_OUTPUT", str(ROOT / "generated")))
 OUT.mkdir(parents=True, exist_ok=True)
 SESSION = requests.Session()
 SESSION.headers["Authorization"] = "Bearer " + TOKEN
+_HEARTBEAT_THREAD = None
+
+
+def _heartbeats_while_rendering():
+    """Keep the VPS worker marked online while a slow RX 580 draws a frame."""
+    was_connected = True
+    while True:
+        try:
+            reply = requests.post(
+                SERVER + "/api/comfy/heartbeat",
+                params={"worker_id": WORKER},
+                headers={"Authorization": "Bearer " + TOKEN},
+                timeout=20,
+            )
+            reply.raise_for_status()
+            if not was_connected:
+                print("Conexão de monitoramento com a VPS recuperada.", flush=True)
+            was_connected = True
+        except requests.RequestException as error:
+            if was_connected:
+                print("Monitoramento da VPS interrompido:", type(error).__name__, str(error)[:200], flush=True)
+            was_connected = False
+        time.sleep(25)
+
+
+def _ensure_heartbeat():
+    global _HEARTBEAT_THREAD
+    if _HEARTBEAT_THREAD is not None and _HEARTBEAT_THREAD.is_alive():
+        return
+    _HEARTBEAT_THREAD = threading.Thread(
+        target=_heartbeats_while_rendering,
+        name="anima-comfy-heartbeat", daemon=True,
+    )
+    _HEARTBEAT_THREAD.start()
+
+
+def _execution_error(record):
+    """Extract the failing ComfyUI node and exception from /history."""
+    status = record.get("status") or {}
+    errors = []
+    for event in status.get("messages") or []:
+        if not isinstance(event, (list, tuple)) or len(event) < 2:
+            continue
+        name, data = event[0], event[1]
+        if name != "execution_error" or not isinstance(data, dict):
+            continue
+        parts = [
+            "Nó " + str(data.get("node_id") or "?") + " (" + str(data.get("node_type") or "?") + ")",
+            str(data.get("exception_type") or "erro"),
+            str(data.get("exception_message") or "").strip(),
+        ]
+        errors.append(": ".join(p for p in parts if p))
+    if errors:
+        return " | ".join(errors)[:1800]
+    return "ComfyUI informou erro na execução. Confira o terminal do ComfyUI e o histórico do prompt."
+
+
+def _prompt_response(response):
+    """Do not hide checkpoint, node-validation or model loading errors."""
+    try:
+        body = response.json()
+    except ValueError as error:
+        raise RuntimeError("ComfyUI devolveu resposta não-JSON: HTTP " + str(response.status_code)) from error
+    if response.status_code >= 400 or "prompt_id" not in body:
+        reason = body.get("error") or {}
+        if isinstance(reason, dict):
+            reason = str(reason.get("message") or reason.get("type") or reason)
+        node_errors = body.get("node_errors") or {}
+        details = []
+        if isinstance(node_errors, dict):
+            for node_id, item in list(node_errors.items())[:3]:
+                if not isinstance(item, dict):
+                    continue
+                for problem in (item.get("errors") or [])[:2]:
+                    details.append("nó " + str(node_id) + ": " + str(problem.get("message") or problem.get("details") or problem)[:250])
+        raise RuntimeError(
+            "ComfyUI rejeitou workflow (HTTP " + str(response.status_code) + "): "
+            + str(reason)[:400] + (" | " + " | ".join(details) if details else "")
+        )
+    return body["prompt_id"]
 
 
 def report(task_id, status, message="", output=None):
@@ -45,7 +126,14 @@ def make_workflow(config):
     if not choices:
         raise RuntimeError("Nenhum checkpoint instalado no ComfyUI. Instale um modelo .safetensors em ComfyUI/models/checkpoints.")
     requested = config.get("checkpoint", "").strip()
-    inputs("CheckpointLoaderSimple")["ckpt_name"] = requested if requested in choices else choices[0]
+    if requested and requested not in choices:
+        raise RuntimeError(
+            "Checkpoint solicitado não instalado: " + requested
+            + ". Coloque o modelo .safetensors em ComfyUI/models/checkpoints, "
+            "ou ajuste ANIMA_ART_CHECKPOINT na VPS. Modelos disponíveis: "
+            + ", ".join(choices[:5])
+        )
+    inputs("CheckpointLoaderSimple")["ckpt_name"] = requested or choices[0]
     text_nodes = [node["inputs"] for node in nodes if node.get("class_type") == "CLIPTextEncode"]
     if len(text_nodes) < 2:
         raise RuntimeError("O workflow precisa de CLIP positivo e negativo.")
@@ -68,11 +156,14 @@ def make_workflow(config):
 
 def generate(task):
     task_id = task["id"]
-    prompt_id = requests.post(
+    print("Iniciando geração da imagem", task_id, flush=True)
+    response = requests.post(
         COMFY + "/prompt",
         json={"prompt": make_workflow(task["config"]), "client_id": str(uuid.uuid4())},
         timeout=60,
-    ).json()["prompt_id"]
+    )
+    prompt_id = _prompt_response(response)
+    print("ComfyUI aceitou a tarefa; identificador:", prompt_id, flush=True)
     deadline = time.time() + int(os.getenv("COMFY_TASK_TIMEOUT", "900"))
     while time.time() < deadline:
         time.sleep(2)
@@ -81,7 +172,7 @@ def generate(task):
         if not record:
             continue
         if record.get("status", {}).get("status_str") == "error":
-            raise RuntimeError("ComfyUI marcou a execução como erro.")
+            raise RuntimeError(_execution_error(record))
         images = [
             image
             for node_output in record.get("outputs", {}).values()
@@ -156,6 +247,7 @@ def main():
                 SERVER + "/api/comfy/heartbeat",
                 params={"worker_id": WORKER}, timeout=20,
             ).raise_for_status()
+            _ensure_heartbeat()
             if not getattr(main, "_registered", False):
                 print("Agente conectado à VPS: pronto para receber imagens.", flush=True)
                 main._registered = True
