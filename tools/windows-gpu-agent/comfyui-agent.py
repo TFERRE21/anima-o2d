@@ -1,4 +1,5 @@
 """Anima Studio ComfyUI image-generation worker (Windows)."""
+import io
 import json
 import os
 import pathlib
@@ -7,6 +8,7 @@ import time
 import uuid
 
 import requests
+from PIL import Image, ImageOps
 
 SERVER = os.environ["ANIMA_STUDIO_URL"].rstrip("/")
 TOKEN = os.environ["ANIMA_COMFY_TOKEN"]
@@ -16,6 +18,8 @@ ROOT = pathlib.Path(__file__).resolve().parent
 WF = pathlib.Path(os.getenv("COMFYUI_API_WORKFLOW", str(ROOT / "workflow_api.json")))
 OUT = pathlib.Path(os.getenv("ANIMA_COMFY_OUTPUT", str(ROOT / "generated")))
 OUT.mkdir(parents=True, exist_ok=True)
+PROFILE_VERSION = "rx580-memory-safe-v1"
+_RX580_MODE = False
 SESSION = requests.Session()
 SESSION.headers["Authorization"] = "Bearer " + TOKEN
 _HEARTBEAT_THREAD = None
@@ -28,7 +32,7 @@ def _heartbeats_while_rendering():
         try:
             reply = requests.post(
                 SERVER + "/api/comfy/heartbeat",
-                params={"worker_id": WORKER},
+                params={"worker_id": WORKER, "profile_version": PROFILE_VERSION if _RX580_MODE else ""},
                 headers={"Authorization": "Bearer " + TOKEN},
                 timeout=20,
             )
@@ -109,6 +113,69 @@ def report(task_id, status, message="", output=None):
     response.raise_for_status()
 
 
+def _is_oom(error):
+    message = str(error).lower()
+    return ("out of memory" in message or "hip error: out of memory" in message
+            or "cuda error: out of memory" in message)
+
+
+def _sizes_for(config):
+    """Try two modest diffusion resolutions for RX 580 8GB + FP32/ZLUDA.
+
+    Result is upscaled on CPU to the originally requested size; the 1080p
+    video canvas remains unchanged. CPU resizing does not restore details.
+    """
+    width = int(config.get("width") or 512)
+    height = int(config.get("height") or 512)
+    if not _RX580_MODE:
+        return [(width, height)]
+    ratio = width / max(1, height)
+    if ratio >= 1.3:
+        choices = [(704, 384), (576, 320)]
+    elif ratio <= 0.64:
+        choices = [(384, 704), (320, 576)]
+    else:
+        choices = [(448, 640), (384, 512)]
+    # A small original request should never be made larger by RX580 mode.
+    if width * height <= choices[0][0] * choices[0][1]:
+        return [(width, height)]
+    return choices
+
+
+def _clear_gpu_memory():
+    try:
+        response = requests.post(
+            COMFY + "/free", json={"unload_models": True, "free_memory": True},
+            timeout=25,
+        )
+        if response.status_code >= 400:
+            print("ComfyUI não conseguiu liberar modelos; reinicie o processo se persistir OOM.", flush=True)
+    except requests.RequestException as error:
+        print("Falha não fatal ao solicitar liberação de VRAM:", str(error)[:180], flush=True)
+
+
+def _image_for_upload(data, config):
+    """Keep all approved-art output sizes valid, using CPU to resize PNG."""
+    with Image.open(io.BytesIO(data)) as original:
+        original.load()
+        rgba = original.convert("RGBA")
+    width, height = int(config.get("width") or rgba.width), int(config.get("height") or rgba.height)
+    is_cast = bool(config.get("_asset_id") in {"luna", "tomi", "pipo"})
+    if rgba.size != (width, height):
+        if is_cast:
+            # Maintain silhouette geometry and pure-white cutout corners.
+            subject = ImageOps.contain(rgba, (width, height), Image.Resampling.LANCZOS)
+            canvas = Image.new("RGBA", (width, height), (255, 255, 255, 255))
+            canvas.alpha_composite(subject, ((width - subject.width) // 2,
+                                             (height - subject.height) // 2))
+            rgba = canvas
+        else:
+            rgba = ImageOps.fit(rgba, (width, height), Image.Resampling.LANCZOS)
+    output = io.BytesIO()
+    rgba.save(output, format="PNG")
+    return output.getvalue()
+
+
 def make_workflow(config):
     if not WF.is_file():
         raise RuntimeError("workflow_api.json não encontrado ao lado do agente.")
@@ -156,50 +223,82 @@ def make_workflow(config):
 
 def generate(task):
     task_id = task["id"]
-    print("Iniciando geração da imagem", task_id, flush=True)
-    response = requests.post(
-        COMFY + "/prompt",
-        json={"prompt": make_workflow(task["config"]), "client_id": str(uuid.uuid4())},
-        timeout=60,
-    )
-    prompt_id = _prompt_response(response)
-    print("ComfyUI aceitou a tarefa; identificador:", prompt_id, flush=True)
-    deadline = time.time() + int(os.getenv("COMFY_TASK_TIMEOUT", "900"))
-    while time.time() < deadline:
-        time.sleep(2)
-        history = requests.get(COMFY + "/history/" + prompt_id, timeout=30).json()
-        record = history.get(prompt_id)
-        if not record:
-            continue
-        if record.get("status", {}).get("status_str") == "error":
-            raise RuntimeError(_execution_error(record))
-        images = [
-            image
-            for node_output in record.get("outputs", {}).values()
-            for image in node_output.get("images", [])
-        ]
-        if not images:
-            if record.get("status", {}).get("completed"):
-                raise RuntimeError("ComfyUI concluiu sem produzir imagem.")
-            continue
-        image_info = images[0]
-        image_data = requests.get(COMFY + "/view", params=image_info, timeout=120).content
-        if not image_data:
-            raise RuntimeError("ComfyUI devolveu uma imagem vazia.")
-        filename = pathlib.Path(image_info["filename"]).name
-        local_path = OUT / f"{task_id}_{filename}"
-        local_path.write_bytes(image_data)
-        upload = SESSION.post(
-            f"{SERVER}/api/comfy/tasks/{task_id}/image",
-            data=image_data,
-            headers={"Content-Type": "application/octet-stream"},
-            timeout=180,
+    original_config = dict(task["config"])
+    original_config["_asset_id"] = task.get("asset_id")
+    sizes = _sizes_for(original_config)
+    print("Iniciando geração", task_id, "| perfil:",
+          ("RX580-FP32" if _RX580_MODE else "padrão"),
+          "| tamanhos:", sizes, flush=True)
+    deadline = time.time() + int(os.getenv("COMFY_TASK_TIMEOUT", "1200"))
+    for attempt, (width, height) in enumerate(sizes):
+        config = dict(original_config, width=width, height=height)
+        if _RX580_MODE:
+            config["steps"] = min(24, int(config.get("steps", 24)))
+        print("ComfyUI: etapa", attempt + 1, "de", len(sizes),
+              "| difusão", width, "x", height, flush=True)
+        response = requests.post(
+            COMFY + "/prompt",
+            json={"prompt": make_workflow(config), "client_id": str(uuid.uuid4())},
+            timeout=60,
         )
-        upload.raise_for_status()
-        report(task_id, "done", "Imagem gerada pelo ComfyUI e enviada ao Anima Studio.", upload.json()["image_url"])
-        print("Imagem gerada:", local_path, flush=True)
-        return
-    raise TimeoutError("ComfyUI excedeu o limite de 15 minutos para esta imagem.")
+        prompt_id = _prompt_response(response)
+        print("ComfyUI aceitou a tarefa:", prompt_id, flush=True)
+        retry_after_oom = False
+        while time.time() < deadline:
+            time.sleep(2)
+            history_response = requests.get(COMFY + "/history/" + prompt_id, timeout=30)
+            history_response.raise_for_status()
+            record = history_response.json().get(prompt_id)
+            if not record:
+                continue
+            if record.get("status", {}).get("status_str") == "error":
+                reason = _execution_error(record)
+                if _is_oom(reason) and attempt < len(sizes) - 1:
+                    print("RX 580 sem VRAM no KSampler; liberando memória e "
+                          "reduzindo automaticamente a resolução da difusão.", flush=True)
+                    _clear_gpu_memory()
+                    time.sleep(3)
+                    retry_after_oom = True
+                    break
+                if _is_oom(reason):
+                    raise RuntimeError(
+                        "RX 580 sem VRAM mesmo com resolução reduzida: " + reason[:1100]
+                    )
+                raise RuntimeError(reason)
+            images = [
+                image
+                for node_output in record.get("outputs", {}).values()
+                for image in node_output.get("images", [])
+            ]
+            if not images:
+                if record.get("status", {}).get("completed"):
+                    raise RuntimeError("ComfyUI concluiu sem produzir imagem.")
+                continue
+            image_info = images[0]
+            result = requests.get(COMFY + "/view", params=image_info, timeout=120)
+            result.raise_for_status()
+            if not result.content:
+                raise RuntimeError("ComfyUI devolveu uma imagem vazia.")
+            image_data = _image_for_upload(result.content, original_config)
+            filename = pathlib.Path(image_info["filename"]).name
+            local_path = OUT / (task_id + "_" + filename)
+            local_path.write_bytes(image_data)
+            upload = SESSION.post(
+                SERVER + "/api/comfy/tasks/" + task_id + "/image",
+                data=image_data,
+                headers={"Content-Type": "application/octet-stream"},
+                timeout=180,
+            )
+            upload.raise_for_status()
+            report(task_id, "done",
+                   "Imagem ComfyUI gerada e ampliada na CPU para o tamanho do episódio.",
+                   upload.json()["image_url"])
+            print("Imagem enviada à VPS:", local_path, flush=True)
+            return
+        if not retry_after_oom:
+            raise TimeoutError("ComfyUI excedeu o limite para esta imagem.")
+    raise RuntimeError("Todas as resoluções disponíveis falharam na RX 580.")
+
 
 
 def check_local_comfy():
@@ -209,6 +308,14 @@ def check_local_comfy():
         response.raise_for_status()
         data = response.json()
         devices = data.get("devices") or []
+        global _RX580_MODE
+        force = os.getenv("ANIMA_RX580_MEMORY_PROFILE", "auto").strip().lower()
+        names = " ".join(str(item.get("name") or "") for item in devices if isinstance(item, dict)).lower()
+        _RX580_MODE = (force == "1" or force == "true"
+                       or (force != "0" and force != "false" and "rx 580" in names))
+        if _RX580_MODE:
+            print("Perfil seguro RX 580/FP32 ativado: difusão em resolução moderada, "
+                  "fallback por VRAM e ampliação final na CPU.", flush=True)
         if devices:
             print("ComfyUI detectou dispositivo(s):", ", ".join(
                 str(device.get("name") or device.get("type") or "sem nome")
@@ -245,7 +352,7 @@ def main():
                 was_ready = True
             SESSION.post(
                 SERVER + "/api/comfy/heartbeat",
-                params={"worker_id": WORKER}, timeout=20,
+                params={"worker_id": WORKER, "profile_version": PROFILE_VERSION if _RX580_MODE else ""}, timeout=20,
             ).raise_for_status()
             _ensure_heartbeat()
             if not getattr(main, "_registered", False):
