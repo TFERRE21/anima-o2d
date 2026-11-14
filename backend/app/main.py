@@ -291,7 +291,8 @@ def _queue_art_for_episode(job_id: str, formats: list[str],
                 "width": width, "height": height, "steps": int(os.getenv("ANIMA_ART_STEPS", "24")),
                 "cfg": 7, "seed": -1,
             }, job_id, item, fmt, state["identity_lock"], force=force)
-            generated.append(result)
+            if not result.get("reused"):
+                generated.append(result)
     return generated
 
 
