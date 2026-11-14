@@ -50,7 +50,10 @@ class UnifiedStudioTests(unittest.TestCase):
         self.assertFalse(output["worker_connected"])
         self.assertEqual(output["queued"], 6)  # three fixed protagonists + 2 wide + 1 short
         self.assertEqual(len(comfy_worker._tasks), 6)
-        self.assertEqual(comfy_worker._queue.qsize(), 6)
+        # Offline images remain safely on disk, not sent to a non-existent
+        # local worker queue. The image router resumes them on connection.
+        self.assertEqual(comfy_worker._queue.qsize(), 0)
+        self.assertTrue(all(t["provider"] == "unavailable" for t in comfy_worker._tasks.values()))
         self.assertTrue(comfy_worker._store.exists())
         self.assertEqual(sum(1 for task in comfy_worker._tasks.values()
                              if task["asset_id"] == "luna"), 1)
