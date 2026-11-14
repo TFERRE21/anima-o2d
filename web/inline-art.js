@@ -88,9 +88,13 @@ function render(state){
        !state.image_engine?.ready && !done && !ongoing;
   let badge='AGUARDANDO APROVAÇÃO';
   let detail='Clique em Aprovar roteiro e produzir vídeo. Todas as demais etapas serão automáticas.';
-  if(state.art_stage==='error'){
+  if(state.image_engine?.credits_exhausted?.length && !state.image_engine.ready && !done && !ongoing){
+    badge='PRODUÇÃO PAUSADA · SEM CRÉDITOS';
+    detail=state.image_engine.detail+
+      ' O roteiro e as tarefas foram preservados. A geração continuará automaticamente quando um motor com créditos estiver disponível.';
+  }else if(state.art_stage==='error'){
     badge='ERRO NAS IMAGENS';
-    detail='Falha na geração automática: '+(state.art_error||'Consulte os registros do gerador ComfyUI.');
+    detail='Falha na geração automática: '+(state.art_error||'Consulte os registros do gerador.');
   }else if(done){
     badge='VÍDEO CONCLUÍDO';
     detail='O vídeo foi montado com os personagens oficiais e cenários deste planeta. Veja os arquivos abaixo.';
