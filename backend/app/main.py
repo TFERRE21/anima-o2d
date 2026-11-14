@@ -240,43 +240,120 @@ def get_episode_art_status(job_id: str, fmt: str = "9:16"):
         raise HTTPException(400, str(exc)) from exc
 
 
+def _queue_art_for_episode(job_id: str, formats: list[str],
+                           *, asset_id: str | None = None, force: bool = False) -> list[dict]:
+    """Start artwork generation immediately; the ComfyUI worker may join later."""
+    from backend.app import comfy_worker
+    from backend.app.art_director import create_art_plan
+    from backend.app.art_assets import CAST_IDS
+    job = _get_job(job_id)
+    if not job.get("story_plan"):
+        raise HTTPException(409, "Crie um roteiro antes de gerar as imagens.")
+    generated = []
+    included_cast: set[str] = set()
+    for fmt in formats:
+        if fmt not in {"9:16", "16:9"}:
+            raise HTTPException(400, "Formato inválido.")
+        state = get_episode_art_status(job_id, fmt)
+        art_plan = create_art_plan(job["story_plan"], fmt)
+        desired = ([asset_id] if asset_id else state["missing"])
+        if any(item not in state["required"] for item in desired):
+            raise HTTPException(400, "O material não pertence ao roteiro aprovado.")
+        for item in desired:
+            if item in CAST_IDS:
+                if item in included_cast:
+                    continue
+                included_cast.add(item)
+                # One canonical protagonist is queued once and shared by both formats.
+                if any(t.get("asset_id") == item and t.get("identity_lock") == state["identity_lock"]
+                       and t.get("status") in {"queued", "running", "done"}
+                       for t in comfy_worker._tasks.values()):
+                    continue
+                actor = next(x for x in art_plan["characters"] if x["id"] == item)
+                prompt = actor["render_prompt"] + (
+                    "; exactly one recurring character; no background elements, no text, "
+                    "pure white uniform background touching all corners, "
+                    "same original outfit and facial features in the entire series"
+                )
+                width, height = 768, 1024
+            else:
+                index = int(item.split("-")[1])
+                brief = next(x for x in art_plan["scenes"] if x["index"] == index)
+                prompt = brief["prompt"]
+                width, height = ((576, 1024) if fmt == "9:16" else (1024, 576))
+            result = comfy_worker.queue_art_image({
+                "prompt": prompt, "negative_prompt": art_plan["characters"][0]["negative_prompt"],
+                "checkpoint": os.getenv("ANIMA_ART_CHECKPOINT", "v1-5-pruned-emaonly.safetensors"),
+                "width": width, "height": height, "steps": int(os.getenv("ANIMA_ART_STEPS", "24")),
+                "cfg": 7, "seed": -1,
+            }, job_id, item, fmt, state["identity_lock"], force=force)
+            generated.append(result)
+    return generated
+
+
+@app.post("/api/jobs/{job_id}/story/approve", status_code=202)
+def approve_story_generate_images(job_id: str):
+    """Approve script and automatically queue cast (if missing) and all new planets."""
+    from backend.app import comfy_worker
+    job = _get_job(job_id)
+    if job.get("status") not in {"story_ready", "failed"}:
+        raise HTTPException(409, "Só é possível aprovar roteiros ainda não renderizados.")
+    formats = job.get("formats") or ["9:16"]
+    art_queue = _queue_art_for_episode(job_id, formats)
+    _update(job_id, story_approved=True, art_stage="queued",
+            art_started_at=datetime.now(timezone.utc).isoformat(),
+            message=("Roteiro aprovado. Imagens enviadas para o gerador; "
+                     "aguardando conexão da GPU caso o agente esteja offline."))
+    return {"job_id": job_id, "status": "art_generation",
+            "worker_connected": comfy_worker.worker_online(),
+            "queued": len(art_queue), "tasks": art_queue,
+            "message": "Imagens iniciadas automaticamente, no mesmo painel."}
+
+
+@app.get("/api/jobs/{job_id}/art/board")
+def get_episode_art_board(job_id: str):
+    """One API payload for inline script, shared characters and scene review."""
+    from backend.app import comfy_worker
+    from backend.app.art_assets import CAST_IDS
+    job = _get_job(job_id)
+    formats = job.get("formats") or ["9:16"]
+    boards = {fmt: get_episode_art_status(job_id, fmt) for fmt in formats}
+    missing = sum(len(x["missing"]) for x in boards.values())
+    unique_tasks = comfy_worker.art_tasks(job_id)
+    return {
+        "job_id": job_id, "formats": formats, "story_approved": job.get("story_approved", False),
+        "worker_connected": comfy_worker.worker_online(),
+        "series_cast_fixed": [item for item in CAST_IDS
+                             if all(item in state["approved"] for state in boards.values())],
+        "formats_status": boards, "missing_count": missing,
+        "ready": not missing, "tasks": unique_tasks,
+        "art_stage": job.get("art_stage", "not_started"),
+    }
+
+
 @app.post("/api/jobs/{job_id}/art/generate", status_code=202)
 def queue_episode_art(job_id: str, payload: ArtQueueRequest,
                       authorization: str | None = Header(default=None)):
-    """Send one image or every missing image to a connected ComfyUI agent."""
+    """Manual retry from inside the same studio; automatic start uses story/approve."""
     from backend.app import comfy_worker
-    from backend.app.art_director import create_art_plan
     comfy_worker._auth(authorization)
-    state = get_episode_art_status(job_id, payload.format)
-    plan = create_art_plan(_get_job(job_id)["story_plan"], payload.format)
-    desired = [payload.asset_id] if payload.asset_id else state["missing"]
-    allowed = set(state["required"])
-    if any(item not in allowed for item in desired):
-        raise HTTPException(400, "Material solicitado não pertence ao formato/roteiro.")
-    generated = []
-    for asset_id in desired:
-        if asset_id in {"luna", "tomi", "pipo"}:
-            actor = next(x for x in plan["characters"] if x["id"] == asset_id)
-            prompt = actor["render_prompt"] + (
-                "; single character alone, pure white uniform (#ffffff) background "
-                "touching all four corners, no shadows, no floor, no other characters, "
-                "full body fully inside canvas, readable natural silhouette"
-            )
-            width, height = 768, 1024
-        else:
-            idx = int(asset_id.split("-")[1])
-            scene_brief = next(x for x in plan["scenes"] if x["index"] == idx)
-            prompt = scene_brief["prompt"]
-            width, height = ((576, 1024) if payload.format == "9:16" else (1024, 576))
-        result = comfy_worker.queue_art_image({
-            "prompt": prompt, "negative_prompt": plan["characters"][0]["negative_prompt"],
-            "checkpoint": payload.checkpoint or "v1-5-pruned-emaonly.safetensors",
-            "width": width, "height": height, "steps": payload.steps,
-            "cfg": 7, "seed": -1,
-        }, job_id, asset_id, payload.format, state["identity_lock"])
-        generated.append(result)
-    return {"queued": len(generated), "tasks": generated,
-            "message": "Revise as imagens no IA Studio e aprove os resultados antes da renderização."}
+    results = _queue_art_for_episode(job_id, [payload.format], asset_id=payload.asset_id,
+                                     force=bool(payload.asset_id))
+    return {"queued": len(results), "tasks": results}
+
+
+@app.get("/api/jobs/{job_id}/art/approved/{asset_id}")
+def view_approved_art(job_id: str, asset_id: str, fmt: str = "9:16"):
+    from backend.app.art_assets import approved_path
+    job = _get_job(job_id)
+    state = get_episode_art_status(job_id, fmt)
+    if asset_id not in state["required"]:
+        raise HTTPException(404, "Imagem não pertence a este episódio.")
+    path = approved_path(STORAGE, job_id, asset_id, fmt, state["identity_lock"])
+    if not path:
+        raise HTTPException(404, "Arte ainda não aprovada.")
+    return FileResponse(path, media_type="image/png",
+                        headers={"Cache-Control": "no-store"})
 
 
 @app.post("/api/jobs/{job_id}/art/approve/{task_id}")
