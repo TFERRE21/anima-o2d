@@ -1,7 +1,7 @@
 /* Anima Studio — one-click script → AI images → automatic Blender video.
    No PNG uploads, artwork approvals or manual render buttons on this screen.
-   Image generation requires the existing ComfyUI worker; when offline the
-   server persists the image queue and resumes once the worker reconnects.
+   Image generation uses the configured cloud engine or ComfyUI workstation.
+   Tasks persist across restart, with accurate readiness diagnostics.
 */
 (()=>{
 'use strict';
@@ -43,7 +43,7 @@ function tile(asset, format, state, tasks, shared){
   else status='Preparando geração';
   const image=imageSrc
     ?'<img src="'+esc(imageSrc)+'" alt="'+esc(label(asset))+'" data-inline-view="'+esc(imageSrc)+'">'
-    :'<div class="inline-art-placeholder">'+esc(status)+'</div>';
+    :'';
   return '<div class="inline-art-tile">'+
     '<div class="inline-art-head"><b>'+esc(label(asset))+'</b><span class="inline-art-tag">'+esc(format)+'</span></div>'+
     image+'<div class="'+(approved?'inline-art-confirm':'inline-art-tag')+'">'+esc(status)+'</div></div>';
@@ -56,23 +56,36 @@ function render(state){
   const fingerprint=JSON.stringify([state.formats_status, tasks.map(t=>[t.id,t.status,t.has_image,t.approved])]);
   if(fingerprint!==lastView){
     lastView=fingerprint;
-    el('inlineCast').innerHTML=['luna','tomi','pipo']
-      .map(id=>tile(id, first[0], first[1], tasks,true)).join('');
+    const hasImage=(asset,fmt,record)=>Boolean(record.approved?.[asset])||
+      Boolean(taskFor(tasks,asset,fmt)?.has_image);
+    const cast=['luna','tomi','pipo']
+      .filter(id=>hasImage(id,first[0],first[1]))
+      .map(id=>tile(id, first[0], first[1], tasks,true));
     const scenes=[];
     for(const [fmt, data] of formats){
       for(const id of data.required||[]){
-        if(id in castNames)continue;
+        if(id in castNames||!hasImage(id,fmt,data))continue;
         scenes.push(tile(id,fmt,data,tasks,false));
       }
     }
-    el('inlineScenes').innerHTML=scenes.join('')||'<p class="muted">Preparando as cenas da aventura.</p>';
+    el('inlineCast').innerHTML=cast.join('');
+    el('inlineScenes').innerHTML=scenes.join('');
+    el('inlineCastSection').style.display=cast.length?'block':'none';
+    el('inlineScenesSection').style.display=scenes.length?'block':'none';
+    el('inlineArtGallery').style.display=(cast.length||scenes.length)?'block':'none';
   }
+  const total=Number(state.total_artworks||0);
+  const approved=Number(state.approved_artworks||0);
+  const pct=total?Math.round(100*approved/total):0;
+  el('inlineArtProgressFill').style.width=pct+'%';
+  el('inlineArtProgress').setAttribute('aria-valuenow',String(pct));
+  el('inlineArtProgressText').textContent=approved+' de '+total+' imagens prontas · '+pct+'%';
   const status=state.video_status;
   const ongoing=['queued','processing'].includes(status);
   const done=status==='done';
   const failed=status==='failed';
   const waiting=state.auto_production && !state.ready &&
-       !state.worker_connected && !done && !ongoing;
+       !state.image_engine?.ready && !done && !ongoing;
   let badge='AGUARDANDO APROVAÇÃO';
   let detail='Clique em Aprovar roteiro e produzir vídeo. Todas as demais etapas serão automáticas.';
   if(state.art_stage==='error'){
@@ -92,11 +105,11 @@ function render(state){
     detail='Imagens concluídas. Iniciando automaticamente animação, vozes e montagem…';
   }else if(waiting){
     badge='AGUARDANDO GERADOR DE IMAGENS';
-    detail='Roteiro aprovado. A fila está salva; o ComfyUI precisa estar ligado e conectado para criar as imagens. Não é necessário enviar PNG nem aprovar cenas.';
+    detail='Roteiro aprovado, mas o gerador não está disponível nesta aplicação. '+(state.image_engine?.detail||'Conecte o motor de imagens.')+' Nenhuma foto precisa ser enviada.';
   }else if(state.auto_production){
     const pending=tasks.filter(t=>t.status==='queued'||t.status==='running').length;
     badge='GERANDO IMAGENS';
-    detail='Motor de imagens trabalhando: '+state.missing_count+' imagens pendentes · '+pending+' tarefas em andamento. O vídeo começará sozinho quando as imagens forem validadas.';
+    detail='Motor '+(state.image_engine?.provider||'de imagens')+' preparando a arte: '+state.missing_count+' imagens pendentes · '+pending+' tarefas na produção. O vídeo começará automaticamente assim que estiverem prontas.';
   }
   el('inlineArtBadge').textContent=badge;
   el('inlineArtStatus').textContent=detail;
@@ -142,8 +155,10 @@ window.startInlineArt=async id=>{
   btn.disabled=true;btn.textContent='Iniciando produção automática…';
   message('Roteiro aprovado. Enviando personagens oficiais e cenários para o gerador de imagens…');
   try{
-    await json(endpoint()+'/story/approve',{method:'POST'});
-    el('renderMessage').textContent='Produção automática iniciada: imagens → animação → vídeo.';
+    const approval=await json(endpoint()+'/story/approve',{method:'POST'});
+    el('renderMessage').textContent=approval.worker_connected
+      ?'Produção iniciada: imagens → animação → vídeo.'
+      :'Roteiro aprovado, mas o motor de imagens está desconectado. A fila está salva.';
     await window.prepareInlineArt(id);
   }catch(e){
     btn.disabled=false;btn.textContent='✓ Aprovar roteiro e produzir vídeo';
