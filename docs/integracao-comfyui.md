@@ -67,6 +67,51 @@ reinicie o script `iniciar-comfyui-agent.ps1` para que os diagnósticos
 novos sejam exibidos. O agente envia `heartbeat` durante as gerações
 demoradas para não aparecer desconectado indevidamente na VPS.
 
+## RX 580 / ZLUDA: resolução adaptativa por falta de VRAM
+
+A RX 580 em modo ZLUDA + FP32 pode detectar 8 GB de VRAM e ainda
+apresentar `Nó 5 (KSampler): CUDA error: out of memory` quando tenta
+gerar o retrato em 768×1024 e cenários em 576×1024. A configuração
+`NOVRAM` não garante que o sampler nunca aloque memória na GPU.
+
+O agente Windows identifica `RX 580` em `/system_stats` e ativa, por
+padrão, o perfil de memória `rx580-memory-safe-v1`. Resoluções de
+**difusão** (não confundir com a resolução final do vídeo):
+
+- Personagens: 448×640; quando ocorre OOM, 384×512
+- Cenas verticais: 384×704; fallback 320×576
+- Cenas horizontais: 704×384; fallback 576×320
+
+Cada tarefa só usa o fallback se a primeira execução realmente falhar por
+falta de memória; pode solicitar `POST /free` para descarregar modelos.
+O resultado é ampliado pelo processador (Pillow/Lanczos) antes de enviar
+à VPS no tamanho previsto no roteiro. Esse redimensionamento **não cria
+detalhes novos** e a qualidade estética precisa ser avaliada. Como padrão,
+o agente não reduz a resolução para outros modelos de GPU.
+
+Quando o agente atualizado se registra com
+`profile_version=rx580-memory-safe-v1`, o servidor pode retomar **uma
+única vez** tarefas do mesmo roteiro anteriormente marcadas com erro de
+memória; não exige gerar ou aprovar outro roteiro. Se mesmo o novo perfil
+falhar, a aplicação mostra o bloqueio de memória e evita tentativas
+ilimitadas. Não é uma garantia de que todo modelo de IA rode na RX 580;
+checkpoints mais pesados podem continuar exigindo outra GPU.
+
+Para ativar a correção:
+
+1. Atualize o código da VPS e o clone local preservando `/data/jobs`
+   e os checkpoints existentes
+2. Reinicie **somente o agente** com
+   `cd C:\AnimaStudio\anima-o2d; git pull --ff-only` e depois
+   `cd .\tools\windows-gpu-agent; .\iniciar-comfyui-agent.ps1`
+3. Mantenha o processo ComfyUI aberto na porta `8188`.
+   Se ele estiver em estado persistente de OOM, encerre apenas
+   o processo ComfyUI conhecido e reinicie-o; não reinstale ZLUDA
+
+Use `ANIMA_RX580_MEMORY_PROFILE=0` no Windows somente para desativar
+voluntariamente o ajuste. Se necessário, aumente `COMFY_TASK_TIMEOUT`
+para `1800` para imagens geradas lentamente pelo modo FP32.
+
 ## Limitações desta primeira versão
 - O agente usa um workflow exportado pelo usuário em formato API; não modifica o workflow visual.
 - O fluxo entrega imagens geradas pelo ComfyUI ao painel; o Blender/FFmpeg monta automaticamente o episódio quando todas as imagens são aprovadas tecnicamente. A animação atual é 2.5D, não rigging completo.
