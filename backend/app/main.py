@@ -305,10 +305,13 @@ def approve_story_generate_images(job_id: str):
         raise HTTPException(409, "Só é possível aprovar roteiros ainda não renderizados.")
     formats = job.get("formats") or ["9:16"]
     art_queue = _queue_art_for_episode(job_id, formats)
-    _update(job_id, story_approved=True, art_stage="queued",
+    _update(job_id, story_approved=True, auto_production_requested=True,
+            art_stage="queued", art_error=None,
             art_started_at=datetime.now(timezone.utc).isoformat(),
-            message=("Roteiro aprovado. Imagens enviadas para o gerador; "
-                     "aguardando conexão da GPU caso o agente esteja offline."))
+            message=("Roteiro aprovado. Motor de imagens preparando personagens e "
+                     "cenários; a montagem do vídeo começará automaticamente."))
+    from backend.app.auto_production import notify
+    notify()
     return {"job_id": job_id, "status": "art_generation",
             "worker_connected": comfy_worker.worker_online(),
             "queued": len(art_queue), "tasks": art_queue,
@@ -334,6 +337,12 @@ def get_episode_art_board(job_id: str):
         "formats_status": boards, "missing_count": missing,
         "ready": not missing, "tasks": unique_tasks,
         "art_stage": job.get("art_stage", "not_started"),
+        "auto_production": bool(job.get("auto_production_requested")),
+        "video_status": job.get("status", "story_ready"),
+        "video_stage": job.get("stage", "story_written"),
+        "video_progress": job.get("progress", 0),
+        "art_error": job.get("art_error"),
+        "video_error": job.get("error"),
     }
 
 
@@ -654,9 +663,13 @@ def start_studio_scheduler():
     start_blender_bootstrap()
     _recover_interrupted_jobs()
     _refresh_scheduler()
+    from backend.app.auto_production import start
+    start()
 
 @app.on_event("shutdown")
 def stop_studio_scheduler():
+    from backend.app.auto_production import stop
+    stop()
     if scheduler:
         scheduler.shutdown(wait=False)
 
