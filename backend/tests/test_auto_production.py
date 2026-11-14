@@ -117,6 +117,32 @@ class AutomaticEpisodeTests(unittest.TestCase):
         self.assertEqual(tasks[1]["status"], "queued")
         self.assertFalse(self.renders)
 
+    def test_rx580_old_cuda_oom_recovers_once_with_profile_upgrade(self):
+        old = self._candidate("luna", b"invalid", status="failed")
+        old.update(
+            message="RuntimeError Nó 5 (KSampler): CUDA error: out of memory",
+            auto_state="failed",
+        )
+        profile = "rx580-memory-safe-v1"
+        self.assertEqual(comfy_worker._recover_gpu_memory_tasks(profile), 1)
+        self.assertEqual(old["status"], "queued")
+        self.assertEqual(old["auto_state"], "gpu_memory_profile_upgrade")
+        self.assertEqual(comfy_worker._queue.get_nowait(), old["id"])
+        self.assertEqual(comfy_worker._recover_gpu_memory_tasks(profile), 0)
+        # If the newly configured GPU profile also exhausts VRAM,
+        # another heartbeat or restart must not resubmit the same job.
+        old.update(status="failed", gpu_profile_version=profile)
+        self.assertEqual(comfy_worker._recover_gpu_memory_tasks(profile), 0)
+
+    def test_rx580_oom_no_repeated_server_retries(self):
+        old = self._candidate("luna", b"invalid", status="failed")
+        old["message"] = "Nó 5 (KSampler): RuntimeError: CUDA error: out of memory"
+        auto_production.process_pending()
+        self.assertEqual(len(comfy_worker._tasks), 1)
+        self.assertEqual(old["auto_state"], "gpu_memory_exhausted")
+        self.assertIn("RX 580", self.job.get("art_error", ""))
+        self.assertFalse(self.renders)
+
     def test_worker_offline_keeps_queue_waiting_with_no_video(self):
         comfy_worker._workers.clear()
         auto_production.process_pending()
