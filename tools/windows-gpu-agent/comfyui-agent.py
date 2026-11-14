@@ -107,7 +107,8 @@ def _prompt_response(response):
 def report(task_id, status, message="", output=None):
     response = SESSION.post(
         f"{SERVER}/api/comfy/tasks/{task_id}/result",
-        json={"status": status, "message": str(message)[:2000], "output": output},
+        json={"status": status, "message": str(message)[:2000], "output": output,
+              "profile_version": PROFILE_VERSION if _RX580_MODE else ""},
         timeout=30,
     )
     response.raise_for_status()
