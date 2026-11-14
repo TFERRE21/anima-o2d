@@ -107,19 +107,11 @@
   <p class="inline-art-status" id="inlineArtStatus">Aprove o roteiro para iniciar as imagens nesta mesma tela.</p>
   <h4 style="margin:18px 0 10px">Personagens oficiais · não mudam entre episódios</h4>
   <div id="inlineCast" class="inline-art-grid"><div class="muted">Carregando biblioteca oficial…</div></div>
-  <h4 style="margin:20px 0 10px">Cenários deste planeta · aprovação por cena</h4>
+  <h4 style="margin:20px 0 10px">Cenários deste planeta · criação automática</h4>
   <div id="inlineScenes" class="inline-art-grid"><div class="muted">Os cenários aparecerão aqui automaticamente.</div></div>
-  <div class="toolbar" style="margin-top:18px">
-   <button class="btn ghost small" id="inlineArtRefresh" type="button">↻ Atualizar imagens</button>
-   <button class="btn secondary small" id="inlineArtRetry" type="button">↻ Retentar pendentes</button>
-   <button class="btn good" id="inlineArtRender" type="button" disabled>▶ Montar vídeo com artes aprovadas</button>
-  </div>
-  <input id="inlineArtFileInput" type="file" accept="image/png" style="display:none">
-  <div style="margin-top:12px"><label for="inlineArtToken" class="muted">Token de aprovação artística (necessário uma vez para aprovar ou regenerar)</label>
-   <input class="inline-art-token" id="inlineArtToken" type="password" autocomplete="off" placeholder="ANIMA_COMFY_TOKEN · somente nesta sessão"></div>
-  <p class="muted" style="font-size:11px;margin-top:8px">A geração começa sem exigir token na tela. O agente ComfyUI precisa estar conectado para produzir as imagens. As aprovações são salvas no servidor.</p>
+  <p class="muted" style="font-size:12px;margin-top:14px">O motor de imagens cria tudo automaticamente. O Blender anima os arquivos assim que estiverem prontos. Não é necessário enviar PNGs, aprovar imagens ou iniciar a renderização separadamente.</p>
  </div>
- <div class="toolbar" style="margin-top:16px"><button class="btn good" id="approveStory">✓ Aprovar roteiro e gerar imagens</button><button class="btn ghost" id="discardStory">Descartar e criar outra história</button><span class="muted" id="renderMessage">Confira o planeta, a aventura e a lição antes de renderizar.</span></div>
+ <div class="toolbar" style="margin-top:16px"><button class="btn good" id="approveStory">✓ Aprovar roteiro e produzir vídeo</button><button class="btn ghost" id="discardStory">Descartar e criar outra história</button><span class="muted" id="renderMessage">Confira o planeta, a aventura e a lição antes de renderizar.</span></div>
 </div>
 <dialog id="inlineArtModal" style="background:#0b1627;color:#fff;border:1px solid #45638c;border-radius:15px;max-width:min(95vw,980px);max-height:90vh;padding:14px">
  <div style="display:flex;justify-content:flex-end;margin-bottom:9px"><button type="button" id="inlineArtModalClose" class="btn secondary small">✕ Fechar imagem</button></div>
@@ -346,8 +338,8 @@ function watchJob(id){
    if(j.status==='done'||j.status==='failed'){
     clearInterval(poll);poll=null;
     $('createBtn').disabled=false;$('createBtn').textContent='✦ Criar outra história';
-    if(j.status==='failed'){$('inlineArtRender').disabled=false;$('inlineArtRender').textContent='↻ Tentar montar vídeo novamente';$('renderMessage').textContent='Falha na montagem. Corrija o problema e tente novamente com as mesmas artes aprovadas.';}
-    else{$('inlineArtRender').textContent='✓ Vídeo concluído';}
+    if(j.status==='failed'){$('renderMessage').textContent='O motor de vídeo apresentou um erro. Consulte o registro da renderização.';}
+    else{$('renderMessage').textContent='Vídeo pronto. Utilize os links de download acima.';}
     await loadDashboard();
    }
   }catch(e){$('activeJobMessage').textContent='Aguardando resposta do servidor…';}
@@ -377,5 +369,5 @@ $('saveSettings').addEventListener('click',()=>saveSettings());
 $('saveSchedule').addEventListener('click',()=>saveSettings({production_days:[...document.querySelectorAll('.productionDay:checked')].map(x=>x.value),production_time:$('productionTime').value}));
 loadDashboard();loadSettings();setInterval(loadDashboard,8000);
 </script>
-<script src="/inline-art.js"></script>
+<script src="/inline-art.js?v=20261114-automatic"></script>
 </body></html>
