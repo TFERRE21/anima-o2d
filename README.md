@@ -1,29 +1,30 @@
 # Anima Studio — Cartoon infantil com arte aprovada e animação Blender
 
-Estúdio web dos **Pequenos Guardiões**: roteiro e falas → artes originais com IA → revisão de personagens/cenários → animação de ilustrações no Blender → vídeo com áudio e formatos YouTube/Shorts.
+Estúdio web dos **Pequenos Guardiões**: roteiro aprovado → geração automática de artes com IA → validação técnica das imagens → animação de ilustrações no Blender → vídeo com áudio e formatos YouTube/Shorts.
 
 ## Mudança de motor artístico
 
-O antigo renderizador que criava bonecos com esferas e armaduras **não é mais chamado** no fluxo de produção de episódios. O novo motor é baseado em imagens de personagens e cenários **explicitamente aprovadas**. Se faltar uma imagem, a API retorna 409 com os identificadores pendentes. Ela nunca troca o projeto visual por bonecos procedurais.
+O antigo renderizador que criava bonecos com esferas e armaduras **não é mais chamado** no fluxo de produção de episódios. O novo motor é baseado em imagens de personagens e cenários **validadas tecnicamente pelo pipeline automático**. Se faltar uma imagem, a API retorna 409 com os identificadores pendentes. Ela nunca troca o projeto visual por bonecos procedurais.
 
 A primeira integração de animação usa **planos ilustrados em Blender (2.5D, com Cycles CPU)**. Ela permite câmera, profundidade básica, deslocamento suave, balanço corporal e reações à fala por mudança de escala. **Não oferece ainda rig de membros, expressões faciais deformáveis nem sincronia labial verdadeira**. Esses recursos exigem a produção de recortes/poses e uma etapa adicional de rigging. Não confunda um PNG plano com personagem 3D completamente modelado.
 
 ## Produção automática no painel único
 
 1. Clique em **Criar roteiro**: a história, o planeta, as falas e o storyboard aparecem no próprio painel.
-2. Clique em **Aprovar roteiro e gerar imagens**: o servidor dispara imediatamente a fila ComfyUI, sem abrir outra página. A fila é persistida em `ANIMA_STORAGE/comfyui/task-state.json`; se a estação RX 580 estiver desligada, as tarefas aguardam a próxima conexão.
-3. **Luna, Tomi e Pipo** são gerados/aprovados **uma única vez** na série. Os PNGs oficiais ficam em `ANIMA_STORAGE/series/characters/official/`, com hash SHA-256 e trava de identidade. Nenhum episódio pode regenerá-los ou substituí-los pela interface comum.
+2. Clique em **Aprovar roteiro e produzir vídeo**: o servidor dispara imediatamente a fila ComfyUI, sem abrir outra página. A fila é persistida em `ANIMA_STORAGE/comfyui/task-state.json`; se a estação RX 580 estiver desligada, as tarefas aguardam a próxima conexão.
+3. **Luna, Tomi e Pipo** são gerados e fixados automaticamente **uma única vez** na série. Os PNGs oficiais ficam em `ANIMA_STORAGE/series/characters/official/`, com hash SHA-256 e trava de identidade. Nenhum episódio pode regenerá-los ou substituí-los pela interface comum.
 4. Cada novo planeta produz somente as artes dos **cenários do episódio**; 16:9 e 9:16 usam fundos próprios, mas os mesmos personagens oficiais. O sistema mostra automaticamente as miniaturas embaixo do roteiro e permite ampliar a imagem sem sair da página.
-5. Aperte **Aprovar** em cada arte válida ou **Refazer** na cena escolhida. A geração é automática, mas a aprovação é editorial e usa o token `ANIMA_COMFY_TOKEN` informado uma vez no mesmo painel, apenas na sessão do navegador.
-6. O botão **Montar vídeo com artes aprovadas** é desbloqueado depois de os personagens oficiais e todos os cenários necessários estarem aprovados. Blender Cycles CPU anima os planos ilustrados e FFmpeg sincroniza as vozes e monta o MP4.
+5. O gerador ComfyUI envia os PNGs para o servidor. Um coordenador persistente valida formato, tamanho, transparência e hash, recorta automaticamente o fundo branco uniforme dos protagonistas, solicita nova tentativa quando a imagem é tecnicamente inválida (até duas tentativas adicionais) e salva os arquivos aprovados. **Essas verificações não substituem uma avaliação estética por visão computacional.**
+6. Quando os personagens oficiais e cenários estão prontos, o sistema inicia **automaticamente o Blender Cycles CPU e FFmpeg**, sem botão de montagem. A tela mostra o andamento e os arquivos MP4 disponíveis. Se o Blender falhar, o erro fica visível; o sistema não reinicia vídeos pesados indefinidamente.
+7. O usuário não precisa enviar imagens, digitar token na tela, aprovar uma por uma nem abrir outra página. O token do agente ComfyUI fica configurado como segredo do servidor e no computador que executa o agente.
 
 O motor não cria bonecos geométricos como substitutos. Se o gerador de imagens estiver offline, o painel mostra **Aguardando o agente ComfyUI** e mantém a fila salva; não afirma que uma imagem foi gerada antes de receber o arquivo verdadeiro. ComfyUI roda na sua estação Windows/RX 580; não é um recurso incluído na assinatura ChatGPT Plus.
 
-Uma primeira configuração precisa conectar o agente ComfyUI, instalar um checkpoint adequado e definir `ANIMA_COMFY_TOKEN` na aplicação. Veja `docs/integracao-comfyui.md`. O modelo de imagem utilizado pode afetar bastante a qualidade; o fluxo não garante uma ilustração profissional sem revisão humana.
+Uma primeira configuração precisa conectar o agente ComfyUI, instalar um checkpoint adequado e definir `ANIMA_COMFY_TOKEN` na aplicação. Veja `docs/integracao-comfyui.md`. O modelo de imagem utilizado pode afetar bastante a qualidade. O sistema valida tecnicamente o arquivo recebido, mas não pode garantir que a imagem gerada tenha qualidade artística profissional ou consistência perfeita antes de renderizar.
 
 ## Endpoints para integrar/diagnosticar
 
-- `POST /api/jobs/{id}/story/approve`: aprovar roteiro e criar a fila de imagens sem intervenção adicional no painel.
+- `POST /api/jobs/{id}/story/approve`: aprovar roteiro, persistir tarefas ComfyUI e habilitar a montagem automática quando as imagens estiverem prontas.
 - `GET /api/jobs/{id}/art/board`: estado de todos os personagens oficiais, cenários, aprovações e tarefas em fila.
 - `GET /api/jobs/{id}/art/candidate/{task_id}`: imagem candidata para revisão na própria página.
 - `GET /api/jobs/{id}/art/approved/{asset_id}?fmt=9:16`: imagem oficial aprovada.
@@ -65,4 +66,4 @@ A única página de produção fica em `http://localhost:5000`. A antiga `/arte.
 
 Proteja o painel com HTTPS e autenticação/restrições de acesso antes de disponibilizar ao público. Os endpoints de geração e aprovação artística exigem `ANIMA_COMFY_TOKEN`; o restante da API tem pontos de acesso administrativos que também devem ser protegidos na implantação.
 
-A fila de tarefas ComfyUI é persistida em disco e tarefas em execução no momento do reinício retornam para a fila. Imagens **já aprovadas** permanecem persistentes. O estado de aprovação fica salvo nos metadados da série e dos episódios. A qualidade final ainda depende de gerar personagens consistentes, sem artefatos, e aprimorar o rigging.
+A fila de tarefas ComfyUI é persistida em disco e tarefas em execução no momento do reinício retornam para a fila. Imagens **já aprovadas** permanecem persistentes. O estado das artes fica salvo nos metadados da série e dos episódios. O coordenador automático retoma episódios elegíveis após reinicialização do serviço. A qualidade final ainda depende de gerar personagens consistentes, sem artefatos, e aprimorar o rigging.
