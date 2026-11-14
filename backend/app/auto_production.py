@@ -80,6 +80,18 @@ def _retry(task: dict, why: str) -> None:
     from backend.app import comfy_worker
     attempts = int(task.get("attempt", 1))
     task["auto_error"] = why[:600]
+    if "out of memory" in why.lower():
+        # The local RX580 agent already reduces diffusion resolution and
+        # retries once. Requeueing identical work several more times on the
+        # server only fills VRAM and disguises the real hardware limit.
+        task["auto_state"] = "gpu_memory_exhausted"
+        task["auto_error"] = (
+            "RX 580: memória de vídeo insuficiente no KSampler. "
+            "O agente aplicou o perfil de memória reduzida, mas a imagem "
+            "não pôde ser gerada. Reinicie o ComfyUI e verifique a VRAM."
+        )
+        comfy_worker._save_tasks()
+        return
     if attempts <= _RETRIES and not task.get("auto_retry_queued"):
         task["auto_retry_queued"] = True
         config = dict(task["config"])
@@ -163,7 +175,7 @@ def _process_job(job_id: str) -> None:
 
     # Process completed images before inspecting readiness.
     for task in tasks:
-        if task.get("approved") or task.get("auto_state") in {"failed", "retry_queued"}:
+        if task.get("approved") or task.get("auto_state") in {"failed", "retry_queued", "gpu_memory_exhausted"}:
             continue
         if task.get("status") == "done":
             _approve_candidate(task, story, main.STORAGE)
@@ -193,7 +205,7 @@ def _process_job(job_id: str) -> None:
                        and (t.get("auto_retry_of") == task.get("id")
                             or t.get("status") in {"queued", "running"})
                        for t in tasks)
-        failed = [t for t in tasks if t.get("auto_state") == "failed"
+        failed = [t for t in tasks if t.get("auto_state") in {"failed", "gpu_memory_exhausted"}
                   and still_missing(t) and not newer_attempt(t)]
         if failed:
             reason = "; ".join(f"{t['asset_id']}: {t.get('auto_error', 'falha')}" for t in failed[:3])
