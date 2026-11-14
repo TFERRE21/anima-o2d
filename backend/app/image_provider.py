@@ -336,6 +336,20 @@ def reconcile_credit_tasks() -> bool:
                 task.update(status="blocked", auto_state="waiting_provider",
                             message="Provedor sem créditos. Aguardando outro motor.")
                 changed = True
+        # Pending tasks created before a provider was connected must follow
+        # the provider that is currently usable. Only put a job on the local
+        # pull queue ONCE, not on each coordinator poll.
+        if choice != "unavailable":
+            for task in tasks:
+                if not task.get("asset_id") or task.get("status") != "queued":
+                    continue
+                if task.get("provider") == choice:
+                    continue
+                # A queued task cannot be billed yet; provider migration is safe.
+                task["provider"] = choice
+                if choice == "comfyui":
+                    comfy_worker._queue.put(task["id"])
+                changed = True
         if changed:
             comfy_worker._save_tasks()
     return changed
