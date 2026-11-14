@@ -417,6 +417,8 @@ def render_story(job_id: str, payload: RenderRequest):
         raise HTTPException(409, "Crie o roteiro antes da animação.")
     if job.get("status") not in {"story_ready", "failed"}:
         raise HTTPException(409, "O episódio já está em renderização ou foi finalizado.")
+    if not job.get("story_approved"):
+        raise HTTPException(409, "Aprove o roteiro primeiro. As imagens serão geradas automaticamente abaixo do texto.")
     formats = payload.formats or job.get("formats", ["16:9", "9:16"])
     if not formats or any(x not in {"16:9", "9:16"} for x in formats):
         raise HTTPException(400, "Formatos inválidos.")
