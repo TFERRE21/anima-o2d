@@ -104,12 +104,22 @@
 <div class="card" id="inlineArtPanel" style="margin-top:16px;background:#0b1628">
   <div class="cardhead"><h3>✦ Imagens do episódio · geração automática</h3><span class="badge pending" id="inlineArtBadge">AGUARDANDO ROTEIRO</span></div>
   <p class="muted">Após aprovar o roteiro, o motor de imagens inicia os cenários do novo planeta. Luna, Tomi e Pipo ficam fixos para toda a série.</p>
-  <p class="inline-art-status" id="inlineArtStatus">Aprove o roteiro para iniciar as imagens nesta mesma tela.</p>
-  <h4 style="margin:18px 0 10px">Personagens oficiais · não mudam entre episódios</h4>
-  <div id="inlineCast" class="inline-art-grid"><div class="muted">Carregando biblioteca oficial…</div></div>
-  <h4 style="margin:20px 0 10px">Cenários deste planeta · criação automática</h4>
-  <div id="inlineScenes" class="inline-art-grid"><div class="muted">Os cenários aparecerão aqui automaticamente.</div></div>
-  <p class="muted" style="font-size:12px;margin-top:14px">O motor de imagens cria tudo automaticamente. O Blender anima os arquivos assim que estiverem prontos. Não é necessário enviar PNGs, aprovar imagens ou iniciar a renderização separadamente.</p>
+  <p class="inline-art-status" id="inlineArtStatus">Aprove o roteiro uma vez. As imagens e o vídeo serão gerados automaticamente quando o motor estiver conectado.</p>
+  <div style="margin:15px 0 8px" role="progressbar" aria-label="Progresso das imagens" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="inlineArtProgress">
+    <div class="progress" style="height:9px"><span id="inlineArtProgressFill" style="width:0%;transition:width .4s ease"></span></div>
+    <div class="muted" id="inlineArtProgressText" style="margin-top:7px">0 imagens concluídas</div>
+  </div>
+  <div id="inlineArtGallery" style="display:none;margin-top:20px">
+    <div id="inlineCastSection" style="display:none">
+      <h4 style="margin:14px 0 10px">Personagens oficiais da série</h4>
+      <div id="inlineCast" class="inline-art-grid"></div>
+    </div>
+    <div id="inlineScenesSection" style="display:none">
+      <h4 style="margin:18px 0 10px">Imagens geradas para este planeta</h4>
+      <div id="inlineScenes" class="inline-art-grid"></div>
+    </div>
+  </div>
+  <p class="muted" style="font-size:12px;margin-top:14px">As imagens aparecem aqui somente depois de geradas. Não há necessidade de enviar fotos, escolher arquivos ou iniciar o vídeo manualmente.</p>
  </div>
  <div class="toolbar" style="margin-top:16px"><button class="btn good" id="approveStory">✓ Aprovar roteiro e produzir vídeo</button><button class="btn ghost" id="discardStory">Descartar e criar outra história</button><span class="muted" id="renderMessage">Confira o planeta, a aventura e a lição antes de renderizar.</span></div>
 </div>
