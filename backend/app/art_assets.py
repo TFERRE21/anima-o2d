@@ -138,7 +138,15 @@ def approve_art(storage: Path, job_id: str, asset_id: str, fmt: str,
     if asset_id not in allowed:
         raise ValueError("Material não corresponde a uma cena deste roteiro.")
     if auto_cutout and asset_id in {"luna", "tomi", "pipo"}:
-        data = cutout_white_background(data)
+        # A hosted AI image model can generate a genuine transparent PNG.
+        # Preserve that alpha matte; white-background removal is only needed
+        # for opaque ComfyUI/Runway candidates.
+        with Image.open(io.BytesIO(data)) as candidate:
+            rgba = candidate.convert("RGBA")
+            alpha_min, alpha_max = rgba.getchannel("A").getextrema()
+            already_cut_out = alpha_min < 50 and alpha_max > 200
+        if not already_cut_out:
+            data = cutout_white_background(data)
     meta = inspect_png(data, asset_id, fmt)
     is_cast = asset_id in CAST_IDS
     destination = (official_cast_path(storage, asset_id) if is_cast
