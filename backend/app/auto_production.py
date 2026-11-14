@@ -142,6 +142,14 @@ def _process_job(job_id: str) -> None:
         return
     if job.get("status") not in {"story_ready", "failed"}:
         return
+    # A real Blender failure must NOT start the same expensive video again
+    # every eight seconds. An interrupted deployment may resume only once.
+    if job.get("status") == "failed":
+        if job.get("stage") == "render_error":
+            return
+        if (job.get("stage") == "interrupted"
+                and int(job.get("auto_video_recovery_count", 0)) >= 1):
+            return
     story = job.get("story_plan") or {}
     if not story:
         return
@@ -163,10 +171,19 @@ def _process_job(job_id: str) -> None:
         missing = {(fmt, asset) for fmt, state in boards.items() for asset in state["missing"]}
         # A failed task cannot be automatically accepted; keep the error visible
         # and stop, rather than making fake or blank replacement cartoon art.
-        failed = [t for t in tasks if t.get("auto_state") == "failed" and
-                  (t.get("format"), t.get("asset_id")) in missing or
-                  t.get("auto_state") == "failed" and t.get("asset_id") in CAST_IDS
-                  and any(asset == t["asset_id"] for _, asset in missing)]
+        def still_missing(task):
+            return ((task.get("format"), task.get("asset_id")) in missing
+                    or (task.get("asset_id") in CAST_IDS
+                        and any(asset == task.get("asset_id") for _, asset in missing)))
+        def newer_attempt(task):
+            return any(t is not task and t.get("asset_id") == task.get("asset_id")
+                       and (task.get("asset_id") in CAST_IDS
+                            or t.get("format") == task.get("format"))
+                       and (t.get("auto_retry_of") == task.get("id")
+                            or t.get("status") in {"queued", "running"})
+                       for t in tasks)
+        failed = [t for t in tasks if t.get("auto_state") == "failed"
+                  and still_missing(t) and not newer_attempt(t)]
         if failed:
             reason = "; ".join(f"{t['asset_id']}: {t.get('auto_error', 'falha')}" for t in failed[:3])
             if job.get("art_stage") != "error" or job.get("art_error") != reason:
@@ -188,6 +205,9 @@ def _process_job(job_id: str) -> None:
                          message="Imagens concluídas. Aguardando Blender/FFmpeg/vozes no container.")
         return
     # Rendering is scheduled only by the server after image completion.
+    if job.get("status") == "failed" and job.get("stage") == "interrupted":
+        main._update(job_id,
+                     auto_video_recovery_count=int(job.get("auto_video_recovery_count", 0)) + 1)
     try:
         main.render_story(job_id, main.RenderRequest(formats=formats))
     except HTTPException as exc:
@@ -195,6 +215,7 @@ def _process_job(job_id: str) -> None:
                      message="Imagens concluídas; aguardando motor de vídeo: " + str(exc.detail)[:350])
         return
     main._update(job_id, art_stage="rendering", art_error=None,
+                 auto_video_started=True,
                  message="Imagens prontas. Montagem e renderização do vídeo iniciadas automaticamente.")
     print("[cartoon-auto] video started for job", job_id, flush=True)
 
