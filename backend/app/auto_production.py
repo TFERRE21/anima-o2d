@@ -155,6 +155,10 @@ def _process_job(job_id: str) -> None:
         return
     formats = job.get("formats") or ["9:16"]
     identity = create_art_plan(story)["identity_lock"]
+    # Historical Runway quota errors must not start another chain of
+    # automatic paid retries. Recover one task per asset when a provider is ready.
+    from backend.app.image_provider import reconcile_credit_tasks
+    reconcile_credit_tasks()
     tasks = [t for t in list(comfy_worker._tasks.values()) if _task_relevant(t, job_id, identity)]
 
     # Process completed images before inspecting readiness.
@@ -164,7 +168,14 @@ def _process_job(job_id: str) -> None:
         if task.get("status") == "done":
             _approve_candidate(task, story, main.STORAGE)
         elif task.get("status") == "failed":
-            _retry(task, str(task.get("message") or "ComfyUI não conseguiu gerar a imagem."))
+            from backend.app.image_provider import is_credit_error
+            if (task.get("provider_error_code") == "insufficient_credits"
+                    or is_credit_error(task.get("message") or "")):
+                task.update(status="blocked", auto_state="waiting_provider",
+                            provider_error_code="insufficient_credits")
+                comfy_worker._save_tasks()
+            else:
+                _retry(task, str(task.get("message") or "O motor de imagens falhou."))
 
     boards = {fmt: main.get_episode_art_status(job_id, fmt) for fmt in formats}
     if not all(state["ready"] for state in boards.values()):
