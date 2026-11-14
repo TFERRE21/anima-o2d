@@ -4,7 +4,7 @@
 (()=>{
 'use strict';
 const el=id=>document.getElementById(id);
-let activeJob=null, pollTimer=null, board=null, refreshing=false;
+let activeJob=null, pollTimer=null, board=null, refreshing=false, lastArtDigest=null;
 const clean=x=>String(x??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
 const castNames={luna:'Luna',tomi:'Tomi',pipo:'Pipo'};
 const titleFor=id=>castNames[id]||'Cena '+(Number((id.match(/scene-(\d+)/)||[])[1]||0)+1);
@@ -69,17 +69,23 @@ function renderBoard(data){
   board=data;
   const formats=Object.entries(data.formats_status);
   const primary=formats[0]?.[1]||{approved:{},required:[]};
-  const allFixed=['luna','tomi','pipo'];
-  const castFmt=formats[0]?.[0]||'9:16';
-  el('inlineCast').innerHTML=allFixed.map(id=>tile(id,castFmt,primary,data.tasks,true)).join('');
-  const scenes=[];
-  for(const [fmt,state] of formats){
-    for(const asset of state.required){
-      if(asset in castNames)continue;
-      scenes.push(tile(asset,fmt,state,data.tasks,false));
+  const digest=JSON.stringify([data.formats_status,data.tasks.map(t=>[t.id,t.status,t.approved,t.has_image])]);
+  // Keep artwork images mounted between status polls; do not reload 30 PNGs
+  // every six seconds when only the worker heartbeat changed.
+  if(digest!==lastArtDigest){
+    lastArtDigest=digest;
+    const allFixed=['luna','tomi','pipo'];
+    const castFmt=formats[0]?.[0]||'9:16';
+    el('inlineCast').innerHTML=allFixed.map(id=>tile(id,castFmt,primary,data.tasks,true)).join('');
+    const scenes=[];
+    for(const [fmt,state] of formats){
+      for(const asset of state.required){
+        if(asset in castNames)continue;
+        scenes.push(tile(asset,fmt,state,data.tasks,false));
+      }
     }
+    el('inlineScenes').innerHTML=scenes.join('')||'<p class="muted">Nenhum cenário selecionado.</p>';
   }
-  el('inlineScenes').innerHTML=scenes.join('')||'<p class="muted">Nenhum cenário selecionado.</p>';
   if(data.ready && data.story_approved){
     el('inlineArtBadge').textContent='ARTES APROVADAS';
     el('inlineArtBadge').className='badge ready';
@@ -112,7 +118,7 @@ async function refresh(){
 
 function stop(){
   if(pollTimer){clearInterval(pollTimer);pollTimer=null;}
-  board=null;activeJob=null;
+  board=null;activeJob=null;lastArtDigest=null;
 }
 
 window.stopInlineArt=stop;
