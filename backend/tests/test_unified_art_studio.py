@@ -67,6 +67,22 @@ class UnifiedStudioTests(unittest.TestCase):
         self.assertFalse(board["ready"])
         self.assertFalse(board["worker_connected"])
 
+    def test_official_cast_generation_is_visible_from_a_second_planet(self):
+        from backend.app.art_director import create_art_plan
+        main.approve_story_generate_images(self.job_id)
+        identity = create_art_plan(self.story)["identity_lock"]
+        second_job_id = "ca11ab1eca11"
+        shared = comfy_worker.art_tasks(second_job_id, identity)
+        self.assertEqual({t["asset_id"] for t in shared}, {"luna", "tomi", "pipo"})
+        luna = next(t for t in shared if t["asset_id"] == "luna")
+        candidate = comfy_worker.get_art_task(luna["id"], second_job_id, identity)
+        self.assertEqual(candidate["asset_id"], "luna")
+        # A different planet must not enqueue a second character design.
+        self.job["id"] = second_job_id
+        main.approve_story_generate_images(second_job_id)
+        self.assertEqual(sum(t["asset_id"] == "luna"
+                             for t in comfy_worker._tasks.values()), 1)
+
     def test_render_is_blocked_before_approval_and_art_is_ready(self):
         with self.assertRaises(main.HTTPException) as ctx:
             main.render_story(self.job_id, main.RenderRequest(formats=["9:16"]))
