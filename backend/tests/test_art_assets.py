@@ -7,7 +7,7 @@ from pathlib import Path
 from PIL import Image, ImageDraw
 
 from backend.app.art_assets import (
-    art_path, inspect_png, approve_art, approved_path, readiness,
+    art_path, official_cast_path, inspect_png, approve_art, approved_path, readiness,
     cutout_white_background,
 )
 from backend.app.art_director import create_art_plan
@@ -59,7 +59,13 @@ class ApprovedArtTests(unittest.TestCase):
         self.assertTrue(short["ready"])
         self.assertFalse(readiness(self.storage, self.job, self.story, "16:9")["ready"])
         # Even if the PNG is present, edits without reapproval invalidate it.
-        original = art_path(self.storage, self.job, "luna", "16:9")
+        original = official_cast_path(self.storage, "luna")
+        self.assertTrue(original.is_file())
+        self.assertTrue(approved_path(self.storage, "anotherjob001", "luna", "16:9",
+                                      short["identity_lock"]))
+        with self.assertRaisesRegex(ValueError, "fixo"):
+            approve_art(self.storage, "anotherjob001", "luna", "16:9",
+                        png(320, 480, transparent=True), self.story)
         original.write_bytes(b"tampered!")
         self.assertIsNone(approved_path(self.storage, self.job, "luna",
                                         "9:16", short["identity_lock"]))
