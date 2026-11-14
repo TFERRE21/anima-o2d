@@ -284,8 +284,66 @@ def _normalize_image(data: bytes, task: dict) -> bytes:
     return buf.getvalue()
 
 
+
+def _task_key(task: dict) -> tuple:
+    # Series protagonists are shared; episode backgrounds are unique.
+    asset = task.get("asset_id")
+    if asset in {"luna", "tomi", "pipo"}:
+        return ("cast", task.get("identity_lock"), asset)
+    return ("scene", task.get("job_id"), task.get("format"), asset)
+
+
+def reconcile_credit_tasks() -> bool:
+    """Recover quota-blocked and historical failed assets without duplicates."""
+    from backend.app import comfy_worker
+    changed = False
+    choice = configured_provider()
+    with comfy_worker._tasks_lock:
+        tasks = list(comfy_worker._tasks.values())
+        credit_tasks = [
+            t for t in tasks
+            if t.get("asset_id") and t.get("status") in {"failed", "blocked"}
+            and (t.get("provider_error_code") == "insufficient_credits"
+                 or is_credit_error(t.get("message") or "")
+                 or is_credit_error(t.get("auto_error") or ""))
+        ]
+        for task in credit_tasks:
+            key = _task_key(task)
+            others_active = any(
+                t is not task and _task_key(t) == key
+                and t.get("status") in {"queued", "running", "done"}
+                for t in tasks
+            )
+            others_newer = any(
+                t is not task and _task_key(t) == key and t in credit_tasks
+                and (t.get("created_at") or "", t.get("id") or "")
+                    > (task.get("created_at") or "", task.get("id") or "")
+                for t in tasks
+            )
+            if others_active or others_newer:
+                task.update(status="cancelled", auto_state="superseded")
+                changed = True
+                continue
+            task["provider_error_code"] = "insufficient_credits"
+            if choice in {"runway", "openai", "comfyui"}:
+                task.update(status="queued", provider=choice,
+                            auto_state="resuming", auto_error=None,
+                            message="Tarefa retomada no motor disponível.")
+                if choice == "comfyui":
+                    comfy_worker._queue.put(task["id"])
+                changed = True
+            elif task.get("status") != "blocked" or task.get("auto_state") != "waiting_provider":
+                task.update(status="blocked", auto_state="waiting_provider",
+                            message="Provedor sem créditos. Aguardando outro motor.")
+                changed = True
+        if changed:
+            comfy_worker._save_tasks()
+    return changed
+
+
 def _claim_one() -> dict | None:
     from backend.app import comfy_worker
+    reconcile_credit_tasks()
     with comfy_worker._tasks_lock:
         mode = configured_provider()
         if mode not in {"runway", "openai"}:
@@ -330,11 +388,24 @@ def process_one() -> bool:
             comfy_worker._save_tasks()
     except Exception as exc:
         with comfy_worker._tasks_lock:
-            task.update(
-                status="failed", message=(type(exc).__name__ + ": " + str(exc))[:_ERR_LIMIT],
-                completed_at=time.time(),
-            )
+            provider = task.get("provider") or "unavailable"
+            if is_credit_error(exc):
+                _mark_out_of_credits(provider)
+                task.update(
+                    status="blocked", auto_state="waiting_provider",
+                    provider_error_code="insufficient_credits",
+                    message=provider.capitalize() + " sem créditos disponíveis.",
+                    completed_at=time.time(),
+                )
+            else:
+                task.update(
+                    status="failed",
+                    message=(type(exc).__name__ + ": " + str(exc))[:_ERR_LIMIT],
+                    completed_at=time.time(),
+                )
             comfy_worker._save_tasks()
+        if is_credit_error(exc):
+            reconcile_credit_tasks()
     finally:
         from backend.app.auto_production import notify
         notify()
