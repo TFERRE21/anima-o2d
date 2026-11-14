@@ -46,6 +46,59 @@ def _restore_tasks():
 _restore_tasks()
 
 
+def _is_gpu_oom(task: dict) -> bool:
+    message = str(task.get("message") or "") + " " + str(task.get("auto_error") or "")
+    return "out of memory" in message.lower()
+
+
+def _artwork_group(task: dict) -> tuple:
+    asset = task.get("asset_id")
+    if asset in {"luna", "tomi", "pipo"}:
+        return ("cast", task.get("identity_lock"), asset)
+    return ("scene", task.get("job_id"), task.get("format"), asset)
+
+
+def _recover_gpu_memory_tasks(profile_version: str) -> int:
+    """Resume one legacy OOM-failed attempt for each missing artwork.
+
+    Recovery happens only when a NEW agent profile connects, not for every
+    heartbeat or after the same safe profile already failed again.
+    """
+    if profile_version != "rx580-memory-safe-v1":
+        return 0
+    count = 0
+    with _tasks_lock:
+        tasks = list(_tasks.values())
+        groups = {_artwork_group(t) for t in tasks
+                  if t.get("asset_id") and _is_gpu_oom(t)}
+        for group in groups:
+            relevant = [t for t in tasks if _artwork_group(t) == group]
+            if any(t.get("status") in {"queued", "running", "done"} for t in relevant):
+                continue
+            candidates = [
+                t for t in relevant
+                if t.get("status") == "failed" and _is_gpu_oom(t)
+                and t.get("gpu_profile_version") != profile_version
+                and t.get("gpu_recovery_version") != profile_version
+            ]
+            if not candidates:
+                continue
+            task = max(candidates, key=lambda t: (
+                str(t.get("created_at") or ""), str(t.get("id") or "")
+            ))
+            task.update(
+                status="queued", provider="comfyui",
+                auto_state="gpu_memory_profile_upgrade",
+                auto_error=None, message="Retomada em perfil RX 580 de memória reduzida.",
+                gpu_recovery_version=profile_version,
+            )
+            _queue.put(task["id"])
+            count += 1
+        if count:
+            _save_tasks()
+    return count
+
+
 def worker_online() -> bool:
     return any(time.time() - seen < 75 for seen in _workers.values())
 
@@ -94,9 +147,16 @@ def status(authorization: str | None = Header(default=None)):
             "running":sum(t["status"]=="running" for t in _tasks.values())}
 
 @router.post("/heartbeat")
-def heartbeat(worker_id: str="windows-comfyui-rx580", authorization: str | None=Header(default=None)):
-    _auth(authorization); _workers[worker_id]=time.time()
-    return {"ok":True,"worker_id":worker_id}
+def heartbeat(worker_id: str="windows-comfyui-rx580", profile_version: str="",
+              authorization: str | None=Header(default=None)):
+    _auth(authorization)
+    _workers[worker_id] = time.time()
+    recovered = _recover_gpu_memory_tasks(profile_version)
+    if recovered:
+        from backend.app.auto_production import notify
+        notify()
+        print("[comfyui] resumed", recovered, "artworks after RX580 memory-profile upgrade.", flush=True)
+    return {"ok": True, "worker_id": worker_id, "resumed": recovered}
 
 @router.get("/next")
 def next_task(worker_id: str="windows-comfyui-rx580", authorization: str | None=Header(default=None)):
@@ -181,6 +241,8 @@ def result(task_id: str, payload: dict, authorization: str | None=Header(default
     if not task: raise HTTPException(404,"Tarefa não encontrada.")
     task.update(status=payload.get("status","failed"),message=str(payload.get("message",""))[:2000],
                 output=payload.get("output"),completed_at=datetime.now(timezone.utc).isoformat())
+    if payload.get("profile_version") == "rx580-memory-safe-v1":
+        task["gpu_profile_version"] = "rx580-memory-safe-v1"
     _save_tasks()
     from backend.app.auto_production import notify
     notify()
