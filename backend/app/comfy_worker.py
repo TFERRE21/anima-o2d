@@ -147,15 +147,14 @@ def queue_art_image(payload: dict, job_id: str, asset_id: str, fmt: str,
             "identity_lock": identity_lock,
             "created_at": datetime.now(timezone.utc).isoformat(),
         }
-        _save_tasks()
         from backend.app.image_provider import configured_provider, wake
-    provider = configured_provider()
-    _tasks[task_id]["provider"] = provider
-    _save_tasks()
-    if provider == "comfyui":
-        _queue.put(task_id)
-    else:
-        wake()
+        provider = configured_provider()
+        _tasks[task_id]["provider"] = provider
+        _save_tasks()
+        if provider == "comfyui":
+            _queue.put(task_id)
+        else:
+            wake()
     return {"task_id": task_id, "status": "queued", "asset_id": asset_id,
             "format": fmt, "provider": provider, "reused": False,
             "message": ("Imagem enviada ao motor " + provider
