@@ -345,7 +345,8 @@ function watchJob(id){
    if(j.status==='done'||j.status==='failed'){
     clearInterval(poll);poll=null;
     $('createBtn').disabled=false;$('createBtn').textContent='✦ Criar outra história';
-    if(j.status==='failed'){$('approveStory').disabled=false;$('approveStory').textContent='↻ Tentar renderizar novamente';}
+    if(j.status==='failed'){$('inlineArtRender').disabled=false;$('inlineArtRender').textContent='↻ Tentar montar vídeo novamente';$('renderMessage').textContent='Falha na montagem. Corrija o problema e tente novamente com as mesmas artes aprovadas.';}
+    else{$('inlineArtRender').textContent='✓ Vídeo concluído';}
     await loadDashboard();
    }
   }catch(e){$('activeJobMessage').textContent='Aguardando resposta do servidor…';}
