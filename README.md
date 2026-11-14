@@ -24,14 +24,14 @@ O motor não cria bonecos geométricos como substitutos. Quando nenhuma API de i
 
 No painel iContainer, configure **uma vez** as variáveis de ambiente do container da aplicação (não no terminal do host sem repassá-las ao Docker):
 
-- `ANIMA_IMAGE_PROVIDER=auto` (padrão): usa `RUNWAYML_API_SECRET` ou `RUNWAY_API_KEY` quando presente; caso contrário, `OPENAI_API_KEY`; sem nenhuma, usa o agente ComfyUI se estiver conectado.
+- `ANIMA_IMAGE_PROVIDER=auto` (padrão): tenta Runway e, se a conta informar falta de créditos, bloqueia temporariamente novas solicitações a ela e escolhe uma API OpenAI configurada ou o agente ComfyUI conectado. Sem alternativa, pausa e conserva a fila.
 - `ANIMA_IMAGE_PROVIDER=runway` + `RUNWAYML_API_SECRET`: usa diretamente a API Runway (modelo padrão `nano_banana_2.1`; selecione com `ANIMA_RUNWAY_IMAGE_MODEL`).
 - `ANIMA_IMAGE_PROVIDER=openai` + `OPENAI_API_KEY`: usa a API de imagens da OpenAI (modelo padrão `gpt-image-1.5`; selecione com `ANIMA_OPENAI_IMAGE_MODEL`, qualidade com `ANIMA_IMAGE_QUALITY`).
 - `ANIMA_IMAGE_PROVIDER=comfyui`: usa somente o agente local Windows/RX 580, com token `ANIMA_COMFY_TOKEN` configurado no servidor e na estação.
 
 **As APIs Runway e OpenAI podem cobrar a cada imagem gerada.** Uma assinatura ChatGPT Plus não fornece chave de API nem créditos de geração na VPS. O sistema nunca tenta acessar as conversas do ChatGPT como substituto da API. Não coloque chaves no GitHub nem na página pública.
 
-O endpoint `GET /api/image-engine/status` mostra qual motor está selecionado e se está pronto **sem revelar chaves**. Após alterar as variáveis no iContainer, recrie a aplicação preservando `/data/jobs`. Tarefas antigas pendentes podem ser retomadas pelo motor recém-conectado.
+O endpoint `GET /api/image-engine/status` mostra qual motor está selecionado e se está pronto **sem revelar chaves**. Após alterar as variáveis no iContainer, recrie a aplicação preservando `/data/jobs`. Tarefas antigas pendentes e tarefas que falharam com **HTTP 400 / You do not have enough credits** podem ser retomadas automaticamente pelo motor recém-conectado, sem recriar o roteiro. A indisponibilidade de créditos fica registrada em `ANIMA_STORAGE/comfyui/provider-blocks.json` (sem armazenar o segredo), por padrão durante 30 minutos, configurável por `ANIMA_CREDIT_RECHECK_SECONDS` (300–86400). Após esse prazo, o sistema pode verificar o mesmo provedor novamente; trocar a chave também permite nova tentativa. Se nenhum serviço estiver conectado, o sistema não inventa imagens nem inicia o Blender.
 
 Para operar sem API paga, conecte o agente ComfyUI, instale um checkpoint adequado e defina `ANIMA_COMFY_TOKEN` na aplicação. Veja `docs/integracao-comfyui.md`. O modelo de imagem utilizado pode afetar bastante a qualidade. O sistema valida tecnicamente o arquivo recebido, mas não pode garantir que a imagem gerada tenha qualidade artística profissional ou consistência perfeita antes de renderizar.
 
