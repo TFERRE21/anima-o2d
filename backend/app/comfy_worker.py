@@ -105,6 +105,13 @@ def next_task(worker_id: str="windows-comfyui-rx580", authorization: str | None=
     except queue.Empty: return {"task":None}
     task=_tasks.get(task_id)
     if not task or task["status"]!="queued": return {"task":None}
+    from backend.app.image_provider import configured_provider
+    if task.get("provider") in {"openai", "runway"}:
+        # Never hand a paid-cloud task to the local Windows agent.
+        return {"task":None}
+    if task.get("provider") in {None, "comfyui"} and configured_provider() in {"openai", "runway"} and task.get("asset_id"):
+        # Older queued tasks are now processed by the configured hosted engine.
+        return {"task":None}
     task.update(status="running",worker_id=worker_id,started_at=datetime.now(timezone.utc).isoformat())
     _save_tasks()
     return {"task":{"id":task_id,"config":task["config"]}}
@@ -141,10 +148,19 @@ def queue_art_image(payload: dict, job_id: str, asset_id: str, fmt: str,
             "created_at": datetime.now(timezone.utc).isoformat(),
         }
         _save_tasks()
+        from backend.app.image_provider import configured_provider, wake
+    provider = configured_provider()
+    _tasks[task_id]["provider"] = provider
+    _save_tasks()
+    if provider == "comfyui":
         _queue.put(task_id)
+    else:
+        wake()
     return {"task_id": task_id, "status": "queued", "asset_id": asset_id,
-            "format": fmt, "reused": False,
-            "message": "Imagem agendada; aguardando o agente ComfyUI se estiver offline."}
+            "format": fmt, "provider": provider, "reused": False,
+            "message": ("Imagem enviada ao motor " + provider
+                        if provider in {"runway", "openai"}
+                        else "Aguardando motor de imagens configurado.")}
 
 
 def get_art_task(task_id: str, job_id: str, identity_lock: str | None = None) -> dict:
