@@ -175,7 +175,8 @@ def next_task(worker_id: str="windows-comfyui-rx580", authorization: str | None=
         return {"task":None}
     task.update(status="running",worker_id=worker_id,started_at=datetime.now(timezone.utc).isoformat())
     _save_tasks()
-    return {"task":{"id":task_id,"config":task["config"]}}
+    return {"task":{"id":task_id,"config":task["config"],
+                    "asset_id": task.get("asset_id"), "format": task.get("format")}}
 
 @router.post("/generate",status_code=202)
 def generate(payload: GenerateRequest, authorization: str | None=Header(default=None)):
