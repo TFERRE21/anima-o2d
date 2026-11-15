@@ -181,6 +181,64 @@ pode exigir um motor alternativo local (por exemplo CPU/DirectML)
 ou outra GPU. Não afirmar que mais redução de resolução, NOVRAM
 ou cópias de RAM necessariamente consertarão o KSampler.
 
+## Alternativa sem créditos: DirectML separado do ZLUDA
+
+**Motivo:** se a RX 580 com CUDA/ZLUDA + PyTorch 2.3 continuar a
+falhar em `KSampler.calculate_sigmas` com `CUDA error: out of memory`
+em 0,42 segundo, reduzir para 384×512 ou usar somente FP16 pode não
+resolver. O DirectML usa o Windows/DirectX 12 para operar na GPU AMD,
+sem passar pelo CUDA/ZLUDA. O ComfyUI documenta o argumento
+`--directml`; sua compatibilidade com o PC real exige validação.
+
+O instalador `instalar-directml-rx580.ps1` cria um clone
+**independente e travado em ComfyUI v0.3.10** e um `venv-directml`
+separado no diretório `C:\AnimaStudio\ComfyUI-DirectML`.
+Utiliza Python 3.11 e o pacote `torch-directml==0.2.5.dev240914`
+com PyTorch 2.4.1. O checkpoint é compartilhado via um arquivo
+`anima-modelos.yaml`, sem duplicar ou sobrescrever os modelos.
+Não altera `C:\ComfyUI-Zluda`, não executa `fixforrx580.bat`,
+não instala HIP adicional e não apaga o roteiro da VPS.
+
+No **Windows**, com Git e Python 3.11 instalados:
+
+```powershell
+cd C:\AnimaStudio\anima-o2d
+git pull --ff-only
+cd .\tools\windows-gpu-agent
+Set-ExecutionPolicy -Scope Process Bypass
+.\instalar-directml-rx580.ps1 -Modo verificar
+.\instalar-directml-rx580.ps1 -Modo instalar
+```
+
+A instalação não inicia automaticamente o motor. Para usar DirectML,
+**encerre a instância ZLUDA na porta 8188 e pare o agente antigo**.
+O script não mata processos; exibe conflito e preserva a instalação.
+Depois, abra somente o agente Windows com:
+
+```powershell
+$env:ANIMA_GPU_BACKEND="directml"
+.\iniciar-comfyui-agent.ps1
+```
+
+O agente detecta a instalação DirectML e inicia seu `comfyui.bat`
+na porta 8188, sem abrir uma segunda instância. Para usar ZLUDA
+novamente, encerre DirectML e execute no PowerShell:
+`$env:ANIMA_GPU_BACKEND="zluda"`; depois reinicie o agente.
+
+Em `/system_stats`, um ComfyUI DirectML costuma exibir dispositivo
+`privateuseone`, não `cuda:0`. O agente só reporta
+`rx580-directml-v3` quando o dispositivo local realmente aponta
+para DirectML. Com a aplicação VPS atualizada, o perfil novo pode
+recuperar **uma vez** as imagens bloqueadas por OOM do ZLUDA; não
+precisa alterar o roteiro nem enviar PNGs. Se DirectML também falhar,
+as tentativas são limitadas, e será preciso investigar o log local
+ou usar outro motor/gpu; o código não inventa imagens.
+
+**Limitação:** o DirectML pode ser mais lento, tem suporte limitado a
+algumas operações/modelos e o backend PyTorch-DirectML é um pacote
+legado. A instalação é uma alternativa prática a ser validada, não
+uma garantia de vídeo concluído ou qualidade de estúdio.
+
 ## Limitações desta primeira versão
 - O agente usa um workflow exportado pelo usuário em formato API; não modifica o workflow visual.
 - O fluxo entrega imagens geradas pelo ComfyUI ao painel; o Blender/FFmpeg monta automaticamente o episódio quando todas as imagens são aprovadas tecnicamente. A animação atual é 2.5D, não rigging completo.
