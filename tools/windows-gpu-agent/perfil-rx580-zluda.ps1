@@ -49,8 +49,11 @@ if ($Modo -eq "verificar") {
     exit 0
 }
 
-if ($source -match '(?i)--fp16-unet') {
-    Write-Host "O launcher ja usa --fp16-unet. Nenhuma alteracao."
+$fp16Ativo = @($lines | Where-Object {
+    $_ -notmatch '^\s*(?i:rem\b|::)' -and $_ -match '(?i)--fp16-unet\b'
+})
+if ($fp16Ativo.Count -gt 0) {
+    Write-Host "O launcher ja usa --fp16-unet nas linhas ativas. Nenhuma alteracao."
     exit 0
 }
 # Change only lines which are commands rather than REM or :: comments.
