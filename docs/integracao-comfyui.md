@@ -19,15 +19,38 @@ A aplicação deve ser redeployada após configurar o secret.
 5. Confira se contém os nós `CheckpointLoaderSimple`, `CLIPTextEncode` (positivo e negativo), `KSampler`, `EmptyLatentImage` e `SaveImage`.
 6. O checkpoint configurado no painel deve existir em `ComfyUI/models/checkpoints`.
 
-## Windows
-Com o ComfyUI já aberto e funcional:
-1. Abra PowerShell.
-2. Entre na pasta `tools/windows-gpu-agent` do clone local do repositório.
-3. Execute `Set-ExecutionPolicy -Scope Process Bypass`.
-4. Execute `./iniciar-comfyui-agent.ps1`.
-5. Informe a URL pública do Anima Studio e o mesmo token configurado na VPS.
+## Windows — inicialização automática do ComfyUI
 
-O agente usa o Python do ambiente virtual ComfyUI e instala/verifica `requests`. Mantenha o processo aberto enquanto quiser receber tarefas.
+1. Abra o PowerShell.
+2. Na cópia local do projeto, execute `cd C:\AnimaStudio\anima-o2d; git pull --ff-only`.
+3. Entre em `cd .\tools\windows-gpu-agent`.
+4. Execute `Set-ExecutionPolicy -Scope Process Bypass` e `.\iniciar-comfyui-agent.ps1`.
+5. Informe a URL pública do Anima Studio e o mesmo token `ANIMA_COMFY_TOKEN` da VPS.
+
+**Não precisa abrir o `comfyui.bat` separadamente:** no Windows, se o agente não
+encontrar uma API em `http://127.0.0.1:8188/system_stats`, ele inicia
+automaticamente `C:\ComfyUI-Zluda\ComfyUI-Zluda\comfyui.bat` em outra
+janela de console, aproveitando a instalação existente.
+Se a porta estiver ocupada, não inicia uma segunda instância.
+Se o ComfyUI encerrar, o agente deixará de enviar sinal de pronto à VPS,
+tentará reabri-lo e voltará a se registrar quando ele estiver acessível.
+
+Para evitar um ciclo de reinícios se a RX 580 continuar apresentando OOM,
+o agente limita as tentativas automáticas a **três inicializações por hora**
+e mantém ao menos 90 segundos entre elas. Essa limitação é intencional.
+As mensagens da janela do ComfyUI devem ser consultadas se o processo
+não conseguir iniciar ou se voltar a encerrar. Os processos dependem
+do computador permanecer ligado e sem suspensão.
+
+O caminho pode ser alterado com `COMFYUI_INSTALL_DIR` no Windows.
+Para desativar a inicialização automática, configure
+`ANIMA_COMFY_AUTOSTART=0` no Windows.
+
+O agente usa o Python do ambiente virtual ComfyUI e instala/verifica `requests`.
+Mantenha o agente aberto enquanto quiser receber tarefas. Para operar após
+reinícios do Windows sem abrir o PowerShell manualmente, configure uma
+tarefa agendada segura em sua conta Windows (o instalador não cria essa tarefa
+e não armazena o token automaticamente).
 
 ## Painel
 Abra `/ai-studio.html`, informe o token e clique em Testar conexão. A geração só é aceita quando o agente estiver online. As tarefas são registradas e as imagens PNG são armazenadas em `ANIMA_STORAGE/comfyui`.
