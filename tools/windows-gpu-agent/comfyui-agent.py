@@ -23,7 +23,9 @@ OUT = pathlib.Path(os.getenv("ANIMA_COMFY_OUTPUT", str(ROOT / "generated")))
 OUT.mkdir(parents=True, exist_ok=True)
 PROFILE_VERSION = "rx580-memory-safe-v1"
 FP16_PROFILE_VERSION = "rx580-unet-fp16-v2"
+DIRECTML_PROFILE_VERSION = "rx580-directml-v3"
 _RX580_MODE = False
+_DIRECTML_MODE = False
 SESSION = requests.Session()
 SESSION.headers["Authorization"] = "Bearer " + TOKEN
 _HEARTBEAT_THREAD = None
@@ -39,11 +41,9 @@ _COMFY_START_WINDOW_SECONDS = 3600
 
 
 def _profile_version():
-    """Never claim a new GPU memory profile until the opt-in launcher is patched.
-
-    A restart of the existing ComfyUI process is required after editing it.
-    We identify only active batch command lines, not comments.
-    """
+    """Report the backend actually running, not the requested backend."""
+    if _DIRECTML_MODE:
+        return DIRECTML_PROFILE_VERSION
     if not _RX580_MODE:
         return ""
     try:
@@ -397,11 +397,25 @@ def check_local_comfy():
         response.raise_for_status()
         data = response.json()
         devices = data.get("devices") or []
-        global _RX580_MODE
+        global _RX580_MODE, _DIRECTML_MODE
         force = os.getenv("ANIMA_RX580_MEMORY_PROFILE", "auto").strip().lower()
-        names = " ".join(str(item.get("name") or "") for item in devices if isinstance(item, dict)).lower()
-        _RX580_MODE = (force == "1" or force == "true"
-                       or (force != "0" and force != "false" and "rx 580" in names))
+        names = " ".join(
+            str(item.get("name") or "") + " " + str(item.get("type") or "")
+            for item in devices if isinstance(item, dict)
+        ).lower()
+        _DIRECTML_MODE = ("privateuseone" in names or "directml" in names)
+        requested_backend = os.getenv("ANIMA_GPU_BACKEND", "").strip().lower()
+        if requested_backend == "directml" and not _DIRECTML_MODE:
+            raise ValueError(
+                "DirectML selecionado, mas a porta 8188 pertence ao ComfyUI "
+                "ZLUDA ou a outro backend. Encerre essa instancia antes de iniciar DirectML."
+            )
+        _RX580_MODE = (
+            force == "1" or force == "true"
+            or (force not in {"0", "false"} and ("rx 580" in names or _DIRECTML_MODE))
+        )
+        if _DIRECTML_MODE:
+            print("Motor DirectML ativo na GPU AMD. Operacoes de IA nao usam CUDA/ZLUDA.", flush=True)
         if _RX580_MODE:
             print("Perfil RX 580 ativo:", _profile_version(), flush=True)
             if _profile_version() == FP16_PROFILE_VERSION:
