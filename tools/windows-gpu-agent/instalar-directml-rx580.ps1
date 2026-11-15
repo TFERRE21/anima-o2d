@@ -28,10 +28,12 @@ if (-not (Test-Path -LiteralPath $models -PathType Container)) {
 Write-Host "=== ANIMA STUDIO / DIRECTML / AMD RX 580 ==="
 Write-Host "ComfyUI alternativo: $root"
 Write-Host "Checkpoints preservados: $models"
+$existingPython = Join-Path $PastaModelos "venv\Scripts\python.exe"
+$bootstrapPython = if(Test-Path -LiteralPath $existingPython) { $existingPython } else { $null }
 
 if ($Modo -eq "verificar") {
     Write-Host "Git:" ([bool](Get-Command git -ErrorAction SilentlyContinue))
-    Write-Host "Python Launcher:" ([bool](Get-Command py -ErrorAction SilentlyContinue))
+    Write-Host "Python 3.11 ja instalado:" ([bool]$bootstrapPython)
     Write-Host "ComfyUI DirectML:" (Test-Path -LiteralPath (Join-Path $root "main.py"))
     Write-Host "Ambiente DirectML:" (Test-Path -LiteralPath $venvPython)
     Write-Host "Modelos existentes:" @((Get-ChildItem -LiteralPath $models -Filter *.safetensors -File)).Count
@@ -43,12 +45,12 @@ if ($Modo -eq "instalar") {
     if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
         throw "Git nao encontrado no PATH. Instale o Git for Windows primeiro."
     }
-    if (-not (Get-Command py -ErrorAction SilentlyContinue)) {
-        throw "Python Launcher (py) nao encontrado no PATH."
+    if (-not $bootstrapPython) {
+        throw "Python 3.11 existente nao encontrado no ambiente ZLUDA. Preserve a instalacao e instale Python 3.11."
     }
-    & py -3.11 --version
+    & $bootstrapPython -c "import sys; print(sys.version); assert sys.version_info[:2] == (3,11)"
     if ($LASTEXITCODE -ne 0) {
-        throw "Python 3.11 nao encontrado. Este perfil nao usa Python 3.15."
+        throw "O ambiente ZLUDA nao usa Python 3.11. Interrompendo sem alterar arquivos."
     }
     if (-not (Test-Path -LiteralPath $root)) {
         New-Item -ItemType Directory -Path (Split-Path -Parent $root) -Force | Out-Null
@@ -62,7 +64,7 @@ if ($Modo -eq "instalar") {
     }
     if (-not (Test-Path -LiteralPath $venvPython)) {
         Write-Host "Criando ambiente independente do ZLUDA..."
-        & py -3.11 -m venv (Join-Path $root "venv-directml")
+        & $bootstrapPython -m venv (Join-Path $root "venv-directml")
         if ($LASTEXITCODE -ne 0) { throw "Falha ao criar venv-directml." }
     }
     & $venvPython -m pip install --upgrade pip
