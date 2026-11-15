@@ -14,6 +14,7 @@ router = APIRouter(prefix="/api/comfy", tags=["ComfyUI"])
 _tasks: dict[str, dict] = {}
 _queue: queue.Queue = queue.Queue()
 _workers: dict[str, float] = {}
+_worker_profiles: dict[str, str] = {}
 
 _tasks_lock = threading.RLock()
 _store = Path(os.getenv("ANIMA_STORAGE", "/data/jobs")) / "comfyui" / "task-state.json"
@@ -104,6 +105,15 @@ def worker_online() -> bool:
     return any(time.time() - seen < 75 for seen in _workers.values())
 
 
+def active_gpu_profile() -> str | None:
+    """Report only verified, recently connected worker profile; no secrets."""
+    now = time.time()
+    for worker_id, seen in _workers.items():
+        if now - seen < 75 and _worker_profiles.get(worker_id):
+            return _worker_profiles[worker_id]
+    return None
+
+
 def art_tasks(job_id: str, identity_lock: str | None = None) -> list[dict]:
     """Current planet scenes plus once-per-series protagonist candidates."""
     return sorted([
@@ -144,6 +154,7 @@ def status(authorization: str | None = Header(default=None)):
     now=time.time()
     online=[name for name,seen in _workers.items() if now-seen < 75]
     return {"enabled":True,"connected":bool(online),"workers":online,
+            "gpu_profile": active_gpu_profile(),
             "queued":_queue.qsize(),
             "running":sum(t["status"]=="running" for t in _tasks.values())}
 
@@ -152,6 +163,7 @@ def heartbeat(worker_id: str="windows-comfyui-rx580", profile_version: str="",
               authorization: str | None=Header(default=None)):
     _auth(authorization)
     _workers[worker_id] = time.time()
+    _worker_profiles[worker_id] = profile_version
     recovered = _recover_gpu_memory_tasks(profile_version)
     if recovered:
         from backend.app.auto_production import notify
