@@ -117,6 +117,42 @@ class RX580MemoryProfileTests(unittest.TestCase):
         self.agent._RX580_MODE = False
         self.assertEqual(self.agent._profile_version(), "")
 
+    def test_directml_backend_is_recognized_without_cuda(self):
+        self.agent._DIRECTML_MODE = False
+        self.agent._RX580_MODE = False
+        status = {
+            "devices": [{
+                "name": "privateuseone",
+                "type": "privateuseone",
+                "index": 0,
+            }]
+        }
+        response = mock.Mock()
+        response.json.return_value = status
+        response.raise_for_status.return_value = None
+        with mock.patch.dict(os.environ, {"ANIMA_GPU_BACKEND": "directml"}), (
+            mock.patch.object(self.agent.requests, "get", return_value=response)
+        ):
+            self.assertTrue(self.agent.check_local_comfy())
+        self.assertTrue(self.agent._DIRECTML_MODE)
+        self.assertEqual(self.agent._profile_version(), "rx580-directml-v3")
+        self.agent._LOCAL_READY.clear()
+
+    def test_does_not_falsely_claim_directml_when_zluda_listens(self):
+        self.agent._DIRECTML_MODE = False
+        self.agent._RX580_MODE = False
+        response = mock.Mock()
+        response.json.return_value = {
+            "devices": [{"name": "cuda:0 AMD Radeon RX 580 [ZLUDA]", "type": "cuda"}]
+        }
+        response.raise_for_status.return_value = None
+        self.agent._COMFY_AUTOSTART = False
+        with mock.patch.dict(os.environ, {"ANIMA_GPU_BACKEND": "directml"}), (
+            mock.patch.object(self.agent.requests, "get", return_value=response)
+        ):
+            self.assertFalse(self.agent.check_local_comfy())
+        self.assertFalse(self.agent._LOCAL_READY.is_set())
+
     def test_oom_recognized_without_other_errors_becoming_oom(self):
         self.assertTrue(self.agent._is_oom("CUDA error: out of memory"))
         self.assertTrue(self.agent._is_oom("HIP error: out of memory"))
