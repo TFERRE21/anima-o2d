@@ -135,6 +135,52 @@ Use `ANIMA_RX580_MEMORY_PROFILE=0` no Windows somente para desativar
 voluntariamente o ajuste. Se necessário, aumente `COMFY_TASK_TIMEOUT`
 para `1800` para imagens geradas lentamente pelo modo FP32.
 
+## Opcional: UNet FP16 quando KSampler falha até em 384×512
+
+Se a RX 580/ZLUDA permanece com `CUDA error: out of memory`
+mesmo após as duas resoluções reduzidas, **reduzir mais pixels
+isoladamente não garante solucionar o erro**. O checkpoint pode estar sendo
+executado em precisão FP32, aumentando o uso de VRAM, e versões antigas de
+ZLUDA/PyTorch também podem ter limitações de compatibilidade. Há relatos
+desse mesmo problema com RX 580 e PyTorch 2.3.0.
+
+Existe um procedimento **experimental e reversível** para reduzir a memória
+dos pesos do UNet sem mudar o modelo ou instalar outro programa:
+
+1. Encerre o agente Anima Studio com `Ctrl+C` e encerre **somente**
+   o console da instância ComfyUI em `127.0.0.1:8188`
+2. Na pasta do clone Anima Studio no Windows, atualize com
+   `cd C:\AnimaStudio\anima-o2d; git pull --ff-only`
+3. Execute `cd .\tools\windows-gpu-agent`
+4. Verifique o launcher:
+   `.\perfil-rx580-zluda.ps1 -Modo verificar`
+5. Se ele encontrar `--force-fp32` ou `--fp32-unet` nas
+   linhas ativas de `comfyui.bat`, aplique:
+   `.\perfil-rx580-zluda.ps1 -Modo fp16`
+6. Reinicie o agente `.\iniciar-comfyui-agent.ps1`. O agente iniciará
+   o ComfyUI, que agora tentará rodar o UNet com `--fp16-unet`.
+   Confirme que o console não informa mais `Forcing FP32`
+
+O script salva antes uma cópia byte-a-byte do `comfyui.bat`.
+Se surgir erro de operações FP16 incompatíveis, encerre a instância
+ComfyUI e execute
+`.\perfil-rx580-zluda.ps1 -Modo restaurar` e reinicie o agente.
+O script não altera PyTorch, ZLUDA, modelos, pastas nem checkpoints.
+**Nem toda GPU RX 580 executará FP16 com essa instalação**.
+
+Para tentar novamente **o mesmo roteiro** sem clicar em aprovar,
+a VPS precisa estar atualizada: se o agente reconhecer
+`rx580-unet-fp16-v2` e o servidor também suportar esse perfil,
+as tarefas anteriormente bloqueadas pelo erro de GPU poderão ser
+reencaminhadas **somente uma vez**. Uma geração concluída na GPU
+ainda não foi demonstrada; o próximo passo é confirmar a primeira
+imagem real. A resolução de saída do vídeo permanece inalterada.
+
+Se FP16 também não gerar imagens, o caminho viável sem créditos
+pode exigir um motor alternativo local (por exemplo CPU/DirectML)
+ou outra GPU. Não afirmar que mais redução de resolução, NOVRAM
+ou cópias de RAM necessariamente consertarão o KSampler.
+
 ## Limitações desta primeira versão
 - O agente usa um workflow exportado pelo usuário em formato API; não modifica o workflow visual.
 - O fluxo entrega imagens geradas pelo ComfyUI ao painel; o Blender/FFmpeg monta automaticamente o episódio quando todas as imagens são aprovadas tecnicamente. A animação atual é 2.5D, não rigging completo.
