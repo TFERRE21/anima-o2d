@@ -107,6 +107,16 @@ class RX580MemoryProfileTests(unittest.TestCase):
             self.assertFalse(self.agent.check_local_comfy())
         self.assertFalse(self.agent._LOCAL_READY.is_set())
 
+    def test_fp16_profile_requires_noncomment_launcher_flag(self):
+        launcher = Path(self.tmp.name) / "comfyui.bat"
+        self.agent._COMFY_LAUNCHER = launcher
+        launcher.write_text("@echo off\nREM --fp16-unet\nset \"commandline_args=--novram --force-fp32\"\n", encoding="utf-8")
+        self.assertEqual(self.agent._profile_version(), "rx580-memory-safe-v1")
+        launcher.write_text("@echo off\nset \"commandline_args=--novram --fp16-unet --cpu-vae\"\n", encoding="utf-8")
+        self.assertEqual(self.agent._profile_version(), "rx580-unet-fp16-v2")
+        self.agent._RX580_MODE = False
+        self.assertEqual(self.agent._profile_version(), "")
+
     def test_oom_recognized_without_other_errors_becoming_oom(self):
         self.assertTrue(self.agent._is_oom("CUDA error: out of memory"))
         self.assertTrue(self.agent._is_oom("HIP error: out of memory"))
