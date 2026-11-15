@@ -3,6 +3,7 @@ import io
 import json
 import os
 import pathlib
+import re
 import socket
 import subprocess
 import threading
@@ -21,6 +22,7 @@ WF = pathlib.Path(os.getenv("COMFYUI_API_WORKFLOW", str(ROOT / "workflow_api.jso
 OUT = pathlib.Path(os.getenv("ANIMA_COMFY_OUTPUT", str(ROOT / "generated")))
 OUT.mkdir(parents=True, exist_ok=True)
 PROFILE_VERSION = "rx580-memory-safe-v1"
+FP16_PROFILE_VERSION = "rx580-unet-fp16-v2"
 _RX580_MODE = False
 SESSION = requests.Session()
 SESSION.headers["Authorization"] = "Bearer " + TOKEN
@@ -36,6 +38,30 @@ _COMFY_START_ATTEMPTS_LIMIT = 3
 _COMFY_START_WINDOW_SECONDS = 3600
 
 
+def _profile_version():
+    """Never claim a new GPU memory profile until the opt-in launcher is patched.
+
+    A restart of the existing ComfyUI process is required after editing it.
+    We identify only active batch command lines, not comments.
+    """
+    if not _RX580_MODE:
+        return ""
+    try:
+        launcher = _COMFY_LAUNCHER
+        lines = launcher.read_text(encoding="latin-1").splitlines()
+        active = [
+            line for line in lines
+            if not re.match(r"^\s*(?:rem\b|::)", line, re.IGNORECASE)
+        ]
+        has_fp16 = any(re.search(r"--fp16-unet\b", line, re.IGNORECASE) for line in active)
+        has_fp32 = any(re.search(r"--(?:fp32-unet|force-fp32)\b", line, re.IGNORECASE) for line in active)
+        if has_fp16 and not has_fp32:
+            return FP16_PROFILE_VERSION
+    except OSError:
+        pass
+    return PROFILE_VERSION
+
+
 def _heartbeats_while_rendering():
     """Keep the VPS worker marked online while a slow RX 580 draws a frame."""
     was_connected = True
@@ -47,7 +73,7 @@ def _heartbeats_while_rendering():
         try:
             reply = requests.post(
                 SERVER + "/api/comfy/heartbeat",
-                params={"worker_id": WORKER, "profile_version": PROFILE_VERSION if _RX580_MODE else ""},
+                params={"worker_id": WORKER, "profile_version": _profile_version()},
                 headers={"Authorization": "Bearer " + TOKEN},
                 timeout=20,
             )
@@ -123,7 +149,7 @@ def report(task_id, status, message="", output=None):
     response = SESSION.post(
         f"{SERVER}/api/comfy/tasks/{task_id}/result",
         json={"status": status, "message": str(message)[:2000], "output": output,
-              "profile_version": PROFILE_VERSION if _RX580_MODE else ""},
+              "profile_version": _profile_version()},
         timeout=30,
     )
     response.raise_for_status()
@@ -377,8 +403,14 @@ def check_local_comfy():
         _RX580_MODE = (force == "1" or force == "true"
                        or (force != "0" and force != "false" and "rx 580" in names))
         if _RX580_MODE:
-            print("Perfil seguro RX 580/FP32 ativado: difusão em resolução moderada, "
-                  "fallback por VRAM e ampliação final na CPU.", flush=True)
+            print("Perfil RX 580 ativo:", _profile_version(), flush=True)
+            if _profile_version() == FP16_PROFILE_VERSION:
+                print("UNet FP16 configurado no launcher. Esta opção requer ComfyUI "
+                      "reiniciado e compatibilidade do ZLUDA; não é garantia de sucesso.", flush=True)
+            else:
+                print("FP32 ativo: este modo já excedeu a VRAM nas tentativas anteriores. "
+                      "Use o ajuste reversível perfil-rx580-zluda.ps1 se desejar "
+                      "testar UNet FP16.", flush=True)
         if devices:
             print("ComfyUI detectou dispositivo(s):", ", ".join(
                 str(device.get("name") or device.get("type") or "sem nome")
@@ -426,7 +458,7 @@ def main():
                 was_ready = True
             SESSION.post(
                 SERVER + "/api/comfy/heartbeat",
-                params={"worker_id": WORKER, "profile_version": PROFILE_VERSION if _RX580_MODE else ""}, timeout=20,
+                params={"worker_id": WORKER, "profile_version": _profile_version()}, timeout=20,
             ).raise_for_status()
             _ensure_heartbeat()
             if not getattr(main, "_registered", False):
