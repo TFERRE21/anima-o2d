@@ -128,9 +128,14 @@ def engine_state() -> dict:
     else:
         detail = ("Nenhum motor de imagens disponível. Configure uma API de imagens "
                   "com créditos ou conecte o agente ComfyUI à VPS.")
+    profile = comfy_worker.active_gpu_profile() if provider == "comfyui" and online else None
     return {
         "provider": provider,
         "ready": available,
+        "gpu_profile": profile,
+        "gpu_backend": ("DirectML" if profile == "rx580-directml-v3"
+                        else "ZLUDA" if profile and profile.startswith("rx580-")
+                        else None),
         "credits_exhausted": exhausted,
         "image_model": (
             os.getenv("ANIMA_RUNWAY_IMAGE_MODEL", "nano_banana_2.1") if provider == "runway"
