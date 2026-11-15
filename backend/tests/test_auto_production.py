@@ -150,6 +150,22 @@ class AutomaticEpisodeTests(unittest.TestCase):
         failed.update(status="failed", gpu_profile_version=upgraded)
         self.assertEqual(comfy_worker._recover_gpu_memory_tasks(upgraded), 0)
 
+    def test_directml_profile_recovers_previously_failed_oom_art_once(self):
+        task = self._candidate("pipo", b"invalid", status="failed")
+        task.update(
+            message="RX 580 sem VRAM mesmo com resolução reduzida: CUDA error: out of memory",
+            auto_state="gpu_memory_exhausted",
+            gpu_profile_version="rx580-unet-fp16-v2",
+            gpu_recovery_version="rx580-unet-fp16-v2",
+        )
+        next_profile = "rx580-directml-v3"
+        self.assertEqual(comfy_worker._recover_gpu_memory_tasks(next_profile), 1)
+        self.assertEqual(task["status"], "queued")
+        self.assertEqual(task["gpu_recovery_version"], next_profile)
+        self.assertEqual(comfy_worker._recover_gpu_memory_tasks(next_profile), 0)
+        task.update(status="failed", gpu_profile_version=next_profile)
+        self.assertEqual(comfy_worker._recover_gpu_memory_tasks(next_profile), 0)
+
     def test_rx580_oom_no_repeated_server_retries(self):
         old = self._candidate("luna", b"invalid", status="failed")
         old["message"] = "Nó 5 (KSampler): RuntimeError: CUDA error: out of memory"
