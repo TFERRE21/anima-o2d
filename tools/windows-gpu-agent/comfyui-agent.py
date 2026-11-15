@@ -3,6 +3,8 @@ import io
 import json
 import os
 import pathlib
+import socket
+import subprocess
 import threading
 import time
 import uuid
@@ -23,12 +25,25 @@ _RX580_MODE = False
 SESSION = requests.Session()
 SESSION.headers["Authorization"] = "Bearer " + TOKEN
 _HEARTBEAT_THREAD = None
+_LOCAL_READY = threading.Event()
+_LAST_COMFY_START = 0.0
+_COMFY_START_ATTEMPTS = []
+_COMFY_ROOT = pathlib.Path(os.getenv("COMFYUI_INSTALL_DIR", r"C:\ComfyUI-Zluda\ComfyUI-Zluda"))
+_COMFY_LAUNCHER = _COMFY_ROOT / "comfyui.bat"
+_COMFY_AUTOSTART = os.name == "nt" and os.getenv("ANIMA_COMFY_AUTOSTART", "1").strip().lower() not in {"0", "false", "off"}
+_COMFY_START_COOLDOWN_SECONDS = 90
+_COMFY_START_ATTEMPTS_LIMIT = 3
+_COMFY_START_WINDOW_SECONDS = 3600
 
 
 def _heartbeats_while_rendering():
     """Keep the VPS worker marked online while a slow RX 580 draws a frame."""
     was_connected = True
     while True:
+        # The VPS must not consider an offline ComfyUI to be ready just
+        # because this agent process is still running.
+        if not _LOCAL_READY.wait(timeout=5):
+            continue
         try:
             reply = requests.post(
                 SERVER + "/api/comfy/heartbeat",
@@ -302,6 +317,53 @@ def generate(task):
 
 
 
+def _comfy_port_in_use():
+    # Do not start a second ComfyUI while its listener is booting.
+    try:
+        with socket.create_connection(("127.0.0.1", 8188), timeout=1):
+            return True
+    except OSError:
+        return False
+
+
+def _autostart_comfyui():
+    """Bounded Windows recovery: don't launch duplicate or infinite processes.
+
+    Runs only after the actual local HTTP readiness check has failed.
+    Requires the already-installed ComfyUI-ZLUDA launcher.
+    """
+    global _LAST_COMFY_START
+    if not _COMFY_AUTOSTART or not _COMFY_LAUNCHER.is_file():
+        return False
+    now = time.monotonic()
+    _COMFY_START_ATTEMPTS[:] = [
+        item for item in _COMFY_START_ATTEMPTS
+        if now - item < _COMFY_START_WINDOW_SECONDS
+    ]
+    if now - _LAST_COMFY_START < _COMFY_START_COOLDOWN_SECONDS:
+        return False
+    if len(_COMFY_START_ATTEMPTS) >= _COMFY_START_ATTEMPTS_LIMIT:
+        # A GPU OOM or damaged ZLUDA environment should not start forever.
+        return False
+    if _comfy_port_in_use():
+        return False
+    _LAST_COMFY_START = now
+    _COMFY_START_ATTEMPTS.append(now)
+    try:
+        subprocess.Popen(
+            ["cmd.exe", "/k", str(_COMFY_LAUNCHER)],
+            cwd=str(_COMFY_ROOT),
+            creationflags=getattr(subprocess, "CREATE_NEW_CONSOLE", 0),
+        )
+        print("ComfyUI estava desligado. Iniciando automaticamente "
+              + str(_COMFY_LAUNCHER) + " em uma nova janela.", flush=True)
+        return True
+    except OSError as error:
+        print("Não consegui iniciar ComfyUI automaticamente: "
+              + str(error)[:260], flush=True)
+        return False
+
+
 def check_local_comfy():
     """Do not claim a GPU connection before the local HTTP server responds."""
     try:
@@ -322,8 +384,10 @@ def check_local_comfy():
                 str(device.get("name") or device.get("type") or "sem nome")
                 for device in devices if isinstance(device, dict)
             ), flush=True)
+        _LOCAL_READY.set()
         return True
     except (requests.RequestException, ValueError) as error:
+        _LOCAL_READY.clear()
         print(
             "ComfyUI local indisponível em " + COMFY
             + " (" + type(error).__name__ + ": " + str(error)[:300] + ").",
@@ -335,6 +399,7 @@ def check_local_comfy():
             "Este agente tentará conectar novamente em 5 segundos.",
             flush=True,
         )
+        _autostart_comfyui()
         return False
 
 
@@ -342,12 +407,20 @@ def main():
     print("Iniciando agente de imagens do Anima Studio.", flush=True)
     print("ComfyUI local:", COMFY, flush=True)
     print("VPS do Anima Studio:", SERVER, flush=True)
+    if _COMFY_AUTOSTART:
+        print("Inicialização automática do ComfyUI habilitada.", flush=True)
     was_ready = False
+    next_health_check = 0.0
     while True:
         try:
-            if not was_ready and not check_local_comfy():
-                time.sleep(5)
-                continue
+            now = time.monotonic()
+            if not was_ready or now >= next_health_check:
+                if not check_local_comfy():
+                    was_ready = False
+                    main._registered = False
+                    time.sleep(5)
+                    continue
+                next_health_check = time.monotonic() + 15
             if not was_ready:
                 print("ComfyUI local respondeu com sucesso. Conectando ao Anima Studio...", flush=True)
                 was_ready = True
