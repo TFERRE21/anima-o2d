@@ -65,7 +65,7 @@ def _recover_gpu_memory_tasks(profile_version: str) -> int:
     heartbeat or after the same profile already failed again. The optional
     v2 profile is applied only if the Windows launcher runs a FP16 UNet.
     """
-    if profile_version not in {"rx580-memory-safe-v1", "rx580-unet-fp16-v2"}:
+    if profile_version not in {"rx580-memory-safe-v1", "rx580-unet-fp16-v2", "rx580-directml-v3"}:
         return 0
     count = 0
     with _tasks_lock:
@@ -242,7 +242,7 @@ def result(task_id: str, payload: dict, authorization: str | None=Header(default
     if not task: raise HTTPException(404,"Tarefa não encontrada.")
     task.update(status=payload.get("status","failed"),message=str(payload.get("message",""))[:2000],
                 output=payload.get("output"),completed_at=datetime.now(timezone.utc).isoformat())
-    if payload.get("profile_version") in {"rx580-memory-safe-v1", "rx580-unet-fp16-v2"}:
+    if payload.get("profile_version") in {"rx580-memory-safe-v1", "rx580-unet-fp16-v2", "rx580-directml-v3"}:
         task["gpu_profile_version"] = payload["profile_version"]
     _save_tasks()
     from backend.app.auto_production import notify
