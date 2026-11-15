@@ -70,6 +70,43 @@ class RX580MemoryProfileTests(unittest.TestCase):
             self.assertEqual(result.size, (768, 1024))
             self.assertEqual(result.getpixel((0, 0))[:3], (255, 255, 255))
 
+    def test_windows_agent_starts_comfy_once_when_offline(self):
+        launcher = Path(self.tmp.name) / "comfyui.bat"
+        launcher.write_text("@echo off\n", encoding="utf-8")
+        self.agent._COMFY_AUTOSTART = True
+        self.agent._COMFY_LAUNCHER = launcher
+        self.agent._COMFY_ROOT = Path(self.tmp.name)
+        self.agent._COMFY_START_ATTEMPTS[:] = []
+        self.agent._LAST_COMFY_START = float("-inf")
+        with mock.patch.object(self.agent, "_comfy_port_in_use", return_value=False), (
+            mock.patch.object(self.agent.subprocess, "Popen")
+        ) as started:
+            self.assertTrue(self.agent._autostart_comfyui())
+            self.assertFalse(self.agent._autostart_comfyui())
+            self.assertEqual(started.call_count, 1)
+
+    def test_windows_agent_does_not_duplicate_existing_listener(self):
+        launcher = Path(self.tmp.name) / "comfyui.bat"
+        launcher.write_text("@echo off\n", encoding="utf-8")
+        self.agent._COMFY_AUTOSTART = True
+        self.agent._COMFY_LAUNCHER = launcher
+        self.agent._COMFY_ROOT = Path(self.tmp.name)
+        self.agent._COMFY_START_ATTEMPTS[:] = []
+        self.agent._LAST_COMFY_START = float("-inf")
+        with mock.patch.object(self.agent, "_comfy_port_in_use", return_value=True), (
+            mock.patch.object(self.agent.subprocess, "Popen")
+        ) as started:
+            self.assertFalse(self.agent._autostart_comfyui())
+            started.assert_not_called()
+
+    def test_disconnected_comfy_clears_ready_signal(self):
+        self.agent._LOCAL_READY.set()
+        self.agent._COMFY_AUTOSTART = False
+        with mock.patch.object(self.agent.requests, "get",
+                               side_effect=self.agent.requests.ConnectionError("port refused")):
+            self.assertFalse(self.agent.check_local_comfy())
+        self.assertFalse(self.agent._LOCAL_READY.is_set())
+
     def test_oom_recognized_without_other_errors_becoming_oom(self):
         self.assertTrue(self.agent._is_oom("CUDA error: out of memory"))
         self.assertTrue(self.agent._is_oom("HIP error: out of memory"))
