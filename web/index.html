@@ -119,7 +119,15 @@
     <div class="progress" style="height:9px"><span id="inlineArtProgressFill" style="width:0%;transition:width .4s ease"></span></div>
     <div class="muted" id="inlineArtProgressText" style="margin-top:7px">Aguardando aprovação da história</div>
   </div>
-  <p class="muted" style="font-size:12px;margin-top:14px">Sem fotografias, sem ComfyUI, sem Blender e sem aprovação de cada cena. O vídeo completo aparecerá automaticamente abaixo.</p>
+  <div id="inlineLiveArea" style="display:none;margin-top:12px">
+    <div class="live-preview-head"><b>Prévia ao vivo — desenho sendo criado</b><span class="badge ready" id="inlineLiveState">PREPARANDO</span></div>
+    <div class="live-preview-frame" id="inlineLiveFrame" style="aspect-ratio:16/9;max-width:720px">
+      <img id="inlineLiveImage" alt="Quadro que está sendo desenhado na produção" style="display:none">
+      <div class="live-preview-placeholder" id="inlineLivePlaceholder">Preparando a primeira ilustração…</div>
+    </div>
+    <p class="muted" id="inlineLiveCaption">A prévia acompanha os quadros produzidos pelo renderizador.</p>
+  </div>
+  <p class="muted" style="font-size:12px;margin-top:14px">Narradora, quadrinhos e vídeo final automaticamente na VPS. A prancha oficial deve estar instalada uma única vez.</p>
 </div>
 <div class="toolbar" style="margin-top:16px"><button class="btn good" id="approveStory">✓ Aprovar roteiro e produzir vídeo</button><button class="btn ghost" id="discardStory">Descartar e criar outra história</button><span class="muted" id="renderMessage">Confira o roteiro antes de iniciar a narração e os desenhos 2D.</span></div>
 </div>
