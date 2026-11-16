@@ -326,7 +326,7 @@ async def upload_official_character_model(request: Request,
     data = await request.body()
     if len(data) > 9_000_000:
         raise HTTPException(413, "Arquivo maior que 9 MB.")
-    if data[:4] == b"PK\\x03\\x04":
+    if data[:4] == b"PK\x03\x04":
         try:
             with zipfile.ZipFile(io.BytesIO(data)) as archive:
                 choices = [name for name in archive.namelist()
