@@ -405,11 +405,12 @@ def get_episode_art_board(job_id: str):
     job = _get_job(job_id)
     if selected_render_engine() == "2d":
         from backend.app import comic_panels
+        from backend.app.official_comic_2d import has_official_model
         count = len((job.get("story_plan") or {}).get("scenes") or [])
-        curated = sum(
-            comic_panels.scene_art_path(STORAGE / job_id, i) is not None
-            for i in range(count)
-        )
+        model_ready = has_official_model()
+        scene_folder = STORAGE / job_id / "official-comic"
+        curated = sum((scene_folder / f"scene-{i:02d}.png").is_file()
+                      for i in range(count))
         hand_ready = False
         try:
             hand_ready = bool(comic_panels.real_hand_video() or comic_panels.hand_asset())
@@ -418,14 +419,15 @@ def get_episode_art_board(job_id: str):
         return {
             "job_id": job_id, "production_engine": "2d", "gpu_required": False,
             "comic_layout": "sequential-panels",
+            "official_model_ready": model_ready,
             "curated_artworks": curated, "required_artworks": count,
             "real_hand_ready": hand_ready,
-            "visual_quality": ("curated" if curated >= count and count > 0
-                               else "procedural-fallback"),
+            "visual_quality": ("official-cast" if model_ready
+                               else "missing-official-model"),
             "story_approved": bool(job.get("story_approved")),
             "auto_production": bool(job.get("auto_production_requested")),
             "formats": job.get("formats") or ["9:16"], "formats_status": {},
-            "image_engine": {"provider": "cpu-2d", "ready": True},
+            "image_engine": {"provider": "official-cast-cpu-2d", "ready": model_ready},
             "ready": job.get("status") == "done", "tasks": [],
             "total_artworks": count, "approved_artworks": int(job.get("drawing_scenes_finished") or 0),
             "art_stage": job.get("art_stage") or "not_started",
