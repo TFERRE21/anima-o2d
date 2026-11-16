@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Anima Studio Cartoon 3D — Pequenos Guardiões</title>
+<title>Anima Studio 2D — Histórias Desenhadas</title>
 <style>
 :root{color-scheme:dark;font-family:Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,sans-serif;background:#080e1c;color:#edf3ff;--panel:#101a2c;--panel2:#0c1628;--line:#263a59;--muted:#91a5c4;--blue:#79aaff;--mint:#70dfb3;--gold:#f6ca69}
 *{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at 72% -10%,#203d70 0,transparent 34%),#080e1c}button,input,textarea,select{font:inherit}button{cursor:pointer}
@@ -51,7 +51,7 @@
 <nav class="nav">
 <button data-page="publishing"><span class="ico">↗</span><span class="txt">YouTube & postagens</span></button>
 </nav>
-<div class="sidebottom">ANIMA STUDIO CARTOON 3D<br>Pequenas histórias. Grandes valores.</div>
+<div class="sidebottom">ANIMA STUDIO · 2D NARRADO<br>Pequenas histórias. Grandes valores.</div>
 </aside>
 <main class="main">
 <header class="topbar"><div><div class="eyebrow">CENTRAL DE PRODUÇÃO</div><h1 id="pageTitle">Visão geral</h1></div><div class="topright"><span class="statuspill" id="systemStatus">● Sistema conectado</span><div class="avatar">✦</div></div></header>
@@ -59,7 +59,7 @@
 <section class="page active" id="page-dashboard">
 <div class="welcome">
 <div><div class="eyebrow">BEM-VINDO AO ESTÚDIO</div><h2>Histórias que inspiram.<br><span style="color:#9dc2ff">Heróis que ensinam.</span></h2><p>Acompanhe a criação dos episódios, revise os vídeos e organize a rotina de publicação dos Pequenos Guardiões.</p><button class="btn" style="margin-top:17px" onclick="go('create')">＋ Criar novo episódio</button></div>
-<div class="welcomeart"><div class="studio3d-mark"><span>3D</span><small>BLENDER · EEVEE</small><em>ANIMAÇÃO CARTOON INFANTIL</em></div></div>
+<div class="welcomeart"><div class="studio3d-mark"><span>2D</span><small>NARRADORA · DESENHOS</small><em>HISTÓRIAS ILUSTRADAS EM MOVIMENTO</em></div></div>
 <div class="metrics">
 <div class="metric"><div class="mhead"><span>Episódios criados</span><span>▤</span></div><strong id="mTotal">—</strong><small>no estúdio</small></div>
 <div class="metric"><div class="mhead"><span>Prontos para revisão</span><span>◷</span></div><strong id="mReview">—</strong><small>aguardando aprovação</small></div>
@@ -70,21 +70,21 @@
 <div class="card"><div class="cardhead"><h3>Últimos episódios</h3><button class="btn ghost small" onclick="go('episodes')">Ver todos →</button></div><div id="recentEpisodes" class="muted">Carregando episódios…</div></div>
 <div class="card"><div class="cardhead"><h3>Fluxo de produção</h3><span class="badge ready">AO VIVO</span></div><div class="pipeline">
 <div class="pipe"><span class="pipen">1</span><div><b>Roteiro e história</b><small>Definir aventura e valor educativo.</small></div></div>
-<div class="pipe"><span class="pipen">2</span><div><b>Cartoon 3D infantil</b><small>Personagens expressivos, cenários coloridos e movimentos digitais.</small></div></div>
+<div class="pipe"><span class="pipen">2</span><div><b>Narradora e desenho 2D</b><small>Traços surgem na tela conforme a história é narrada.</small></div></div>
 <div class="pipe"><span class="pipen">3</span><div><b>Renderização dupla</b><small>YouTube 16:9 e Shorts 9:16.</small></div></div>
 <div class="pipe"><span class="pipen">4</span><div><b>Revisão editorial</b><small>Conferir qualidade e adequação infantil.</small></div></div>
 <div class="pipe"><span class="pipen">5</span><div><b>Publicação</b><small>Agendamento após conectar o canal.</small></div></div>
 </div></div></div>
 <div class="card" style="margin-top:16px"><div class="cardhead"><h3>Elenco principal</h3><span class="muted">Identidade visual da série</span></div><div class="charactergrid">
-<div class="character model3d"><div class="model3d-icon luna">L</div><b>Luna</b><small>Personagem Cartoon 3D</small></div>
-<div class="character model3d"><div class="model3d-icon tomi">T</div><b>Tomi</b><small>Personagem Cartoon 3D</small></div>
-<div class="character model3d"><div class="model3d-icon pipo">P</div><b>Pipo</b><small>Companheiro Cartoon 3D</small></div>
+<div class="character model3d"><div class="model3d-icon luna">L</div><b>Luna</b><small>Personagem ilustrado 2D</small></div>
+<div class="character model3d"><div class="model3d-icon tomi">T</div><b>Tomi</b><small>Personagem ilustrado 2D</small></div>
+<div class="character model3d"><div class="model3d-icon pipo">P</div><b>Pipo</b><small>Companheiro ilustrado 2D</small></div>
 </div>
 </div></div>
 </section>
 
 <section class="page" id="page-create">
-<div class="sectionintro"><h2>História → Arte IA → Animação.</h2><p>Crie o roteiro, aprove e acompanhe a geração de imagens logo abaixo das cenas nesta mesma tela. Depois o Blender anima as artes aprovadas. O motor antigo de bonecos não será utilizado.</p></div>
+<div class="sectionintro"><h2>História → Narradora → Desenho 2D.</h2><p>Crie o roteiro, aprove e acompanhe os desenhos surgirem e ganharem cor conforme a narradora conta cada cena. Tudo acontece automaticamente na VPS, sem GPU nem programas externos de imagens.</p></div>
 <div class="card"><form id="createForm"><div class="formgrid">
 <div class="field full"><label for="topic">Tema ou valor educativo (opcional)</label><input id="topic" maxlength="120" placeholder="Ex.: amizade, respeito, cuidado com a natureza. Deixe em branco para uma aventura surpresa."></div>
 <div class="field full"><label>Formatos que serão produzidos</label><div class="checks"><label class="check"><input type="checkbox" name="format" value="16:9" checked> Episódio 16:9 · mínimo 5:01 · 1920×1080</label><label class="check"><input type="checkbox" name="format" value="9:16" checked> Shorts 9:16 · 1:00 a 1:30 · 1080×1920</label></div></div>
@@ -97,36 +97,22 @@
 <div class="metric"><div class="mhead"><span>Cenas</span><span>▤</span></div><strong id="storyScenes">—</strong><small>sequência original</small></div>
 </div>
 <p class="muted" id="storySynopsis"></p>
-<div class="card" style="background:#0a1527;margin-top:12px"><div class="cardhead"><h3>História e diálogos — episódio completo</h3><span class="badge">16:9 · 5–10 MIN</span></div><p class="muted" id="longWordCount"></p><div id="longStoryText" style="font-size:13px;line-height:1.7;max-height:280px;overflow:auto;white-space:pre-wrap;color:#dce8fa"></div></div>
-<div class="card" style="background:#0a1527;margin-top:12px"><div class="cardhead"><h3>Falas dos personagens</h3><span class="badge ready">VOZES SEPARADAS</span></div><div id="dialogueList" style="display:grid;gap:8px"></div></div>
+<div class="card" style="background:#0a1527;margin-top:12px"><div class="cardhead"><h3>História completa — voz da narradora</h3><span class="badge">16:9 · 5–10 MIN</span></div><p class="muted" id="longWordCount"></p><div id="longStoryText" style="font-size:13px;line-height:1.7;max-height:280px;overflow:auto;white-space:pre-wrap;color:#dce8fa"></div></div>
+<div class="card" style="background:#0a1527;margin-top:12px"><div class="cardhead"><h3>Falas incluídas na narração</h3><span class="badge ready">NARRADORA ÚNICA</span></div><div id="dialogueList" style="display:grid;gap:8px"></div></div>
 <div class="card" style="background:#0a1527;margin-top:12px"><div class="cardhead"><h3>Short — momento mais impactante</h3><span class="badge">9:16 · 1:00–1:30</span></div><p class="muted" id="shortWordCount"></p><p class="muted" id="shortFocus"></p><div id="shortStoryText" style="font-size:13px;line-height:1.7;max-height:140px;overflow:auto;white-space:pre-wrap;color:#dce8fa"></div></div>
 <div class="card" style="background:#0a1527;margin-top:12px"><div class="cardhead"><h3>Storyboard</h3><span class="muted">cena por cena</span></div><div id="storyboardList"></div></div>
 <div class="card" id="inlineArtPanel" style="margin-top:16px;background:#0b1628">
-  <div class="cardhead"><h3>✦ Imagens do episódio · geração automática</h3><span class="badge pending" id="inlineArtBadge">AGUARDANDO ROTEIRO</span></div>
-  <p class="muted">Após aprovar o roteiro, o motor de imagens inicia os cenários do novo planeta. Luna, Tomi e Pipo ficam fixos para toda a série.</p>
-  <p class="inline-art-status" id="inlineArtStatus">Aprove o roteiro uma vez. As imagens e o vídeo serão gerados automaticamente quando o motor estiver conectado.</p>
-  <div style="margin:15px 0 8px" role="progressbar" aria-label="Progresso das imagens" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="inlineArtProgress">
+  <div class="cardhead"><h3>✎ Narradora desenhando a história · animação 2D</h3><span class="badge pending" id="inlineArtBadge">AGUARDANDO ROTEIRO</span></div>
+  <p class="muted">A narradora conta cada aventura enquanto Luna, Tomi, Pipo e os cenários aparecem em traços de lápis e ganham cor. Tudo é feito na VPS, sem GPU ou API de imagens.</p>
+  <p class="inline-art-status" id="inlineArtStatus">Aprove uma vez o roteiro para iniciar automaticamente narração, desenhos e vídeo.</p>
+  <div style="margin:15px 0 8px" role="progressbar" aria-label="Progresso da animação 2D" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="inlineArtProgress">
     <div class="progress" style="height:9px"><span id="inlineArtProgressFill" style="width:0%;transition:width .4s ease"></span></div>
-    <div class="muted" id="inlineArtProgressText" style="margin-top:7px">0 imagens concluídas</div>
+    <div class="muted" id="inlineArtProgressText" style="margin-top:7px">Aguardando aprovação da história</div>
   </div>
-  <div id="inlineArtGallery" style="display:none;margin-top:20px">
-    <div id="inlineCastSection" style="display:none">
-      <h4 style="margin:14px 0 10px">Personagens oficiais da série</h4>
-      <div id="inlineCast" class="inline-art-grid"></div>
-    </div>
-    <div id="inlineScenesSection" style="display:none">
-      <h4 style="margin:18px 0 10px">Imagens geradas para este planeta</h4>
-      <div id="inlineScenes" class="inline-art-grid"></div>
-    </div>
-  </div>
-  <p class="muted" style="font-size:12px;margin-top:14px">As imagens aparecem aqui somente depois de geradas. Não há necessidade de enviar fotos, escolher arquivos ou iniciar o vídeo manualmente.</p>
- </div>
- <div class="toolbar" style="margin-top:16px"><button class="btn good" id="approveStory">✓ Aprovar roteiro e produzir vídeo</button><button class="btn ghost" id="discardStory">Descartar e criar outra história</button><span class="muted" id="renderMessage">Confira o planeta, a aventura e a lição antes de renderizar.</span></div>
+  <p class="muted" style="font-size:12px;margin-top:14px">Sem fotografias, sem ComfyUI, sem Blender e sem aprovação de cada cena. O vídeo completo aparecerá automaticamente abaixo.</p>
 </div>
-<dialog id="inlineArtModal" style="background:#0b1627;color:#fff;border:1px solid #45638c;border-radius:15px;max-width:min(95vw,980px);max-height:90vh;padding:14px">
- <div style="display:flex;justify-content:flex-end;margin-bottom:9px"><button type="button" id="inlineArtModalClose" class="btn secondary small">✕ Fechar imagem</button></div>
- <img id="inlineArtModalImage" alt="Arte Cartoon ampliada" style="display:block;max-width:100%;max-height:76vh;object-fit:contain;margin:auto">
- </dialog>
+<div class="toolbar" style="margin-top:16px"><button class="btn good" id="approveStory">✓ Aprovar roteiro e produzir vídeo</button><button class="btn ghost" id="discardStory">Descartar e criar outra história</button><span class="muted" id="renderMessage">Confira o roteiro antes de iniciar a narração e os desenhos 2D.</span></div>
+</div>
 <div class="card" id="activeJobCard" style="margin-top:16px;display:none">
 <div class="cardhead"><h3 id="activeJobTitle">Produção iniciada</h3><span class="badge pending" id="activeJobBadge">EM FILA</span></div>
 <div class="active-job-layout">
@@ -179,7 +165,7 @@
 </div>
 <div class="card" style="margin-top:16px"><div class="cardhead"><h3>Checklist antes de publicar</h3></div><div class="pipeline"><div class="pipe"><span class="pipen">✓</span><div><b>Vídeo renderizado</b><small>Verificar imagem, áudio e duração.</small></div></div><div class="pipe"><span class="pipen">✓</span><div><b>Revisão de conteúdo infantil</b><small>Conferir linguagem, segurança e mensagem educativa.</small></div></div><div class="pipe"><span class="pipen">3</span><div><b>Metadados e miniatura</b><small>Título, descrição, classificação de público infantil e thumbnail.</small></div></div><div class="pipe"><span class="pipen">4</span><div><b>Upload autorizado</b><small>Enviar e acompanhar o processamento no YouTube Studio.</small></div></div></div></div>
 </section>
-<div class="footer">ANIMA STUDIO CARTOON 3D · Pequenos Guardiões — A Liga do Bem · Painel em evolução</div>
+<div class="footer">ANIMA STUDIO · 2D NARRADO · Pequenos Guardiões — A Liga do Bem · Painel em evolução</div>
 </main>
 </div>
 <script>
@@ -240,10 +226,10 @@ async function loadDashboard(){
   const bootstrap=health.blender_bootstrap||{};
   if(health.status==='degraded'||(bootstrap.state&&bootstrap.state!=='ready')){
    const installing=['starting','installing'].includes(bootstrap.state);
-   missing.push(installing?'Blender (instalação automática em andamento)':'Blender Cartoon 3D');
+   missing.push(installing?'Motor 2D (FFmpeg/voz)':'Motor 2D (FFmpeg/voz)');
   }
   if(!health.storage_writable)missing.push('armazenamento');
-  $('systemStatus').textContent=missing.length?'● API online · falta '+missing.join(', '):'● Animação Cartoon 3D conectada · vozes e mídia prontas';
+  $('systemStatus').textContent=missing.length?'● API online · falta '+missing.join(', '):'● Motor 2D conectado · narradora e desenhos prontos';
   $('systemStatus').style.color=missing.length?'#f5d28d':'#9ce8cb';
   youtubeConnected=!!d.youtube.connected;
   $('ytBadge').textContent=youtubeConnected?'CANAL CONECTADO':(d.youtube.configured?'PRONTO PARA CONECTAR':'AGUARDANDO CONFIGURAÇÃO');
@@ -266,7 +252,7 @@ async function openStory(id){
   $('shortFocus').textContent=story.short_highlight?'Destaque escolhido: '+story.short_highlight+'.':'O Short usa a parte central da aventura.';
   $('dialogueList').innerHTML=(story.dialogues||[]).map(line=>'<div style="padding:9px 11px;border:1px solid #263c5c;border-radius:10px;background:#101e33"><b style="color:'+(line.speaker==='Luna'?'#ff9bd2':line.speaker==='Tomi'?'#8dbdff':'#ffc978')+'">'+esc(line.speaker)+'</b><div class="muted" style="margin-top:4px">'+esc(line.text)+'</div></div>').join('')||'<p class="muted">Este roteiro antigo não possui falas separadas.</p>';
   $('storyboardList').innerHTML=(story.scenes||[]).map((scene,i)=>'<div class="episode"><div class="thumb">'+String(i+1).padStart(2,'0')+'</div><div><div class="epname">'+esc(scene.title)+'</div><div class="epmeta">'+esc(scene.caption)+'</div><p class="muted">'+esc(scene.visual_action||'')+'</p></div></div>').join('');
-  $('storyPreview').style.display='block';$('renderMessage').textContent='Roteiro recuperado. Aprove para gerar imagens na mesma tela.';window.prepareInlineArt?.(pendingStoryId);
+  $('storyPreview').style.display='block';$('renderMessage').textContent='Roteiro recuperado. Aprove para criar o vídeo 2D narrado.';window.prepareInlineArt?.(pendingStoryId);
   go('create');
  }catch(e){alert(e.message);}
 }
@@ -293,7 +279,7 @@ async function createEpisode(e){
   $('shortFocus').textContent=story.short_highlight?'Destaque escolhido: '+story.short_highlight+'.':'O Short usa a parte central da aventura.';
   $('dialogueList').innerHTML=(story.dialogues||[]).map(line=>'<div style="padding:9px 11px;border:1px solid #263c5c;border-radius:10px;background:#101e33"><b style="color:'+(line.speaker==='Luna'?'#ff9bd2':line.speaker==='Tomi'?'#8dbdff':'#ffc978')+'">'+esc(line.speaker)+'</b><div class="muted" style="margin-top:4px">'+esc(line.text)+'</div></div>').join('')||'<p class="muted">Este roteiro antigo não possui falas separadas.</p>';
   $('storyboardList').innerHTML=(story.scenes||[]).map((scene,i)=>'<div class="episode"><div class="thumb">'+String(i+1).padStart(2,'0')+'</div><div><div class="epname">'+esc(scene.title)+'</div><div class="epmeta">'+esc(scene.caption)+'</div><p class="muted">'+esc(scene.visual_action||'')+'</p></div></div>').join('');
-  $('storyPreview').style.display='block';$('renderMessage').textContent='Roteiro pronto! Clique em Aprovar roteiro e as imagens começam automaticamente abaixo.';window.prepareInlineArt?.(pendingStoryId);
+  $('storyPreview').style.display='block';$('renderMessage').textContent='Roteiro pronto! Aprove para a narradora começar a desenhar as cenas automaticamente.';window.prepareInlineArt?.(pendingStoryId);
   $('createMessage').textContent='História pronta! Nenhum vídeo foi criado ainda.';
  }catch(err){$('createMessage').textContent=err.message;}
  finally{btn.disabled=false;btn.textContent='✦ Criar outra história';}
@@ -322,7 +308,7 @@ function watchJob(id){
    preview.onerror=()=>{preview.style.display='none';$('activeJobPreviewPlaceholder').style.display='block';};
    preview.onload=()=>{preview.style.display='block';$('activeJobPreviewPlaceholder').style.display='none';};
    if(j.status==='processing'){
-    $('previewLiveBadge').textContent='PROCESSANDO 3D';
+    $('previewLiveBadge').textContent='DESENHANDO 2D';
     try{
      const sr=await fetch('/api/jobs/'+encodeURIComponent(id)+'/render-status',{cache:'no-store'});
      if(sr.ok){
@@ -334,8 +320,8 @@ function watchJob(id){
        preview.style.display='none';
        $('activeJobPreviewPlaceholder').style.display='block';
        $('activeJobPreviewPlaceholder').textContent=state.frames_generated
-         ?'Blender renderizando · '+state.frames_generated+' quadros. Preparando prévia…'
-         :'Montando a primeira imagem Cartoon 3D. Nenhum quadro disponível ainda.';
+         ?'Desenhando cenas 2D · '+state.frames_generated+' quadros. Preparando prévia…'
+         :'A narradora preparando a primeira ilustração 2D.';
       }
      }
     }catch(err){console.warn('Diagnóstico de render indisponível:',err);}
@@ -379,5 +365,5 @@ $('saveSettings').addEventListener('click',()=>saveSettings());
 $('saveSchedule').addEventListener('click',()=>saveSettings({production_days:[...document.querySelectorAll('.productionDay:checked')].map(x=>x.value),production_time:$('productionTime').value}));
 loadDashboard();loadSettings();setInterval(loadDashboard,8000);
 </script>
-<script src="/inline-art.js?v=20261114-automatic"></script>
+<script src="/inline-art.js?v=20261116-narrated-2d"></script>
 </body></html>
