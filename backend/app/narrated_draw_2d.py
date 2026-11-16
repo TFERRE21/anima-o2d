@@ -191,6 +191,7 @@ def _render_scene_clip(
     ffmpeg: str, paper: Path, sketch: Path, colored: Path,
     pencil: Path | None, output: Path, seconds: float, fps: int,
     active_panel: tuple[int, int, int, int] | None = None,
+    preview_path: Path | None = None,
 ) -> None:
     """Draw the *active panel* and color it; no flying cartoon pencil.
 
@@ -247,13 +248,73 @@ def _render_scene_clip(
         )
         result="[out]"
     filt=";".join(filter_parts)
-    _run([
+    command = [
         ffmpeg, "-y", "-hide_banner", "-loglevel", "error",
         *inputs, "-filter_complex", filt, "-map", result,
         "-t", f"{seconds:.4f}", "-r", str(fps),
         "-c:v", "libx264", "-preset", "ultrafast",
-        "-crf", "20", "-pix_fmt", "yuv420p", "-an", str(output),
-    ])
+        "-crf", "20", "-pix_fmt", "yuv420p", "-an",
+        "-progress", "pipe:1", "-nostats", str(output),
+    ]
+    # FFmpeg supplies true encoded timestamps: the preview follows actual
+    # production and never advances while the encoder is stopped.
+    if preview_path is None:
+        _run(command)
+    else:
+        with Image.open(paper) as p, Image.open(sketch) as s, Image.open(colored) as f:
+            still_paper = p.convert("RGB")
+            still_sketch = s.convert("RGB")
+            still_color = f.convert("RGB")
+        if active_panel is None:
+            raise ValueError("Prévia progressiva requer coordenadas do quadrinho.")
+        x0, y0, x1, y1 = active_panel
+        preview_size = still_paper.size
+        last_step = -1
+        def publish_preview(position: float) -> None:
+            nonlocal last_step
+            step = max(0, min(30, round(position/max(.01, seconds)*30)))
+            if step <= last_step:
+                return
+            last_step = step
+            ink_ratio = max(0.0, min(1.0, (position-ink_offset)/max(.01,ink_seconds)))
+            color_ratio = max(0.0, min(1.0, (position-color_offset)/max(.01,color_seconds)))
+            mask_ink = Image.new("L", preview_size, 0)
+            mask_color = Image.new("L", preview_size, 0)
+            draw_ink = ImageDraw.Draw(mask_ink)
+            draw_color = ImageDraw.Draw(mask_color)
+            if ink_ratio:
+                draw_ink.rectangle((x0,y0,x0+round((x1-x0)*ink_ratio),y1),fill=255)
+            if color_ratio:
+                draw_color.rectangle((x0,y0,x0+round((x1-x0)*color_ratio),y1),fill=255)
+            working = Image.composite(still_sketch, still_paper, mask_ink)
+            working = Image.composite(still_color, working, mask_color)
+            working.thumbnail((480,854) if preview_size[1]>preview_size[0] else (854,480))
+            temp = preview_path.with_suffix(".partial.jpg")
+            working.save(temp,format="JPEG",quality=84)
+            os.replace(temp,preview_path)
+        publish_preview(0.0)
+        proc = subprocess.Popen(command,stdout=subprocess.PIPE,stderr=subprocess.PIPE,
+                                text=True,bufsize=1)
+        try:
+            for line in proc.stdout:
+                if line.startswith(("out_time_ms=","out_time_us=")):
+                    try:
+                        position = max(0.0,int(line.partition("=")[2])/1_000_000)
+                        publish_preview(position)
+                    except ValueError:
+                        continue
+            stderr = proc.stderr.read() if proc.stderr else ""
+            if proc.wait() != 0:
+                raise RuntimeError("FFmpeg falhou ao desenhar a cena: "+stderr[-1600:])
+            publish_preview(seconds)
+        finally:
+            if proc.poll() is None:
+                proc.kill()
+                proc.wait()
+            if proc.stdout:
+                proc.stdout.close()
+            if proc.stderr:
+                proc.stderr.close()
     if not output.is_file() or output.stat().st_size < 1000:
         raise RuntimeError("Falha ao desenhar a cena 2D: " + output.name)
 
@@ -302,9 +363,12 @@ def _video_from_scenes(
         color_page.save(painting)
         _preview(workdir, fmt, sketch_page)
         clip = scenes_dir / f"scene-{j:02d}.mp4"
+        # Publish a real-time preview following FFmpeg's encoded timestamps.
+        preview_path = workdir / ("preview-" + fmt.replace(":", "x") + ".jpg")
         _render_scene_clip(
             _ffmpeg_executable(), paper, outline, painting, actual_hand,
             clip, seconds_per_scene[j], fps, active_panel=panel_rect,
+            preview_path=preview_path,
         )
         clips.append(clip)
         previous_on_page.append(art)
