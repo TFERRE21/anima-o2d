@@ -141,14 +141,20 @@ def artwork_for_scene(
     """
     scenes = plan.get("scenes") or []
     scene = scenes[scene_index] if scene_index < len(scenes) else {}
-    image_path = comic_panels.scene_art_path(workdir, scene_index) if workdir else None
-    if image_path:
-        with Image.open(image_path) as im:
+    # New output namespace prevents pre-upgrade crude pictures from taking
+    # precedence over the approved Luna/Tomi/Pipo artwork.
+    from backend.app.official_comic_2d import draw_official_scene, model_path
+    if not model_path().is_file():
+        raise FileNotFoundError(
+            "Modelo oficial Luna/Tomi/Pipo ausente. "
+            f"Instale a prancha oficial em {model_path()} antes de produzir."
+        )
+    official_dir = workdir / "official-comic" if workdir is not None else None
+    official_image = official_dir / f"scene-{scene_index:02d}.png" if official_dir else None
+    if official_image and official_image.is_file() and official_image.stat().st_mtime >= model_path().stat().st_mtime:
+        with Image.open(official_image) as im:
             image = im.convert("RGB")
     else:
-        # Official reusable cast: never silently fall back to the old crude
-        # procedural characters. A missing model is reported explicitly.
-        from backend.app.official_comic_2d import draw_official_scene
         scene_action = str(
             scene.get("visual_action") or scene.get("action")
             or scene.get("caption") or scene.get("description")
@@ -159,20 +165,14 @@ def artwork_for_scene(
             str(plan.get("planet") or "Novo planeta"),
             scene_action, width=1280, height=720,
         )
-        if workdir is not None:
-            art_dir = workdir / "comic-art"
-            art_dir.mkdir(parents=True, exist_ok=True)
-            generated_path = art_dir / f"scene-{scene_index:02d}.png"
-            # Atomic replacement prevents another worker from reading a
-            # partially written PNG. Never overwrite user-curated art.
-            if not any((art_dir / f"scene-{scene_index:02d}.{ext}").is_file()
-                       for ext in ("png", "webp", "jpg")):
-                temp_path = art_dir / f".scene-{scene_index:02d}-{os.getpid()}.png"
-                try:
-                    image.save(temp_path, format="PNG")
-                    os.replace(temp_path, generated_path)
-                finally:
-                    temp_path.unlink(missing_ok=True)
+        if official_dir is not None:
+            official_dir.mkdir(parents=True, exist_ok=True)
+            tmp = official_dir / f".scene-{scene_index:02d}-{os.getpid()}.png"
+            try:
+                image.save(tmp, format="PNG")
+                os.replace(tmp, official_image)
+            finally:
+                tmp.unlink(missing_ok=True)
     image = ImageOps.fit(image, (width, height), Image.Resampling.LANCZOS)
     return image, _sketch_image(image)
 
