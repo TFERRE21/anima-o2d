@@ -1,5 +1,27 @@
 # ANIMA STUDIO — Histórias Desenhadas em 2D
 
+## Modelo oficial de Luna, Tomi e Pipo (obrigatório)
+
+O estúdio passou a usar a **prancha oficial aprovada** como fonte visual do elenco
+recorrente, em vez de redesenhar bonecos procedurais a cada cena. O código está em
+`backend/app/official_comic_2d.py`.
+
+**Instalação única:** copie a imagem `official-model.png` da prancha aprovada
+para o volume persistente **`/data/jobs/series/official-model.png`** do contêiner.
+Em outro caminho, informe `ANIMA_OFFICIAL_MODEL=/caminho/modelo.png`.
+O ZIP da prancha deve ser fornecido separadamente; **não há imagem binária no
+GitHub**. Até ela estar instalada, `/api/health/2d` informa
+`official_model_ready: false` e o painel rejeita iniciar uma produção para
+evitar voltar ao estilo antigo. É possível reprocessar episódios antigos.
+
+O motor recorta os traços reais da referência para fazer os desenhos aparecerem
+nos quadrinhos e variar composição e cenário por cena. O resultado é um **recorte
+2D da prancha**, com poses estáticas. Isso não equivale a animação articulada nem
+a um modelo de IA capaz de produzir novas poses e expressões. Para alcançar
+movimentos completos mantendo fidelidade, serão necessárias artes individuais
+de poses e uma etapa de rigging/sprites.
+
+
 Estúdio infantil **2D com narradora**, sem GPU, ComfyUI, Runway, APIs de imagem ou Blender. O projeto reaproveita a biblioteca original de ilustrações 2D dos Pequenos Guardiões (Luna, Tomi e Pipo), produzidas por código e mantidas visualmente estáveis entre os episódios.
 
 ## Experiência no painel
