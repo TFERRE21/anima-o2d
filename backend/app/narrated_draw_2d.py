@@ -191,6 +191,7 @@ def _render_scene_clip(
     pencil: Path | None, output: Path, seconds: float, fps: int,
     active_panel: tuple[int, int, int, int] | None = None,
     preview_path: Path | None = None,
+    draw_progress: Callable[[float], None] | None = None,
 ) -> None:
     """Draw the *active panel* and color it; no flying cartoon pencil.
 
@@ -275,6 +276,8 @@ def _render_scene_clip(
             if step <= last_step:
                 return
             last_step = step
+            if draw_progress is not None:
+                draw_progress(min(1.0, max(0.0, position / max(.01, seconds))))
             ink_ratio = max(0.0, min(1.0, (position-ink_offset)/max(.01,ink_seconds)))
             color_ratio = max(0.0, min(1.0, (position-color_offset)/max(.01,color_seconds)))
             mask_ink = Image.new("L", preview_size, 0)
@@ -364,10 +367,17 @@ def _video_from_scenes(
         clip = scenes_dir / f"scene-{j:02d}.mp4"
         # Publish a real-time preview following FFmpeg's encoded timestamps.
         preview_path = workdir / ("preview-" + fmt.replace(":", "x") + ".jpg")
+        def report_live(fraction: float) -> None:
+            if progress_callback:
+                overall = 18 + int(69*(j + fraction)/max(1,len(indices)))
+                progress_callback(
+                    overall,
+                    f"Desenhando quadrinho {j+1} de {len(indices)}: {round(fraction*100)}% codificado.",
+                )
         _render_scene_clip(
             _ffmpeg_executable(), paper, outline, painting, actual_hand,
             clip, seconds_per_scene[j], fps, active_panel=panel_rect,
-            preview_path=preview_path,
+            preview_path=preview_path, draw_progress=report_live,
         )
         clips.append(clip)
         previous_on_page.append(art)
