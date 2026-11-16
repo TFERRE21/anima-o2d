@@ -37,6 +37,21 @@ function statusText(value){
     badge='ROTEIRO APROVADO';
     text='Esta história já foi aprovada. Vamos produzi-la no novo motor 2D da VPS, sem esperar GPU ou fotos.';
   }
+  // A CPU renderer cannot turn simple procedural characters into
+  // an illustrator-quality comic without approved visual assets.
+  if(value.production_engine==='2d'){
+    const artCount=Number(value.curated_artworks||0);
+    const artTotal=Number(value.required_artworks||0);
+    const hasHand=Boolean(value.real_hand_ready);
+    const artDetail=artTotal>0&&artCount<artTotal
+      ?' · Artes profissionais: '+artCount+'/'+artTotal+
+       ' (cenas restantes ainda usam ilustração simples).'
+      :'';
+    const handDetail=hasHand
+      ?' · Mão fotográfica disponível.'
+      :' · Mão real ainda não configurada; sem lápis artificial.';
+    text+=artDetail+handDetail;
+  }
   el('inlineArtBadge').textContent=badge;
   el('inlineArtStatus').textContent=text;
   el('inlineArtProgressFill').style.width=(done?100:p)+'%';
