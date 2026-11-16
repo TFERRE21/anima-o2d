@@ -147,11 +147,11 @@ def draw_official_scene(scene_index: int, planet: str, action: str,
     page = scene.convert("RGBA")
     # Cast remains exactly the same from one panel to the next.
     roster = ["luna","tomi","pipo"]
-    positions = [(.21,.66,.37),(.47,.66,.34),(.72,.66,.26)]
+    positions = [(.21,.84,.52),(.47,.84,.51),(.72,.84,.37)]
     if scene_index % 3 == 1:
-        positions=[(.13,.68,.32),(.43,.65,.39),(.73,.69,.24)]
+        positions=[(.18,.84,.48),(.46,.84,.53),(.72,.84,.36)]
     elif scene_index % 3 == 2:
-        positions=[(.27,.68,.34),(.53,.68,.32),(.77,.70,.27)]
+        positions=[(.24,.84,.50),(.51,.84,.48),(.76,.84,.38)]
     for name,(cx,base,scale) in zip(roster,positions):
         sprite=sprites[name]
         target_height=round(height*scale)
