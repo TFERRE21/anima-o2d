@@ -61,34 +61,52 @@ function statusText(value){
   }
   if(!running && watching===episode && (done||failed))watching=null;
 }
+let previewClipKey='',clipStartedAt=0;
 async function refreshLivePreview(value){
   const area=el('inlineLiveArea'),image=el('inlineLiveImage');
-  const placeholder=el('inlineLivePlaceholder'),badge=el('inlineLiveState');
-  const frame=el('inlineLiveFrame'),caption=el('inlineLiveCaption');
-  if(!area||!image||!episode)return;
+  const video=el('inlineLiveVideo'),placeholder=el('inlineLivePlaceholder');
+  const badge=el('inlineLiveState'),frame=el('inlineLiveFrame');
+  const caption=el('inlineLiveCaption');
+  if(!area||!image||!video||!episode)return;
   const running=['queued','processing'].includes(value.video_status);
   const done=value.video_status==='done';
-  area.style.display=(running||done)?'block':'none';
-  if(!running&&!done)return;
-  const fmt=value.video_stage==='rendering_short'||(value.formats||[]).length===1&&value.formats[0]==='9:16'?'9:16':'16:9';
-  frame.style.aspectRatio=fmt==='9:16'?'9 / 16':'16 / 9';
-  badge.textContent=done?'VÍDEO CONCLUÍDO':value.video_stage==='rendering_short'?'SHORTS 2D':'DESENHO AO VIVO';
+  area.style.display=running||done?'block':'none';
+  if(!running&&!done){
+    video.pause();video.removeAttribute('src');video.load();previewClipKey='';
+    return;
+  }
   try{
     const state=await json(endpoint()+'/render-status');
-    if(state.preview_ready){
-      const url=endpoint()+'/preview/'+encodeURIComponent(state.format||fmt)+'?t='+Date.now();
+    const fmt=state.format||'16:9';
+    frame.style.aspectRatio=fmt==='9:16'?'9 / 16':'16 / 9';
+    badge.textContent=done?'FINALIZADO':state.live_scene_ready?'REPRODUZINDO CENA REAL':'DESENHANDO AO VIVO';
+    if(state.live_scene_ready && state.live_scene_number !== null){
+      const clipKey=episode+':'+fmt+':'+state.live_scene_number;
+      if(previewClipKey!==clipKey){
+        previewClipKey=clipKey;
+        clipStartedAt=Date.now();
+        video.src=endpoint()+'/live-scene/'+encodeURIComponent(fmt)+'/'+state.live_scene_number;
+        video.style.display='block';
+        image.style.display='none';
+        placeholder.style.display='none';
+        video.play().catch(()=>{video.controls=true;});
+      }
+      // Keep displaying the real playable clip instead of swapping image URLs.
+      caption.textContent='Cena '+(state.live_scene_number+1)+' reproduzida do vídeo real, enquanto a VPS continua a próxima.';
+    }else if(state.preview_ready){
+      video.style.display='none';
       image.onload=()=>{image.style.display='block';placeholder.style.display='none';};
       image.onerror=()=>{image.style.display='none';placeholder.style.display='block';};
-      image.src=url;
-      caption.textContent=(state.message||'')+' · Atualização do quadro produzido pela VPS.';
+      image.src=endpoint()+'/preview/'+encodeURIComponent(fmt)+'?t='+Date.now();
+      caption.textContent=(state.message||'')+' · Quadros atualizados durante o desenho.';
     }else{
-      image.style.display='none';placeholder.style.display='block';
-      placeholder.textContent='Preparando a voz ou o primeiro quadrinho. O desenho aparecerá aqui quando o renderizador começar.';
-      caption.textContent=state.message||'Preparando renderização 2D.';
+      video.style.display='none';
+      image.style.display='none';
+      placeholder.style.display='block';
+      placeholder.textContent='Preparando narração e o primeiro quadrinho…';
+      caption.textContent=state.message||'O primeiro vídeo aparecerá após a renderização da cena.';
     }
-  }catch(error){
-    caption.textContent='Prévia indisponível: '+error.message;
-  }
+  }catch(error){caption.textContent='Falha ao consultar a prévia: '+error.message;}
 }
 async function refresh(){
   if(!episode||busy||el('storyPreview').style.display==='none')return;
@@ -102,7 +120,7 @@ async function refresh(){
 }
 function stop(){
   if(poll)clearInterval(poll);
-  poll=null;episode=null;watching=null;
+  poll=null;episode=null;watching=null;previewClipKey='';
 }
 window.stopInlineArt=stop;
 window.prepareInlineArt=async id=>{
