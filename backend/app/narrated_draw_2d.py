@@ -144,14 +144,13 @@ def artwork_for_scene(
     # New output namespace prevents pre-upgrade crude pictures from taking
     # precedence over the approved Luna/Tomi/Pipo artwork.
     from backend.app.official_comic_2d import draw_official_scene, model_path
-    if not model_path().is_file():
-        raise FileNotFoundError(
-            "Modelo oficial Luna/Tomi/Pipo ausente. "
-            f"Instale a prancha oficial em {model_path()} antes de produzir."
-        )
+    # No file upload or manual asset configuration required.
     official_dir = workdir / "official-comic" if workdir is not None else None
     official_image = official_dir / f"scene-{scene_index:02d}.png" if official_dir else None
-    if official_image and official_image.is_file() and official_image.stat().st_mtime >= model_path().stat().st_mtime:
+    if official_image and official_image.is_file() and (
+        not model_path().is_file()
+        or official_image.stat().st_mtime >= model_path().stat().st_mtime
+    ):
         with Image.open(official_image) as im:
             image = im.convert("RGB")
     else:
