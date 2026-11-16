@@ -149,21 +149,36 @@ def artwork_for_scene(
         with Image.open(image_path) as im:
             image = im.convert("RGB")
     else:
-        if os.getenv("ANIMA_COMIC_REQUIRE_CURATED_ART", "0") == "1":
-            raise ValueError(
-                f"Cena {scene_index+1} ainda não possui arte de quadrinhos aprovada: "
-                f"adicione comic-art/scene-{scene_index:02d}.png à pasta do episódio. "
-                "Sem ilustração original não é possível reproduzir a qualidade da referência."
-            )
-        # Each comic panel is landscape even when the overall video is Shorts.
-        # Drawing into a portrait source and cropping would cut off faces.
-        portrait = height > width
+        # Missing scene artwork must not block automatic production. Use the
+        # established local cast/scene renderer and persist the generated image
+        # so both output formats and retries reuse exactly the same frame.
+        # Curated artwork, when present, always takes precedence.
+        portrait = False  # Individual comic panels are landscape in both formats.
+        scene_action = str(
+            scene.get("visual_action") or scene.get("action")
+            or scene.get("caption") or scene.get("description")
+            or scene.get("title") or ""
+        )
         image = cartoon2d._draw_story_scene(
             0.45, str(plan.get("planet") or "Novo planeta"),
             str(plan.get("biome") or ""),
             str(plan.get("palette") or "aurora"),
-            int(scene_index), str(scene.get("action") or ""), portrait, "",
+            int(scene_index), scene_action, portrait, "",
         ).convert("RGB")
+        if workdir is not None:
+            art_dir = workdir / "comic-art"
+            art_dir.mkdir(parents=True, exist_ok=True)
+            generated_path = art_dir / f"scene-{scene_index:02d}.png"
+            # Atomic replacement prevents another worker from reading a
+            # partially written PNG. Never overwrite user-curated art.
+            if not any((art_dir / f"scene-{scene_index:02d}.{ext}").is_file()
+                       for ext in ("png", "webp", "jpg")):
+                temp_path = art_dir / f".scene-{scene_index:02d}-{os.getpid()}.png"
+                try:
+                    image.save(temp_path, format="PNG")
+                    os.replace(temp_path, generated_path)
+                finally:
+                    temp_path.unlink(missing_ok=True)
     image = ImageOps.fit(image, (width, height), Image.Resampling.LANCZOS)
     return image, _sketch_image(image)
 
