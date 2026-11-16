@@ -1,30 +1,24 @@
-import os
+import pytest
 from backend.app.engines.registry import engine_catalog, selected_render_engine, validate_engine
 
 
-def test_2d_and_3d_are_separate():
-    catalog = engine_catalog(worker_connected=False)
-    assert catalog["separation"]["2d_preview_isolated"] is True
-    assert catalog["separation"]["3d_requires_blender_worker"] is True
-    engines = {item["id"]: item for item in catalog["engines"]}
-    assert engines["2d"]["ready"] is True
-    assert engines["3d"]["ready"] is False
-    assert engines["3d"]["worker"] == "windows-rx580"
+def test_narrated_2d_is_the_only_production_engine():
+    catalog = engine_catalog()
+    assert catalog["selected"] == "2d"
+    assert catalog["separation"]["gpu_required"] is False
+    assert catalog["separation"]["blender_required"] is False
+    assert catalog["separation"]["image_api_required"] is False
+    assert catalog["engines"][0]["id"] == "2d"
+    assert catalog["engines"][0]["worker"] == "vps-cpu"
 
 
-def test_3d_readiness_tracks_worker():
-    catalog = engine_catalog(worker_connected=True)
-    engines = {item["id"]: item for item in catalog["engines"]}
-    assert engines["3d"]["ready"] is True
-    assert engines["3d"]["status"] == "ready"
+def test_selection_does_not_require_image_api_or_gpu_worker():
+    assert engine_catalog(worker_connected=False)["selected"] == "2d"
+    assert engine_catalog(worker_connected=True)["selected"] == "2d"
 
 
-def test_engine_selection_is_explicit(monkeypatch):
-    monkeypatch.setenv("ANIMA_RENDER_ENGINE", "3d")
-    assert selected_render_engine() == "3d"
-    assert validate_engine("3d") == "3d"
-
-
-def test_invalid_engine_does_not_silently_fallback(monkeypatch):
-    monkeypatch.setenv("ANIMA_RENDER_ENGINE", "gpu-magic")
-    assert selected_render_engine() == "invalid"
+def test_render_engine_validation_is_strict():
+    assert selected_render_engine() == "2d"
+    assert validate_engine("2d") == "2d"
+    with pytest.raises(ValueError):
+        validate_engine("3d")
