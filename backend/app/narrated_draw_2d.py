@@ -18,14 +18,14 @@ from typing import Callable
 
 from PIL import Image, ImageDraw, ImageEnhance, ImageFilter, ImageFont, ImageOps
 
-from backend.app import cartoon2d
+from backend.app import cartoon2d, comic_panels
 from backend.app.renderer import (
     _ffmpeg_executable, _fit_narration, _probe_duration, _run,
     _run_ffmpeg_with_progress, _synthesize_segments,
 )
 
 DRAW_ENGINE = "Anima 2D · desenho narrado na VPS (CPU)"
-DRAW_ART_VERSION = "storybook-narrated-draw-2d-v1"
+DRAW_ART_VERSION = "comic-pages-hand-drawing-2d-v2"
 DEFAULT_FPS = 8
 
 
@@ -132,22 +132,39 @@ def _pencil_image() -> Image.Image:
     return image
 
 
-def artwork_for_scene(plan: dict, scene_index: int, fmt: str,
-                      width: int, height: int, ordinal: int, count: int) -> tuple[Image.Image, Image.Image]:
+def artwork_for_scene(
+    plan: dict, scene_index: int, fmt: str,
+    width: int, height: int, ordinal: int, count: int,
+    workdir: Path | None = None,
+) -> tuple[Image.Image, Image.Image]:
+    """Prefer original professionally curated illustrations; never enlarge fake pixels.
+
+    The fallback is the existing authored 2D cartoon renderer, not an
+    AI-generated scene. An exact match to a reference requires curated art.
+    """
     scenes = plan.get("scenes") or []
     scene = scenes[scene_index] if scene_index < len(scenes) else {}
-    portrait = fmt == "9:16"
-    image = cartoon2d._draw_story_scene(
-        0.45, str(plan.get("planet") or "Novo planeta"),
-        str(plan.get("biome") or ""),
-        str(plan.get("palette") or "aurora"),
-        int(scene_index), str(scene.get("action") or ""),
-        portrait, "",
-    )
-    image = image.convert("RGB")
+    image_path = comic_panels.scene_art_path(workdir, scene_index) if workdir else None
+    if image_path:
+        with Image.open(image_path) as im:
+            image = im.convert("RGB")
+    else:
+        if os.getenv("ANIMA_COMIC_REQUIRE_CURATED_ART", "0") == "1":
+            raise ValueError(
+                f"Cena {scene_index+1} ainda não possui arte de quadrinhos aprovada: "
+                f"adicione comic-art/scene-{scene_index:02d}.png à pasta do episódio. "
+                "Sem ilustração original não é possível reproduzir a qualidade da referência."
+            )
+        portrait = fmt == "9:16"
+        image = cartoon2d._draw_story_scene(
+            0.45, str(plan.get("planet") or "Novo planeta"),
+            str(plan.get("biome") or ""),
+            str(plan.get("palette") or "aurora"),
+            int(scene_index), str(scene.get("action") or ""), portrait, "",
+        ).convert("RGB")
     image = ImageOps.fit(image, (width, height), Image.Resampling.LANCZOS)
-    colored = _with_caption(image, str(scene.get("title") or "Nova descoberta"), ordinal, count)
-    return colored, _sketch_image(colored)
+    return image, _sketch_image(image)
+
 
 
 def _preview(output_dir: Path, fmt: str, illustration: Image.Image) -> None:
@@ -159,12 +176,17 @@ def _preview(output_dir: Path, fmt: str, illustration: Image.Image) -> None:
     os.replace(tmp, preview)
 
 
-def _render_scene_clip(ffmpeg: str, paper: Path, sketch: Path, colored: Path,
-                       pencil: Path, output: Path, seconds: float, fps: int) -> None:
-    """Two animated drawing passes: ink strokes, then watercolored illustration."""
+def _render_scene_clip(
+    ffmpeg: str, paper: Path, sketch: Path, colored: Path,
+    pencil: Path | None, output: Path, seconds: float, fps: int,
+    active_panel: tuple[int, int, int, int] | None = None,
+) -> None:
+    """Draw the *active panel* and color it; no flying cartoon pencil.
+
+    A one-time RGBA photograph of a real hand is composited only when the
+    user provides it. Without that file, the video shows the drawings alone.
+    """
     seconds = max(1.5, float(seconds))
-    # FFmpeg xfade requires each transition to be <=60 seconds.
-    # Extended single-scene narratives hold the final illustration afterward.
     ink_seconds = min(35.0, max(0.35, seconds * .37))
     color_seconds = min(30.0, max(0.35, seconds * .33))
     ink_offset = 0.18
@@ -172,63 +194,102 @@ def _render_scene_clip(ffmpeg: str, paper: Path, sketch: Path, colored: Path,
     draw_ends = color_offset + color_seconds
     input_seconds = seconds + 1.0
     inputs = []
-    for still in (paper, sketch, colored, pencil):
+    for still in (paper, sketch, colored):
         inputs += ["-loop", "1", "-framerate", str(fps), "-t", f"{input_seconds:.4f}", "-i", str(still)]
-    filt = (
-        f"[0:v]fps={fps},format=yuv420p,setsar=1[a];"
-        f"[1:v]fps={fps},format=yuv420p,setsar=1[b];"
-        f"[2:v]fps={fps},format=yuv420p,setsar=1[c];"
-        f"[a][b]xfade=transition=wipeleft:duration={ink_seconds:.4f}:offset={ink_offset:.4f}[ink];"
-        f"[ink][c]xfade=transition=wipeleft:duration={color_seconds:.4f}:offset={color_offset:.4f}[painting];"
-        f"[3:v]format=rgba[pen];"
-        f"[painting][pen]overlay=x='(W-w)*t/{max(.5,draw_ends):.4f}':"
-        f"y='H*0.26+sin(t*2.6)*H*0.13':enable='lt(t\\,{draw_ends:.4f})':"
-        f"shortest=1:format=auto[out]"
-    )
+    filter_parts = [
+        f"[0:v]fps={fps},format=yuv420p,setsar=1[a]",
+        f"[1:v]fps={fps},format=yuv420p,setsar=1[b]",
+        f"[2:v]fps={fps},format=yuv420p,setsar=1[c]",
+        f"[a][b]xfade=transition=wipeleft:duration={ink_seconds:.4f}:offset={ink_offset:.4f}[ink]",
+        f"[ink][c]xfade=transition=wipeleft:duration={color_seconds:.4f}:offset={color_offset:.4f}[painting]",
+    ]
+    result = "[painting]"
+    if pencil is not None:
+        if active_panel is None:
+            raise ValueError("A mão real precisa da posição do quadro em desenho.")
+        x0,y0,x1,y1=active_panel
+        panel_width=max(1,x1-x0)
+        # Hand's index-finger / pen point follows the active comic panel.
+        inputs += ["-loop", "1", "-framerate", str(fps), "-t",
+                   f"{input_seconds:.4f}", "-i", str(pencil)]
+        hand_size=max(90,int(panel_width*.42))
+        # Cropped/transparent photo supplied by user, no synthetic hand.
+        filter_parts.append(f"[3:v]scale={hand_size}:-1,format=rgba[hand]")
+        px=(x1-x0-hand_size)*.85
+        x_expression=f"{x0}+{px:.2f}*min(1\\,t/{max(.4,draw_ends):.4f})"
+        y_expression=f"{y0}+{max(2,int((y1-y0)*.12))}+sin(t*2.1)*{max(4,int((y1-y0)*.12))}"
+        filter_parts.append(
+            f"[painting][hand]overlay=x='{x_expression}':y='{y_expression}':"
+            f"enable='between(t\\,0\\,{draw_ends:.4f})':shortest=1:format=auto[out]"
+        )
+        result="[out]"
+    filt=";".join(filter_parts)
     _run([
         ffmpeg, "-y", "-hide_banner", "-loglevel", "error",
-        *inputs, "-filter_complex", filt, "-map", "[out]",
+        *inputs, "-filter_complex", filt, "-map", result,
         "-t", f"{seconds:.4f}", "-r", str(fps),
         "-c:v", "libx264", "-preset", "ultrafast",
-        "-crf", "23", "-pix_fmt", "yuv420p", "-an", str(output),
+        "-crf", "20", "-pix_fmt", "yuv420p", "-an", str(output),
     ])
     if not output.is_file() or output.stat().st_size < 1000:
         raise RuntimeError("Falha ao desenhar a cena 2D: " + output.name)
 
 
-def _video_from_scenes(workdir: Path, fmt: str, plan: dict, indices: list[int],
-                       seconds_per_scene: list[float], fps: int,
-                       progress_callback: Callable[[int, str], None] | None) -> Path:
+
+def _video_from_scenes(
+    workdir: Path, fmt: str, plan: dict, indices: list[int],
+    seconds_per_scene: list[float], fps: int,
+    progress_callback: Callable[[int, str], None] | None,
+) -> Path:
+    """Comic pages advance one panel with each new narrated scene."""
     target = workdir / ("silent-" + fmt.replace(":", "x") + ".mp4")
     scenes_dir = workdir / ("draw2d-" + fmt.replace(":", "x"))
     scenes_dir.mkdir(parents=True, exist_ok=True)
     portrait = fmt == "9:16"
-    w, h = (480, 854) if portrait else (854, 480)
-    paper = scenes_dir / "paper.png"
-    pencil = scenes_dir / "pencil.png"
-    Image.new("RGB", (w, h), "#faf5e9").save(paper)
-    _pencil_image().save(pencil)
-    ffmpeg = _ffmpeg_executable()
+    w, h = (720, 1280) if portrait else (1280, 720)
+    max_panels = (comic_panels.MAX_PANELS_PORTRAIT if portrait
+                  else comic_panels.MAX_PANELS_LANDSCAPE)
+    actual_hand = comic_panels.hand_asset()
     clips = []
+    previous_on_page: list[Image.Image] = []
+    title = str(plan.get("title") or "Pequenos Guardiões")
     for j, index in enumerate(indices):
-        art, sketch = artwork_for_scene(plan, index, fmt, w, h, j+1, len(indices))
-        painting = scenes_dir / f"paint-{j:02d}.png"
+        if j % max_panels == 0:
+            previous_on_page = []
+        art, sketch = artwork_for_scene(
+            plan, index, fmt, w, h, j+1, len(indices), workdir=workdir,
+        )
+        paper_page, panel_rect = comic_panels.comic_page(
+            previous_on_page + [art], (w,h), title, portrait,
+            stage="paper", previous_count=len(previous_on_page),
+        )
+        sketch_page, _ = comic_panels.comic_page(
+            previous_on_page + [sketch], (w,h), title, portrait,
+            stage="sketch", previous_count=len(previous_on_page),
+        )
+        color_page, _ = comic_panels.comic_page(
+            previous_on_page + [art], (w,h), title, portrait,
+            stage="color", previous_count=len(previous_on_page),
+        )
+        paper = scenes_dir / f"paper-{j:02d}.png"
         outline = scenes_dir / f"sketch-{j:02d}.png"
-        art.save(painting, optimize=False)
-        sketch.save(outline, optimize=False)
-        # A real still (not a cosmetic spinner) appears in the dashboard during rendering.
-        _preview(workdir, fmt, sketch)
+        painting = scenes_dir / f"paint-{j:02d}.png"
+        paper_page.save(paper)
+        sketch_page.save(outline)
+        color_page.save(painting)
+        _preview(workdir, fmt, sketch_page)
         clip = scenes_dir / f"scene-{j:02d}.mp4"
         _render_scene_clip(
-            ffmpeg, paper, outline, painting, pencil,
-            clip, seconds_per_scene[j], fps,
+            _ffmpeg_executable(), paper, outline, painting, actual_hand,
+            clip, seconds_per_scene[j], fps, active_panel=panel_rect,
         )
         clips.append(clip)
-        _preview(workdir, fmt, art)
+        previous_on_page.append(art)
+        _preview(workdir, fmt, color_page)
         if progress_callback:
             progress_callback(
                 18 + int(69*(j+1)/max(1,len(indices))),
-                f"Narradora contando e desenhando: cena {j+1}/{len(indices)}.",
+                f"Narradora desenhando quadrinho {j+1}/{len(indices)}.",
             )
 
     manifest = scenes_dir / "concat.txt"
@@ -236,14 +297,15 @@ def _video_from_scenes(workdir: Path, fmt: str, plan: dict, indices: list[int],
         return p.resolve().as_posix().replace("'", "'\\''")
     manifest.write_text(
         "".join("file '" + ffmpeg_escape(p) + "'\n" for p in clips),
-        encoding="utf-8"
+        encoding="utf-8",
     )
     _run([
-        ffmpeg, "-y", "-loglevel", "error",
+        _ffmpeg_executable(), "-y", "-loglevel", "error",
         "-f", "concat", "-safe", "0", "-i", str(manifest),
         "-c", "copy", str(target),
     ])
     return target
+
 
 
 def render_narrated_draw_episode(title: str, story: str, fmt: str,
@@ -322,6 +384,8 @@ def render_narrated_draw_episode(title: str, story: str, fmt: str,
         "art_version": DRAW_ART_VERSION,
         "narration_word_count": sum(len(x["text"].split()) for x in narration_segments),
         "speakers": ["Narrador"],
-        "drawing_style": "progressive-pencil-and-watercolor",
+        "drawing_style": "sequential-comic-panels-with-real-hand-if-supplied",
+        "real_hand_asset_used": bool(comic_panels.hand_asset()),
+        "curated_art_required": os.getenv("ANIMA_COMIC_REQUIRE_CURATED_ART", "0") == "1",
         "gpu_required": False,
     }
