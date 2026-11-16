@@ -302,6 +302,64 @@ def _queue_art_for_episode(job_id: str, formats: list[str],
     return generated
 
 
+@app.post("/api/studio/official-model/upload")
+async def upload_official_character_model(request: Request,
+                                          authorization: str | None = Header(default=None)):
+    """One-time protected installation of the approved character reference.
+
+    Accept either a PNG or the official ZIP containing series/official-model.png.
+    The existing worker token is required; never expose it in page HTML.
+    """
+    import io
+    import hmac
+    import zipfile
+    from PIL import Image
+    from backend.app.official_comic_2d import model_path
+    expected = os.getenv("ANIMA_COMFY_TOKEN", "").strip()
+    supplied = (authorization or "").removeprefix("Bearer ").strip()
+    if not expected:
+        raise HTTPException(503, "Configure ANIMA_COMFY_TOKEN para autorizar o upload.")
+    if not supplied or not hmac.compare_digest(expected, supplied):
+        raise HTTPException(401, "Token de instalação inválido.")
+    if request.headers.get("content-length") and int(request.headers["content-length"]) > 9_000_000:
+        raise HTTPException(413, "Arquivo maior que 9 MB.")
+    data = await request.body()
+    if len(data) > 9_000_000:
+        raise HTTPException(413, "Arquivo maior que 9 MB.")
+    if data[:4] == b"PK\\x03\\x04":
+        try:
+            with zipfile.ZipFile(io.BytesIO(data)) as archive:
+                choices = [name for name in archive.namelist()
+                           if name.endswith("/official-model.png") or name == "official-model.png"]
+                if not choices:
+                    raise ValueError("ZIP não contém series/official-model.png.")
+                entry = archive.getinfo(choices[0])
+                if entry.file_size > 8_000_000:
+                    raise ValueError("PNG dentro do ZIP é grande demais.")
+                data = archive.read(entry)
+        except (zipfile.BadZipFile, ValueError) as exc:
+            raise HTTPException(422, str(exc)) from exc
+    try:
+        with Image.open(io.BytesIO(data)) as candidate:
+            candidate.verify()
+        with Image.open(io.BytesIO(data)) as candidate:
+            if candidate.format != "PNG" or candidate.width < 800 or candidate.height < 1000:
+                raise ValueError("Use a prancha oficial PNG com pelo menos 800×1000 pixels.")
+            candidate.load()
+            target = model_path()
+            target.parent.mkdir(parents=True, exist_ok=True)
+            temp = target.with_name(".official-model-upload-" + uuid.uuid4().hex + ".png")
+            try:
+                candidate.convert("RGB").save(temp, format="PNG")
+                os.replace(temp, target)
+            finally:
+                temp.unlink(missing_ok=True)
+    except (OSError, ValueError) as exc:
+        raise HTTPException(422, "Imagem inválida: " + str(exc)) from exc
+    return {"ok": True, "official_model_ready": True,
+            "message": "Modelo Luna/Tomi/Pipo instalado e pronto para novos renders."}
+
+
 @app.post("/api/jobs/{job_id}/story/approve", status_code=202)
 def approve_story_generate_images(job_id: str):
     """One click approves the story and starts GPU-free 2D narrated production."""
@@ -310,6 +368,9 @@ def approve_story_generate_images(job_id: str):
         raise HTTPException(409, "O episódio já está em produção ou foi finalizado.")
     if not job.get("story_plan"):
         raise HTTPException(409, "Crie primeiro uma história.")
+    from backend.app.official_comic_2d import has_official_model
+    if not has_official_model():
+        raise HTTPException(409, "Instale a prancha oficial dos personagens na área de criação antes de iniciar.")
     formats = job.get("formats") or ["9:16"]
     _update(
         job_id, story_approved=True, auto_production_requested=True,
