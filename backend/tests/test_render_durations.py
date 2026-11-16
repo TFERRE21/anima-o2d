@@ -1,6 +1,7 @@
 """Narrated 2D CPU animation tests, no GPU, Blender, API credits or image worker."""
 import math
 import shutil
+import subprocess
 import tempfile
 import unittest
 from pathlib import Path
@@ -102,6 +103,30 @@ class NarratedDrawingTests(unittest.TestCase):
 
 @unittest.skipUnless(shutil.which("ffmpeg"), "FFmpeg required for real CPU illustration test")
 class DrawingMediaTests(unittest.TestCase):
+    def test_green_screen_film_of_hand_is_composited_with_ffmpeg(self):
+        with tempfile.TemporaryDirectory(prefix="anima-hand-comic-") as tmp:
+            directory = Path(tmp)
+            paper, sketch, colored = [directory / (x+".png")
+                                      for x in ("paper","sketch","colored")]
+            Image.new("RGB",(320,180),"#faf5e9").save(paper)
+            Image.new("RGB",(320,180),"#292929").save(sketch)
+            Image.new("RGB",(320,180),"#75ad79").save(colored)
+            real_film=directory/"hand.mp4"
+            cmd=[
+                shutil.which("ffmpeg"),"-y","-loglevel","error",
+                "-f","lavfi","-i","color=c=0x00ff00:s=160x120:r=12:d=4",
+                "-vf","drawbox=x=70:y=20:w=40:h=80:color=0xc27f48:t=fill",
+                "-pix_fmt","yuv420p",str(real_film),
+            ]
+            subprocess.run(cmd, check=True, capture_output=True)
+            output=directory/"with-hand.mp4"
+            narrated_draw_2d._render_scene_clip(
+                shutil.which("ffmpeg"),paper,sketch,colored,real_film,
+                output,3.0,8,active_panel=(10,10,310,170),
+            )
+            self.assertGreater(output.stat().st_size,1000)
+            self.assertGreater(renderer._probe_duration(output),2.7)
+
     def test_real_ffmpeg_progressively_reveals_pencil_and_color(self):
         with tempfile.TemporaryDirectory(prefix="anima-draw2d-") as tmp:
             directory = Path(tmp)
