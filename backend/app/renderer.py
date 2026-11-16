@@ -262,7 +262,9 @@ def _synthesize_segments(segments: list[dict], workdir: Path, fmt: str,
             pitch = int(profile["espeak_pitch"])
             rate = speech_rate + (8 if speaker == "Pipo" else 0)
             _run([
-                "espeak-ng", "-v", "pt-br", "-s", str(rate), "-p", str(pitch),
+                "espeak-ng", "-v",
+                (os.getenv("ANIMA_NARRATOR_ESPEAK_VOICE", "pt-br+f3") if speaker == "Narrador" else "pt-br"),
+                "-s", str(rate), "-p", str(pitch),
                 "-a", "165", "-w", str(path), str(segment.get("text", ""))
             ])
             if progress_callback:
@@ -604,6 +606,15 @@ def render_episode(title: str, story: str, fmt: str, output: Path, workdir: Path
                    planet_name: str = "Aurora-7", story_plan: dict | None = None,
                    progress_callback: Callable[[int, str], None] | None = None):
     """Render separate long-form and vertical-short edits from one approved story plan."""
+    from backend.app.engines.registry import selected_render_engine
+    if selected_render_engine() == "2d":
+        from backend.app.narrated_draw_2d import render_narrated_draw_episode
+        return render_narrated_draw_episode(
+            title, story, fmt, output, workdir,
+            planet_name=planet_name,
+            story_plan=story_plan,
+            progress_callback=progress_callback,
+        )
     plan = story_plan or {}
     portrait = fmt == "9:16"
     if fmt not in {"16:9", "9:16"}:
