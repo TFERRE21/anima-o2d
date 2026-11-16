@@ -38,7 +38,7 @@ function statusText(value){
     text='Esta história já foi aprovada. Vamos produzi-la no novo motor 2D da VPS, sem esperar GPU ou fotos.';
   }
   if(value.production_engine==='2d'){
-    if(value.official_model_ready===false)text+=' · A prancha Luna/Tomi/Pipo precisa ser instalada uma única vez.';
+
     if(value.real_hand_ready)text+=' · Mão real configurada.';
   }
   el('inlineArtBadge').textContent=badge;
@@ -104,44 +104,6 @@ function stop(){
   if(poll)clearInterval(poll);
   poll=null;episode=null;watching=null;
 }
-async function refreshModelStatus(){
-  const badge=el('officialModelBadge'),status=el('officialModelStatus');
-  if(!badge||!status)return;
-  try{
-    const response=await json('/api/health/2d');
-    if(response.official_model_ready){
-      badge.textContent='INSTALADO';badge.className='badge ready';
-      status.textContent='Luna, Tomi e Pipo instalados. Pode iniciar as histórias.';
-    }else{
-      badge.textContent='INSTALAÇÃO NECESSÁRIA';badge.className='badge pending';
-      status.textContent='Selecione o ZIP oficial, informe o token do agente da VPS e clique em Instalar personagens.';
-    }
-  }catch(error){badge.textContent='VERIFICAÇÃO FALHOU';status.textContent=error.message;}
-}
-el('installOfficialModel')?.addEventListener('click',async()=>{
-  const file=el('officialModelFile')?.files?.[0];
-  const token=el('officialModelToken')?.value?.trim();
-  if(!file||!token){
-    el('officialModelStatus').textContent='Selecione o ZIP/PNG oficial e informe o token configurado como ANIMA_COMFY_TOKEN na VPS.';
-    return;
-  }
-  const btn=el('installOfficialModel');
-  btn.disabled=true;
-  el('officialModelStatus').textContent='Validando e instalando a prancha oficial na VPS…';
-  try{
-    const response=await json('/api/studio/official-model/upload',{
-      method:'POST',
-      headers:{'Authorization':'Bearer '+token,'Content-Type':'application/octet-stream'},
-      body:file
-    });
-    el('officialModelStatus').textContent=response.message||'Modelo instalado.';
-    el('officialModelToken').value='';
-    await refreshModelStatus();
-    await refresh();
-  }catch(error){el('officialModelStatus').textContent='Falha na instalação: '+error.message;}
-  finally{btn.disabled=false;}
-});
-refreshModelStatus();
 window.stopInlineArt=stop;
 window.prepareInlineArt=async id=>{
   if(!id)return;
