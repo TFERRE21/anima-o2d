@@ -47,6 +47,25 @@ ANIMA_REAL_HAND_PNG=/data/jobs/series/hand-real.png
 Sem esse arquivo, a renderização continua **sem mão e sem lápis voador**.
 Não afirmamos que uma mão real foi filmada se apenas uma ilustração existe.
 
+### Opção preferida: filmagem real da mão desenhando
+
+Para uma mão humana **realmente em movimento**, grave uma mão segurando
+caneta com fundo verde uniforme, em MP4 (pode ser reutilizado em todos os
+episódios). Salve por exemplo em `/data/jobs/series/hand-real.mp4` e
+configure na VPS:
+
+```env
+ANIMA_REAL_HAND_VIDEO=/data/jobs/series/hand-real.mp4
+```
+
+O FFmpeg remove o fundo verde pelo filtro `colorkey` e sobrepõe a
+filmagem na posição do quadrinho ativo, sem precisar de GPU. A mão
+continua sendo uma filmagem pré-gravada e seu movimento **não acompanha
+necessariamente cada contorno da imagem com precisão manual**. Isso
+é mais autêntico que uma foto recortada, mas não é idêntico a desenhar
+quadro por quadro à mão sobre papel verdadeiro. Quando configurado,
+o vídeo tem preferência sobre `ANIMA_REAL_HAND_PNG`.
+
 ### Para ter a arte idêntica à referência aprovada
 
 Para cada história, o motor procura imagens originais de cada cena em:
