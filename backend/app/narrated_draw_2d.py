@@ -212,11 +212,23 @@ def _render_scene_clip(
         x0,y0,x1,y1=active_panel
         panel_width=max(1,x1-x0)
         # Hand's index-finger / pen point follows the active comic panel.
-        inputs += ["-loop", "1", "-framerate", str(fps), "-t",
-                   f"{input_seconds:.4f}", "-i", str(pencil)]
+        is_video = pencil.suffix.lower() in {".mp4", ".mov", ".webm"}
+        if is_video:
+            inputs += ["-stream_loop", "-1", "-i", str(pencil)]
+        else:
+            inputs += ["-loop", "1", "-framerate", str(fps), "-t",
+                       f"{input_seconds:.4f}", "-i", str(pencil)]
         hand_size=max(90,int(panel_width*.42))
-        # Cropped/transparent photo supplied by user, no synthetic hand.
-        filter_parts.append(f"[3:v]scale={hand_size}:-1,format=rgba[hand]")
+        if is_video:
+            # Real film recorded against a clean green backdrop; key out
+            # green while retaining the hand and its natural finger motion.
+            filter_parts.append(
+                f"[3:v]fps={fps},scale={hand_size}:-1,"
+                "format=rgba,colorkey=0x00ff00:0.21:0.06[hand]"
+            )
+        else:
+            # Cropped/transparent photograph: less faithful than real video.
+            filter_parts.append(f"[3:v]scale={hand_size}:-1,format=rgba[hand]")
         px=(x1-x0-hand_size)*.85
         x_expression=f"{x0}+{px:.2f}*min(1\\,t/{max(.4,draw_ends):.4f})"
         y_expression=f"{y0}+{max(2,int((y1-y0)*.12))}+sin(t*2.1)*{max(4,int((y1-y0)*.12))}"
@@ -251,7 +263,7 @@ def _video_from_scenes(
     w, h = (720, 1280) if portrait else (1280, 720)
     max_panels = (comic_panels.MAX_PANELS_PORTRAIT if portrait
                   else comic_panels.MAX_PANELS_LANDSCAPE)
-    actual_hand = comic_panels.hand_asset()
+    actual_hand = comic_panels.real_hand_video() or comic_panels.hand_asset()
     clips = []
     previous_on_page: list[Image.Image] = []
     title = str(plan.get("title") or "Pequenos Guardiões")
@@ -387,7 +399,8 @@ def render_narrated_draw_episode(title: str, story: str, fmt: str,
         "narration_word_count": sum(len(x["text"].split()) for x in narration_segments),
         "speakers": ["Narrador"],
         "drawing_style": "sequential-comic-panels-with-real-hand-if-supplied",
-        "real_hand_asset_used": bool(comic_panels.hand_asset()),
+        "real_hand_asset_used": bool(comic_panels.real_hand_video() or comic_panels.hand_asset()),
+        "real_hand_film_used": bool(comic_panels.real_hand_video()),
         "curated_art_required": os.getenv("ANIMA_COMIC_REQUIRE_CURATED_ART", "0") == "1",
         "gpu_required": False,
     }
