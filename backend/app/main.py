@@ -114,9 +114,12 @@ def health():
 
 @app.get("/api/health/2d")
 def health_2d():
+    from backend.app.official_comic_2d import has_official_model, model_path
     if not _has("ffmpeg") or not _has("tts"):
         raise HTTPException(503, "Motor de desenho 2D requer FFmpeg e narradora TTS.")
-    return {"status": "ready", "engine": "narrated-draw-2d",
+    return {"status": "ready" if has_official_model() else "awaiting_official_character_model",
+            "engine": "official-comic-2d", "official_model_ready": has_official_model(),
+            "official_model_path": str(model_path()),
             "gpu_required": False, "blender_required": False,
             "formats": ["1920x1080", "1080x1920"]}
 
@@ -507,6 +510,12 @@ def render_story(job_id: str, payload: RenderRequest):
         raise HTTPException(503, "Motor de mídia incompleto. É necessário FFmpeg e voz (espeak-ng ou edge-tts).")
     if selected_render_engine() != "2d":
         raise HTTPException(503, "Motor principal configurado incorretamente: use desenho narrado 2D.")
+    from backend.app.official_comic_2d import has_official_model, model_path
+    if not has_official_model():
+        raise HTTPException(
+            409, f"Instale o modelo oficial Luna/Tomi/Pipo em {model_path()} "
+            "para evitar os desenhos antigos. Reinicie a produção depois."
+        )
     # No artwork approval gate, remote GPU, image credits or Blender.
     _update(job_id, status="queued", stage="render_queued", progress=8,
             message="Roteiro aprovado. Preparando narração e desenhos 2D na VPS.",
