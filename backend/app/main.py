@@ -931,7 +931,7 @@ def _run_job(job_id: str, payload: GenerateRequest):
                 overall = min(99, int((index * 100 + max(0, min(100, local_progress))) / total_formats))
                 previous = int(_get_job(job_id).get("progress", 0))
                 import re
-                match = re.search(r"cena (\d+)/(\d+)", message)
+                match = re.search(r"(?:cena|quadrinho) (\d+)/(\d+)", message)
                 values = {"drawing_scenes_finished": int(match.group(1))} if match else {}
                 _update(job_id, status="processing", stage=stage,
                         progress=max(previous, overall), message=message, **values)
