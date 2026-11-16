@@ -1,26 +1,24 @@
 # ANIMA STUDIO — Histórias Desenhadas em 2D
 
-## Modelo oficial de Luna, Tomi e Pipo (obrigatório)
+## Produção automática e acompanhamento ao vivo
 
-O estúdio passou a usar a **prancha oficial aprovada** como fonte visual do elenco
-recorrente, em vez de redesenhar bonecos procedurais a cada cena. O código está em
-`backend/app/official_comic_2d.py`.
+Após a aprovação do roteiro, o sistema gera a narração, desenha os quadrinhos
+e codifica os vídeos 16:9 e 9:16 na VPS. **Não exige upload de ZIP/PNG,
+token de instalação nem aprovação de imagens individuais.**
 
-**Instalação única:** copie a imagem `official-model.png` da prancha aprovada
-para o volume persistente **`/data/jobs/series/official-model.png`** do contêiner.
-Em outro caminho, informe `ANIMA_OFFICIAL_MODEL=/caminho/modelo.png`.
-O ZIP da prancha deve ser fornecido separadamente; **não há imagem binária no
-GitHub**. Até ela estar instalada, `/api/health/2d` informa
-`official_model_ready: false` e o painel rejeita iniciar uma produção para
-evitar voltar ao estilo antigo. É possível reprocessar episódios antigos.
+A caixa de prévia aparece junto da história. Durante a primeira cena, o
+quadro JPEG acompanha o progresso real do FFmpeg; quando um trecho MP4
+está concluído, o navegador o reproduz enquanto o próximo é produzido.
+Os vídeos finais continuam nos downloads do episódio.
 
-O motor recorta os traços reais da referência para fazer os desenhos aparecerem
-nos quadrinhos e variar composição e cenário por cena. O resultado é um **recorte
-2D da prancha**, com poses estáticas. Isso não equivale a animação articulada nem
-a um modelo de IA capaz de produzir novas poses e expressões. Para alcançar
-movimentos completos mantendo fidelidade, serão necessárias artes individuais
-de poses e uma etapa de rigging/sprites.
-
+A prancha de Luna, Tomi e Pipo é opcional: se existir
+`/data/jobs/series/official-model.png`, o renderizador usa os personagens
+da referência. Na ausência dela, a biblioteca 2D local assume a geração
+automática. **O desenho local é mais simples e não reproduz a qualidade
+profissional da prancha aprovada.** Para alcançar a mesma identidade
+visual com novos gestos e expressões será necessária a integração dos
+assets oficiais e suas poses/rigging no próprio projeto, não um envio
+manual por episódio.
 
 Estúdio infantil **2D com narradora**, sem GPU, ComfyUI, Runway, APIs de imagem ou Blender. O projeto reaproveita a biblioteca original de ilustrações 2D dos Pequenos Guardiões (Luna, Tomi e Pipo), produzidas por código e mantidas visualmente estáveis entre os episódios.
 
