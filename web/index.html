@@ -101,6 +101,16 @@
 <div class="card" style="background:#0a1527;margin-top:12px"><div class="cardhead"><h3>Falas incluídas na narração</h3><span class="badge ready">NARRADORA ÚNICA</span></div><div id="dialogueList" style="display:grid;gap:8px"></div></div>
 <div class="card" style="background:#0a1527;margin-top:12px"><div class="cardhead"><h3>Short — momento mais impactante</h3><span class="badge">9:16 · 1:00–1:30</span></div><p class="muted" id="shortWordCount"></p><p class="muted" id="shortFocus"></p><div id="shortStoryText" style="font-size:13px;line-height:1.7;max-height:140px;overflow:auto;white-space:pre-wrap;color:#dce8fa"></div></div>
 <div class="card" style="background:#0a1527;margin-top:12px"><div class="cardhead"><h3>Storyboard</h3><span class="muted">cena por cena</span></div><div id="storyboardList"></div></div>
+<div class="card" id="officialModelPanel" style="margin-top:16px;background:#0b1628">
+<div class="cardhead"><h3>★ Personagens oficiais — Luna, Tomi e Pipo</h3><span class="badge pending" id="officialModelBadge">VERIFICANDO</span></div>
+<p class="muted">Instale apenas uma vez a prancha aprovada. Aceita o ZIP oficial ou o PNG. A imagem fica salva na VPS e será reutilizada automaticamente em todos os episódios.</p>
+<div class="toolbar" style="margin:12px 0">
+<input type="file" id="officialModelFile" accept=".zip,.png,application/zip,image/png" aria-label="Escolher prancha oficial" style="max-width:100%;color:#c7dbef">
+<input type="password" id="officialModelToken" placeholder="Token do agente da VPS" autocomplete="off" aria-label="Token para instalar o modelo" style="background:#091426;color:white;border:1px solid #344b6d;border-radius:9px;padding:10px;min-width:190px;max-width:100%">
+<button type="button" class="btn secondary" id="installOfficialModel">Instalar personagens</button>
+</div>
+<p class="muted" id="officialModelStatus" role="status">Verificando biblioteca de personagens...</p>
+</div>
 <div class="card" id="inlineArtPanel" style="margin-top:16px;background:#0b1628">
   <div class="cardhead"><h3>✎ Narradora desenhando a história · animação 2D</h3><span class="badge pending" id="inlineArtBadge">AGUARDANDO ROTEIRO</span></div>
   <p class="muted">A narradora conta cada aventura enquanto Luna, Tomi, Pipo e os cenários aparecem em traços de lápis e ganham cor. Tudo é feito na VPS, sem GPU ou API de imagens.</p>
@@ -365,5 +375,5 @@ $('saveSettings').addEventListener('click',()=>saveSettings());
 $('saveSchedule').addEventListener('click',()=>saveSettings({production_days:[...document.querySelectorAll('.productionDay:checked')].map(x=>x.value),production_time:$('productionTime').value}));
 loadDashboard();loadSettings();setInterval(loadDashboard,8000);
 </script>
-<script src="/inline-art.js?v=20261116-narrated-2d"></script>
+<script src="/inline-art.js?v=20261116-official-live-v3"></script>
 </body></html>
