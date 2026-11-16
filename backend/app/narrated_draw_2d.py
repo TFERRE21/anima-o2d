@@ -163,8 +163,10 @@ def _render_scene_clip(ffmpeg: str, paper: Path, sketch: Path, colored: Path,
                        pencil: Path, output: Path, seconds: float, fps: int) -> None:
     """Two animated drawing passes: ink strokes, then watercolored illustration."""
     seconds = max(1.5, float(seconds))
-    ink_seconds = max(0.35, seconds * .37)
-    color_seconds = max(0.35, seconds * .33)
+    # FFmpeg xfade requires each transition to be <=60 seconds.
+    # Extended single-scene narratives hold the final illustration afterward.
+    ink_seconds = min(35.0, max(0.35, seconds * .37))
+    color_seconds = min(30.0, max(0.35, seconds * .33))
     ink_offset = 0.18
     color_offset = ink_offset + ink_seconds
     draw_ends = color_offset + color_seconds
