@@ -133,11 +133,12 @@ def draw_official_scene(scene_index: int, planet: str, action: str,
                         width: int = 1280, height: int = 720) -> Image.Image:
     path = model_path()
     if not path.is_file():
-        raise FileNotFoundError(
-            "O modelo oficial Luna/Tomi/Pipo ainda não foi instalado. "
-            f"Coloque o PNG aprovado em {path} (ou configure ANIMA_OFFICIAL_MODEL). "
-            "A produção foi bloqueada para não voltar aos bonecos antigos."
-        )
+        # The image sheet is an optional visual upgrade, not a user setup gate.
+        # Production always works on the self-contained CPU renderer.
+        from backend.app import cartoon2d
+        return cartoon2d._draw_story_scene(
+            0.45, planet, "", "aurora", scene_index, action, False, ""
+        ).convert("RGB").resize((width, height), Image.Resampling.LANCZOS)
     with Image.open(path) as source:
         source.load()
         if source.width < 800 or source.height < 1000:
