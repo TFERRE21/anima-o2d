@@ -11,14 +11,16 @@ quadro JPEG acompanha o progresso real do FFmpeg; quando um trecho MP4
 está concluído, o navegador o reproduz enquanto o próximo é produzido.
 Os vídeos finais continuam nos downloads do episódio.
 
-A prancha de Luna, Tomi e Pipo é opcional: se existir
-`/data/jobs/series/official-model.png`, o renderizador usa os personagens
-da referência. Na ausência dela, a biblioteca 2D local assume a geração
-automática. **O desenho local é mais simples e não reproduz a qualidade
-profissional da prancha aprovada.** Para alcançar a mesma identidade
-visual com novos gestos e expressões será necessária a integração dos
-assets oficiais e suas poses/rigging no próprio projeto, não um envio
-manual por episódio.
+Os personagens **Luna, Tomi e Pipo** da referência aprovada estão
+incorporados ao código em `backend/app/approved_cast_embedded.py` como
+mapas de contorno comprimidos. Nenhuma ação do usuário é necessária.
+O cache de cenas usa a pasta `approved-cast-v3` para ignorar imagens
+renderizadas pela versão anterior. As cenas mantêm os rostos e uniformes
+aprovados, mas os corpos ainda usam poses estáticas extraídas da
+referência; movimentos articulados e novas expressões exigem
+rigging/poses adicionais. Um PNG opcional em
+`/data/jobs/series/official-model.png` permite usar a prancha maior,
+mas **nunca bloqueia** a produção automática.
 
 Estúdio infantil **2D com narradora**, sem GPU, ComfyUI, Runway, APIs de imagem ou Blender. O projeto reaproveita a biblioteca original de ilustrações 2D dos Pequenos Guardiões (Luna, Tomi e Pipo), produzidas por código e mantidas visualmente estáveis entre os episódios.
 
