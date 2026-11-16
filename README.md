@@ -8,11 +8,76 @@ Estúdio infantil **2D com narradora**, sem GPU, ComfyUI, Runway, APIs de imagem
 2. Confira o roteiro e o storyboard da aventura em um novo planeta.
 3. Clique em **Aprovar roteiro e produzir vídeo 2D** uma vez.
 4. O servidor cria a voz da **narradora** e monta as ilustrações de cada cena.
-5. Cada ilustração começa como papel vazio, recebe os traços de lápis, ganha cor progressivamente e é exibida enquanto a narradora conta aquela parte da história.
+5. Cada quadrinho começa vazio, ganha contornos e depois cores. Os anteriores permanecem na página enquanto a narradora conta a cena seguinte.
 6. O painel mantém o progresso, a **prévia visual ao vivo** e os downloads finais.
 7. A revisão e a publicação no YouTube continuam separadas.
 
 O motor não tenta produzir vídeos 3D, nem fica aguardando GPU ou o ComfyUI. Episódios antigos com roteiro aprovado e bloqueados por `CUDA out of memory` podem ser retomados automaticamente ao atualizar a aplicação sem apagar o armazenamento.
+
+## Quadrinhos profissionais — referência visual aprovada
+
+O vídeo de referência aprovado mostra página de quadrinhos infantis com
+contornos uniformes, personagens consistentes, cenas completas e **mão real**
+segurando caneta. O motor anterior usava uma ilustração simples esticada
+para o vídeo, efeito de metade lápis/metade cor e um lápis voador. Essa
+montagem foi substituída por:
+
+- **Gibi quadro a quadro:** até 3 painéis empilhados no Shorts e 4 no
+  horizontal. A narradora revela o próximo painel; os quadros anteriores
+  permanecem desenhados na página.
+- **Resolução interna maior:** 720×1280 vertical ou 1280×720 horizontal,
+  finalizados em 1080×1920 ou 1920×1080. O vídeo não deve ser anunciado como
+  ilustração Full HD nativa quando o material de entrada é menor.
+- **Sem lápis flutuando:** somente aparece uma mão *fotográfica real*
+  recortada quando o usuário disponibiliza um PNG com transparência.
+- **Biblioteca editorial por episódio:** sempre prefere imagens profissionais
+  de cada cena em vez do fallback 2D procedural.
+
+### Como adicionar a mão real uma única vez
+
+Obtenha/produza uma fotografia **autorizada** de mão humana real segurando
+uma caneta, com fundo transparente (PNG RGBA, mínimo 150px).
+Salve em um local persistente da VPS, por exemplo
+\`/data/jobs/series/hand-real.png\`, e adicione a variável:
+
+\`\`\`env
+ANIMA_REAL_HAND_PNG=/data/jobs/series/hand-real.png
+\`\`\`
+
+Sem esse arquivo, a renderização continua **sem mão e sem lápis voador**.
+Não afirmamos que uma mão real foi filmada se apenas uma ilustração existe.
+
+### Para ter a arte idêntica à referência aprovada
+
+Para cada história, o motor procura imagens originais de cada cena em:
+
+\`\`\`text
+/data/jobs/<id-do-episodio>/comic-art/scene-00.png
+/data/jobs/<id-do-episodio>/comic-art/scene-01.png
+...
+\`\`\`
+
+Aceita PNG, WebP ou JPG. Essas artes devem ter sido **criadas ou licenciadas**
+para uso no vídeo e revisadas na qualidade editorial desejada. Recomenda-se
+1280×720 ou superior, personagens e identidade visual consistentes, e
+cenários diferentes conforme a história. A referência publicada no chat
+não gera automaticamente todos os quadros de episódios futuros.
+
+Se as imagens não existirem, a aplicação usa as antigas ilustrações
+\`cartoon2d.py\`, que são simples e **não atingem o acabamento da
+referência**. Para bloquear vídeos de qualidade insuficiente, ative:
+
+\`\`\`env
+ANIMA_COMIC_REQUIRE_CURATED_ART=1
+\`\`\`
+
+Nesse modo o processamento informa qual arquivo de arte falta em vez
+de publicar um vídeo visualmente inferior. Esta restrição exige que
+um ilustrador ou outro gerador forneça as artes antes da renderização.
+Sem GPU e sem APIs de imagens, é inviável garantir novas ilustrações
+de qualidade profissional e exclusivas para qualquer roteiro apenas
+com Pillow/FFmpeg. FFmpeg anima arte; não substitui um desenhista.
+
 
 ## Tecnologia e qualidade
 
