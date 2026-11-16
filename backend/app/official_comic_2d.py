@@ -30,7 +30,9 @@ def model_path() -> Path:
 
 
 def has_official_model() -> bool:
-    return model_path().is_file()
+    """The approved cast is bundled and always available without uploads."""
+    from backend.app.approved_cast_embedded import DATA
+    return all(name in DATA for name in CAST)
 
 
 def _typeface(size: int, bold: bool = False):
