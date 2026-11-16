@@ -155,7 +155,9 @@ def artwork_for_scene(
                 f"adicione comic-art/scene-{scene_index:02d}.png à pasta do episódio. "
                 "Sem ilustração original não é possível reproduzir a qualidade da referência."
             )
-        portrait = fmt == "9:16"
+        # Each comic panel is landscape even when the overall video is Shorts.
+        # Drawing into a portrait source and cropping would cut off faces.
+        portrait = height > width
         image = cartoon2d._draw_story_scene(
             0.45, str(plan.get("planet") or "Novo planeta"),
             str(plan.get("biome") or ""),
@@ -257,7 +259,7 @@ def _video_from_scenes(
         if j % max_panels == 0:
             previous_on_page = []
         art, sketch = artwork_for_scene(
-            plan, index, fmt, w, h, j+1, len(indices), workdir=workdir,
+            plan, index, fmt, 1280, 720, j+1, len(indices), workdir=workdir,
         )
         paper_page, panel_rect = comic_panels.comic_page(
             previous_on_page + [art], (w,h), title, portrait,
