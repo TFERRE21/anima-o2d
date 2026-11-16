@@ -348,7 +348,7 @@ def get_episode_art_board(job_id: str):
         )
         hand_ready = False
         try:
-            hand_ready = comic_panels.hand_asset() is not None
+            hand_ready = bool(comic_panels.real_hand_video() or comic_panels.hand_asset())
         except (OSError, ValueError):
             hand_ready = False
         return {
