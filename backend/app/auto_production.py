@@ -150,6 +150,36 @@ def _process_job(job_id: str) -> None:
     job = main._get_job(job_id)
     if not job.get("auto_production_requested") or not job.get("story_approved"):
         return
+    # Reuse previously approved stories blocked by obsolete ComfyUI GPU OOM.
+    # The 2D production engine no longer waits for image tasks or Blender.
+    from backend.app.engines.registry import selected_render_engine
+    if selected_render_engine() == "2d":
+        if job.get("status") not in {"story_ready", "failed"}:
+            return
+        # Do not keep restarting a genuinely failed 2D render indefinitely.
+        if job.get("status") == "failed" and job.get("stage") == "render_error" and job.get("production_engine") == "2d":
+            return
+        if job.get("stage") == "interrupted" and int(job.get("auto_video_recovery_count", 0)) >= 1:
+            return
+        if not main._has("ffmpeg") or not main._has("tts"):
+            if job.get("art_stage") != "waiting_video_engine":
+                main._update(job_id, art_stage="waiting_video_engine",
+                             message="Aguardando FFmpeg e voz narradora para desenho 2D.")
+            return
+        if job.get("stage") == "interrupted":
+            main._update(job_id,
+                         auto_video_recovery_count=int(job.get("auto_video_recovery_count", 0))+1)
+        try:
+            main.render_story(job_id, main.RenderRequest(formats=job.get("formats") or ["9:16"]))
+        except HTTPException as exc:
+            main._update(job_id, art_stage="waiting_video_engine",
+                         message="Motor 2D indisponível: " + str(exc.detail)[:300])
+            return
+        main._update(job_id, production_engine="2d", art_stage="drawing",
+                     art_error=None,
+                     message="Roteiro anterior recuperado. Narradora e desenhos 2D iniciados na VPS.")
+        print("[narrated2d] resumed approved story", job_id, flush=True)
+        return
     if job.get("status") in {"queued", "processing", "done"}:
         return
     if job.get("status") not in {"story_ready", "failed"}:
