@@ -1,96 +1,88 @@
-"""Integration tests for inline approval and automatic image queue (offline-safe)."""
+"""One-click story approval and status tests for the new narrated 2D engine."""
 from __future__ import annotations
+
 import os
-import queue
 import tempfile
 import unittest
 from pathlib import Path
 from unittest import mock
 
-# Importing FastAPI main initializes its persistent store. Keep CI isolated
-# from the VPS-only /data volume, which is not writable on GitHub Actions.
-os.environ.setdefault("ANIMA_STORAGE", str(Path(tempfile.gettempdir()) / "anima-studio-ci-jobs"))
-from backend.app import comfy_worker, main
+os.environ.setdefault("ANIMA_STORAGE", str(Path(tempfile.gettempdir()) / "anima-studio-2d-ci-jobs"))
+from backend.app import main
 
 
 class UnifiedStudioTests(unittest.TestCase):
     def setUp(self):
-        self.temp = tempfile.TemporaryDirectory()
-        self.storage = Path(self.temp.name)
+        self.tmp = tempfile.TemporaryDirectory()
         self.job_id = "c0ffeec0ffee"
-        self.story = {
-            "planet": "Aurora-7", "biome": "floresta estelar",
-            "scenes": [
-                {"title": "Chegada", "visual_action": "A equipe chega ao planeta."},
-                {"title": "Trilha", "visual_action": "Pipo encontra pistas."},
-            ],
-            "short_scene_indices": [0],
+        self.job = {
+            "id": self.job_id, "status": "story_ready",
+            "story_approved": False,
+            "story_plan": {
+                "planet": "Aurora-7", "palette": "aurora",
+                "scenes": [
+                    {"title": "Chegada", "visual_action": "Amigos chegam ao planeta."},
+                    {"title": "Trilha", "visual_action": "Pipo encontra uma pista."},
+                ],
+                "short_scene_indices": [0],
+            },
+            "formats": ["16:9", "9:16"],
         }
-        self.job = {"id": self.job_id, "status": "story_ready",
-                    "story_plan": self.story, "formats": ["16:9", "9:16"]}
-        self.overrides = [
-            mock.patch.object(main, "STORAGE", self.storage),
+        self.calls = []
+        def update(_id, **kwargs):
+            self.job.update(kwargs)
+        def start(_id, payload):
+            self.calls.append((_id, payload.formats))
+            self.job["status"] = "queued"
+            return {"status": "queued", "job_id": _id}
+        self.patchers = [
+            mock.patch.object(main, "STORAGE", Path(self.tmp.name)),
             mock.patch.object(main, "_get_job", return_value=self.job),
-            mock.patch.object(main, "_update"),
-            mock.patch.object(comfy_worker, "_tasks", {}),
-            mock.patch.object(comfy_worker, "_queue", queue.Queue()),
-            mock.patch.object(comfy_worker, "_store", self.storage / "comfyui" / "task-state.json"),
-            mock.patch.object(comfy_worker, "_workers", {}),
+            mock.patch.object(main, "_update", side_effect=update),
+            mock.patch.object(main, "render_story", side_effect=start),
         ]
-        for patch in self.overrides:
-            patch.start()
+        for item in self.patchers:
+            item.start()
 
     def tearDown(self):
-        for patch in reversed(self.overrides):
+        for patch in reversed(self.patchers):
             patch.stop()
-        self.temp.cleanup()
+        self.tmp.cleanup()
 
-    def test_approve_queues_every_new_planet_art_without_connected_gpu(self):
-        output = main.approve_story_generate_images(self.job_id)
-        self.assertFalse(output["worker_connected"])
-        self.assertEqual(output["queued"], 6)  # three fixed protagonists + 2 wide + 1 short
-        self.assertEqual(len(comfy_worker._tasks), 6)
-        # Offline images remain safely on disk, not sent to a non-existent
-        # local worker queue. The image router resumes them on connection.
-        self.assertEqual(comfy_worker._queue.qsize(), 0)
-        self.assertTrue(all(t["provider"] == "unavailable" for t in comfy_worker._tasks.values()))
-        self.assertTrue(comfy_worker._store.exists())
-        self.assertEqual(sum(1 for task in comfy_worker._tasks.values()
-                             if task["asset_id"] == "luna"), 1)
-        # A duplicate approval does not duplicate tasks or overwrite character images.
-        second = main.approve_story_generate_images(self.job_id)
-        self.assertEqual(second["queued"], 0)
-        self.assertEqual(len(comfy_worker._tasks), 6)
+    def test_approval_starts_narrated_2d_without_images_or_gpu(self):
+        result = main.approve_story_generate_images(self.job_id)
+        self.assertEqual(result["production_engine"], "2d")
+        self.assertFalse(result["gpu_required"])
+        self.assertEqual(result["status"], "queued")
+        self.assertEqual(self.calls, [(self.job_id, ["16:9", "9:16"])])
+        self.assertTrue(self.job["story_approved"])
+        self.assertEqual(self.job["art_stage"], "drawing")
 
-    def test_jobs_get_inline_status_even_with_offline_worker(self):
-        main.approve_story_generate_images(self.job_id)
+    def test_board_returns_cpu_progress_instead_of_image_queue(self):
+        self.job.update(story_approved=True, auto_production_requested=True,
+                        status="processing", art_stage="drawing", progress=47,
+                        drawing_scenes_finished=7)
         board = main.get_episode_art_board(self.job_id)
-        self.assertEqual(board["formats"], ["16:9", "9:16"])
-        self.assertEqual(len(board["tasks"]), 6)
-        self.assertFalse(board["ready"])
-        self.assertFalse(board["worker_connected"])
+        self.assertEqual(board["production_engine"], "2d")
+        self.assertEqual(board["video_progress"], 47)
+        self.assertEqual(board["approved_artworks"], 7)
+        self.assertEqual(board["total_artworks"], 2)
+        self.assertEqual(board["tasks"], [])
+        self.assertEqual(board["image_engine"]["provider"], "cpu-2d")
 
-    def test_official_cast_generation_is_visible_from_a_second_planet(self):
-        from backend.app.art_director import create_art_plan
-        main.approve_story_generate_images(self.job_id)
-        identity = create_art_plan(self.story)["identity_lock"]
-        second_job_id = "ca11ab1eca11"
-        shared = comfy_worker.art_tasks(second_job_id, identity)
-        self.assertEqual({t["asset_id"] for t in shared}, {"luna", "tomi", "pipo"})
-        luna = next(t for t in shared if t["asset_id"] == "luna")
-        candidate = comfy_worker.get_art_task(luna["id"], second_job_id, identity)
-        self.assertEqual(candidate["asset_id"], "luna")
-        # A different planet must not enqueue a second character design.
-        self.job["id"] = second_job_id
-        main.approve_story_generate_images(second_job_id)
-        self.assertEqual(sum(t["asset_id"] == "luna"
-                             for t in comfy_worker._tasks.values()), 1)
+    def test_old_gpu_error_story_is_reusable(self):
+        self.job.update(status="story_ready", story_approved=True,
+                        art_stage="error", art_error="CUDA error: out of memory")
+        result = main.approve_story_generate_images(self.job_id)
+        self.assertEqual(result["status"], "queued")
+        self.assertIsNone(self.job["art_error"])
+        self.assertEqual(len(self.calls), 1)
 
-    def test_render_is_blocked_before_approval_and_art_is_ready(self):
-        with self.assertRaises(main.HTTPException) as ctx:
-            main.render_story(self.job_id, main.RenderRequest(formats=["9:16"]))
-        self.assertIn(ctx.exception.status_code, (409, 503))
-        self.assertEqual(comfy_worker._queue.qsize(), 0)
+    def test_no_second_approval_during_render(self):
+        self.job["status"] = "processing"
+        with self.assertRaises(main.HTTPException) as ex:
+            main.approve_story_generate_images(self.job_id)
+        self.assertEqual(ex.exception.status_code, 409)
 
 
 if __name__ == "__main__":
