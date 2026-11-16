@@ -340,9 +340,24 @@ def get_episode_art_board(job_id: str):
     from backend.app.image_provider import engine_state
     job = _get_job(job_id)
     if selected_render_engine() == "2d":
+        from backend.app import comic_panels
         count = len((job.get("story_plan") or {}).get("scenes") or [])
+        curated = sum(
+            comic_panels.scene_art_path(STORAGE / job_id, i) is not None
+            for i in range(count)
+        )
+        hand_ready = False
+        try:
+            hand_ready = comic_panels.hand_asset() is not None
+        except (OSError, ValueError):
+            hand_ready = False
         return {
             "job_id": job_id, "production_engine": "2d", "gpu_required": False,
+            "comic_layout": "sequential-panels",
+            "curated_artworks": curated, "required_artworks": count,
+            "real_hand_ready": hand_ready,
+            "visual_quality": ("curated" if curated >= count and count > 0
+                               else "procedural-fallback"),
             "story_approved": bool(job.get("story_approved")),
             "auto_production": bool(job.get("auto_production_requested")),
             "formats": job.get("formats") or ["9:16"], "formats_status": {},
