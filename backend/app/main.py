@@ -28,7 +28,7 @@ STORAGE = Path(os.getenv("ANIMA_STORAGE", "/data/jobs"))
 STORAGE.mkdir(parents=True, exist_ok=True)
 
 class Settings(BaseSettings):
-    app_name: str = "Anima Studio Cartoon 3D"
+    app_name: str = "Anima Studio 2D — Histórias Desenhadas"
     youtube_client_id: str = ""
     youtube_client_secret: str = ""
     youtube_redirect_uri: str = "https://animacao2d.vps11710.panel.icontainer.work/api/youtube/callback"
@@ -41,7 +41,7 @@ app.include_router(comfy_router)
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=False, allow_methods=["*"], allow_headers=["*"])
 
 
-# Runtime de produção: Blender 3D + FFmpeg; o renderizador 2D antigo não participa de episódios.
+# Produção principal: ilustrações 2D, voz narradora e revelação progressiva na CPU da VPS.
 
 class GenerateRequest(BaseModel):
     title: str = Field(min_length=2, max_length=140)
@@ -82,67 +82,67 @@ def _studio_settings():
         return DEFAULT_STUDIO_SETTINGS.copy()
 
 @app.post("/api/2d/preview")
-def disabled_2d_preview():
-    raise HTTPException(410, "O renderizador 2D foi desativado. O estúdio agora produz exclusivamente Cartoon 3D infantil.")
+def preview_2d_status():
+    return {"ready": _has("ffmpeg") and _has("tts"),
+            "engine": "narrated-draw-2d",
+            "detail": "Aprovar o roteiro inicia o desenho progressivo e a narração."}
 
 
 @app.get("/api/2d/preview/{filename}")
-def disabled_2d_preview_file(filename: str):
-    raise HTTPException(410, "Prévia 2D desativada. Gere uma nova cena no motor Cartoon 3D.")
+def old_preview_2d_file(filename: str):
+    raise HTTPException(404, "Prévia disponível em /api/jobs/{id}/preview/{fmt} durante a renderização.")
 
 
 @app.get("/api/health")
 def health():
+    ready = bool(_has("ffmpeg") and _has("tts") and os.access(STORAGE, os.W_OK))
     return {
-        "status": "ready" if blender_available() else "degraded", "app": settings.app_name, "version": "1.0.0",
-        "runtime": "cartoon-3d-production",
+        "status": "ready" if ready else "degraded",
+        "app": settings.app_name, "version": "2.0.0",
+        "runtime": "narrated-draw-2d-cpu",
         "container_runtime": "docker" if Path("/.dockerenv").exists() else "unknown",
-        "python_version": sys.version.split()[0], "port": int(os.getenv("PORT", "5000")),
+        "python_version": sys.version.split()[0],
+        "port": int(os.getenv("PORT", "5000")),
         "ffmpeg": _has("ffmpeg"), "tts": _has("tts"),
         "storage_writable": os.access(STORAGE, os.W_OK),
-        "render_engine": "anima-cartoon-3d",
-        "art_version": "illustration-first-v1",
-        "art_pipeline": "approved-illustrations-and-blender-cycles-cpu",
-        "blender_bootstrap": blender_bootstrap_status(),
+        "render_engine": "narrated-draw-2d",
+        "art_version": "storybook-narrated-draw-2d-v1",
+        "art_pipeline": "narrator-and-progressive-pencil-watercolor",
+        "gpu_required": False, "blender_required": False,
     }
 
 
 @app.get("/api/health/2d")
-def legacy_health_2d():
-    raise HTTPException(410, "Motor 2D desativado. Utilize o motor Cartoon 3D.")
+def health_2d():
+    if not _has("ffmpeg") or not _has("tts"):
+        raise HTTPException(503, "Motor de desenho 2D requer FFmpeg e narradora TTS.")
+    return {"status": "ready", "engine": "narrated-draw-2d",
+            "gpu_required": False, "blender_required": False,
+            "formats": ["1920x1080", "1080x1920"]}
 
 
 @app.get("/api/health/3d")
-def health_3d():
-    runtime = find_blender_runtime()
-    if not _has("ffmpeg") or not _has("tts") or not os.access(STORAGE, os.W_OK) or not runtime:
-        raise HTTPException(503, {"reason": "Motor Cartoon 3D indisponível.",
-                                  "blender_bootstrap": blender_bootstrap_status(),
-                                  "ffmpeg": _has("ffmpeg"), "tts": _has("tts"),
-                                  "storage_writable": os.access(STORAGE, os.W_OK)})
-    return {"status":"ready","engine":"anima-cartoon-3d","backend":runtime["backend"],
-            "blender":runtime.get("version") or runtime.get("executable"),"fps":24,
-            "formats":["1920x1080","1080x1920"],"audio":True}
+def legacy_health_3d():
+    raise HTTPException(410, "Produção 3D desativada. O estúdio agora desenha histórias em 2D.")
 
 
 @app.get("/api/diagnostics")
 def diagnostics():
     from shutil import which
     return {
-        "ok": bool(_has("ffmpeg") and _has("tts") and blender_available() and os.access(STORAGE, os.W_OK)),
+        "ok": bool(_has("ffmpeg") and _has("tts") and os.access(STORAGE, os.W_OK)),
         "container_runtime": "docker" if Path("/.dockerenv").exists() else "unknown",
         "python_version": sys.version.split()[0],
-        "working_directory": str(Path.cwd()),
-        "app_file": str(Path(__file__).resolve()),
-        "render_engine": "anima-cartoon-3d",
+        "render_engine": "narrated-draw-2d",
         "selected_engine": selected_render_engine(),
-        "ffmpeg_available": _has("ffmpeg"), "ffmpeg_path": which("ffmpeg"),
+        "ffmpeg_available": _has("ffmpeg"),
+        "ffmpeg_path": which("ffmpeg"),
         "tts_available": _has("tts"),
         "storage_path": str(STORAGE.resolve()),
         "storage_writable": os.access(STORAGE, os.W_OK),
-        "blender_required": True, "blender_available": blender_available(), "bpy_required": False,
-        "blender_bootstrap": blender_bootstrap_status(),
-        "gpu_rendering": "Blender Eevee; CPU no servidor por padrão. GPU somente após configuração e validação do dispositivo.",
+        "blender_required": False,
+        "gpu_required": False,
+        "image_api_required": False,
     }
 
 
@@ -154,10 +154,12 @@ def config():
             {"id": "9:16", "width": 1080, "height": 1920, "label": "YouTube Shorts"},
         ],
         "youtube_oauth_configured": bool(settings.youtube_client_id and settings.youtube_client_secret),
-        "generation_enabled": _has("ffmpeg") and _has("tts") and blender_available(),
-        "media": {"ffmpeg": _has("ffmpeg"), "tts": _has("tts"), "blender_3d": blender_available()},
-        "engine": "Anima Studio — Cartoon 3D infantil",
+        "generation_enabled": _has("ffmpeg") and _has("tts") and os.access(STORAGE, os.W_OK),
+        "media": {"ffmpeg": _has("ffmpeg"), "tts": _has("tts"),
+                  "blender_3d": False, "gpu_required": False},
+        "engine": "Anima Studio 2D — narradora desenha as cenas",
     }
+
 
 @app.post("/api/stories/generate", status_code=201)
 def generate_story(payload: StoryRequest):
@@ -184,6 +186,7 @@ def generate_story(payload: StoryRequest):
     job_id = uuid.uuid4().hex[:12]
     job = {
         "id": job_id, "title": plan["title"], "status": "story_ready", "stage": "story_written",
+        "production_engine": "2d",
         "progress": 5, "message": "História original criada. Revise o roteiro antes de renderizar.",
         "formats": payload.formats, "outputs": {},
         "created_at": datetime.now(timezone.utc).isoformat(),
@@ -298,34 +301,35 @@ def _queue_art_for_episode(job_id: str, formats: list[str],
 
 @app.post("/api/jobs/{job_id}/story/approve", status_code=202)
 def approve_story_generate_images(job_id: str):
-    """Approve script and automatically queue cast (if missing) and all new planets."""
-    from backend.app import comfy_worker
-    from backend.app.image_provider import engine_state
+    """One click approves the story and starts GPU-free 2D narrated production."""
     job = _get_job(job_id)
     if job.get("status") not in {"story_ready", "failed"}:
-        raise HTTPException(409, "Só é possível aprovar roteiros ainda não renderizados.")
+        raise HTTPException(409, "O episódio já está em produção ou foi finalizado.")
+    if not job.get("story_plan"):
+        raise HTTPException(409, "Crie primeiro uma história.")
     formats = job.get("formats") or ["9:16"]
-    art_queue = _queue_art_for_episode(job_id, formats)
-    _update(job_id, story_approved=True, auto_production_requested=True,
-            art_stage="queued", art_error=None,
-            art_started_at=datetime.now(timezone.utc).isoformat(),
-            message=("Roteiro aprovado. Motor de imagens preparando personagens e "
-                     "cenários; a montagem do vídeo começará automaticamente."))
-    from backend.app.auto_production import notify
-    notify()
-    state = engine_state()
-    return {"job_id": job_id, "status": "art_generation",
-            "worker_connected": state["ready"], "image_engine": state,
-            "queued": len(art_queue), "tasks": art_queue,
-            "message": ("Motor de imagens iniciado: " + state["provider"]
-                        if state["ready"] else "Roteiro aprovado; " + state["detail"])}
+    _update(
+        job_id, story_approved=True, auto_production_requested=True,
+        production_engine="2d", art_stage="drawing",
+        art_error=None, auto_video_started=False,
+        message="Roteiro aprovado. Narradora preparando a história e os desenhos 2D.",
+    )
+    started = render_story(job_id, RenderRequest(formats=formats))
+    return {
+        "job_id": job_id, "status": started["status"],
+        "production_engine": "2d", "gpu_required": False,
+        "message": "Narração e desenho 2D iniciados automaticamente na VPS.",
+    }
 
 
 @app.get("/api/image-engine/status")
 def image_engine_status():
-    """Public readiness without disclosing provider keys or secret values."""
-    from backend.app.image_provider import engine_state
-    return engine_state()
+    """The new production renderer requires no image API or GPU worker."""
+    return {
+        "provider": "cpu-2d", "ready": _has("ffmpeg") and _has("tts"),
+        "gpu_required": False, "blender_required": False,
+        "detail": "Ilustrações 2D produzidas na VPS com Pillow, FFmpeg e voz narradora.",
+    }
 
 
 @app.get("/api/jobs/{job_id}/art/board")
@@ -335,6 +339,22 @@ def get_episode_art_board(job_id: str):
     from backend.app.art_assets import CAST_IDS
     from backend.app.image_provider import engine_state
     job = _get_job(job_id)
+    if selected_render_engine() == "2d":
+        count = len((job.get("story_plan") or {}).get("scenes") or [])
+        return {
+            "job_id": job_id, "production_engine": "2d", "gpu_required": False,
+            "story_approved": bool(job.get("story_approved")),
+            "auto_production": bool(job.get("auto_production_requested")),
+            "formats": job.get("formats") or ["9:16"], "formats_status": {},
+            "image_engine": {"provider": "cpu-2d", "ready": True},
+            "ready": job.get("status") == "done", "tasks": [],
+            "total_artworks": count, "approved_artworks": int(job.get("drawing_scenes_finished") or 0),
+            "art_stage": job.get("art_stage") or "not_started",
+            "video_status": job.get("status"), "video_stage": job.get("stage"),
+            "video_progress": job.get("progress", 0),
+            "video_error": job.get("error"),
+            "message": job.get("message", ""),
+        }
     formats = job.get("formats") or ["9:16"]
     boards = {fmt: get_episode_art_status(job_id, fmt) for fmt in formats}
     missing = sum(len(x["missing"]) for x in boards.values())
@@ -464,33 +484,18 @@ def render_story(job_id: str, payload: RenderRequest):
     if job.get("status") not in {"story_ready", "failed"}:
         raise HTTPException(409, "O episódio já está em renderização ou foi finalizado.")
     if not job.get("story_approved"):
-        raise HTTPException(409, "Aprove o roteiro primeiro. As imagens serão geradas automaticamente abaixo do texto.")
+        raise HTTPException(409, "Aprove o roteiro primeiro para iniciar narração e desenho 2D.")
     formats = payload.formats or job.get("formats", ["16:9", "9:16"])
     if not formats or any(x not in {"16:9", "9:16"} for x in formats):
         raise HTTPException(400, "Formatos inválidos.")
     if not _has("ffmpeg") or not _has("tts"):
         raise HTTPException(503, "Motor de mídia incompleto. É necessário FFmpeg e voz (espeak-ng ou edge-tts).")
-    missing_art = {fmt: get_episode_art_status(job_id, fmt)["missing"] for fmt in formats}
-    missing_art = {fmt: missing for fmt, missing in missing_art.items() if missing}
-    if missing_art:
-        raise HTTPException(409, {
-            "reason": "Antes de animar, gere e aprove as imagens dos personagens e cenários. O motor antigo está bloqueado.",
-            "missing_art": missing_art,
-            "art_studio": "/ai-studio.html",
-        })
-    # Produção apenas com imagens aprovadas; o Blender não desenha bonecos.
-    selected_engine = selected_render_engine()
-    if selected_engine != "3d" or not blender_available():
-        state = blender_bootstrap_status()
-        if state["state"] in {"starting", "installing"}:
-            explanation = "Blender está sendo instalado automaticamente neste container. Confira /api/diagnostics antes de tentar novamente."
-        elif state["state"] == "failed":
-            explanation = "Falha ao instalar o Blender neste container: " + str(state.get("error") or state["detail"])
-        else:
-            explanation = "Blender indisponível dentro do container. Confira /api/diagnostics e a configuração de inicialização no iContainer."
-        raise HTTPException(503, explanation)
+    if selected_render_engine() != "2d":
+        raise HTTPException(503, "Motor principal configurado incorretamente: use desenho narrado 2D.")
+    # No artwork approval gate, remote GPU, image credits or Blender.
     _update(job_id, status="queued", stage="render_queued", progress=8,
-            message="Roteiro aprovado. Preparando cenas e narração.", formats=formats,
+            message="Roteiro aprovado. Preparando narração e desenhos 2D na VPS.",
+            production_engine="2d", art_stage="drawing", formats=formats,
             review_status="pending_review", outputs={}, error=None)
     render_payload = GenerateRequest(title=job["title"], story=job["story"],
                                      formats=formats, episode="planet-journey",
@@ -674,19 +679,15 @@ def _recover_interrupted_jobs():
 
 @app.on_event("startup")
 def start_studio_scheduler():
-    start_blender_bootstrap()
     _recover_interrupted_jobs()
     _refresh_scheduler()
     from backend.app.auto_production import start
-    from backend.app.image_provider import start as start_image_engine
     start()
-    start_image_engine()
+    # No ComfyUI/image-API worker is started for the default 2D workflow.
 
 @app.on_event("shutdown")
 def stop_studio_scheduler():
     from backend.app.auto_production import stop
-    from backend.app.image_provider import stop as stop_image_engine
-    stop_image_engine()
     stop()
     if scheduler:
         scheduler.shutdown(wait=False)
@@ -914,8 +915,11 @@ def _run_job(job_id: str, payload: GenerateRequest):
             def report(local_progress: int, message: str):
                 overall = min(99, int((index * 100 + max(0, min(100, local_progress))) / total_formats))
                 previous = int(_get_job(job_id).get("progress", 0))
+                import re
+                match = re.search(r"cena (\d+)/(\d+)", message)
+                values = {"drawing_scenes_finished": int(match.group(1))} if match else {}
                 _update(job_id, status="processing", stage=stage,
-                        progress=max(previous, overall), message=message)
+                        progress=max(previous, overall), message=message, **values)
 
             metadata = render_episode(
                 payload.title, payload.story, fmt, output, STORAGE / job_id,
@@ -931,7 +935,8 @@ def _run_job(job_id: str, payload: GenerateRequest):
                     progress=int((index + 1) * 100 / total_formats),
                     message=f"Versão {fmt} pronta ({metadata.get('duration_seconds', 0):.0f} segundos).")
         _update(job_id, status="done", stage="ready_for_review", progress=100,
-                message="Episódio completo: roteiro, vozes, animação e narrações renderizados.")
+                art_stage="done", art_error=None,
+                message="Episódio 2D finalizado: narradora, ilustrações desenhadas e vídeo prontos.")
     except Exception as exc:
         _update(job_id, status="failed", stage="render_error", error=str(exc),
                 message=f"Falha na renderização: {exc}")
