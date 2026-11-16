@@ -132,18 +132,17 @@ def _scene_background(size: tuple[int,int], scene_index: int, planet: str,
 def draw_official_scene(scene_index: int, planet: str, action: str,
                         width: int = 1280, height: int = 720) -> Image.Image:
     path = model_path()
-    if not path.is_file():
-        # The image sheet is an optional visual upgrade, not a user setup gate.
-        # Production always works on the self-contained CPU renderer.
-        from backend.app import cartoon2d
-        return cartoon2d._draw_story_scene(
-            0.45, planet, "", "aurora", scene_index, action, False, ""
-        ).convert("RGB").resize((width, height), Image.Resampling.LANCZOS)
-    with Image.open(path) as source:
-        source.load()
-        if source.width < 800 or source.height < 1000:
-            raise ValueError("A prancha oficial deve ter pelo menos 800x1000 pixels.")
-        sprites = {name:_character_from_sheet(source,name) for name in CAST}
+    if path.is_file():
+        with Image.open(path) as source:
+            source.load()
+            if source.width < 800 or source.height < 1000:
+                raise ValueError("A prancha oficial deve ter pelo menos 800x1000 pixels.")
+            sprites = {name:_character_from_sheet(source,name) for name in CAST}
+    else:
+        # Automatically use the exact approved reference contours bundled
+        # with the application. NEVER invoke the old crude cartoon renderer.
+        from backend.app.approved_cast_embedded import character_sprite
+        sprites = {name: character_sprite(name) for name in CAST}
     scene = _scene_background((width,height),scene_index,planet,action)
     page = scene.convert("RGBA")
     # Cast remains exactly the same from one panel to the next.
