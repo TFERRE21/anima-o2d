@@ -53,12 +53,13 @@ function statusText(value){
   btn.textContent=done?'✓ Vídeo 2D concluído':
     running?'✓ Produzindo automaticamente em 2D':
     approved?'▶ Produzir esta história em 2D':'✓ Aprovar roteiro e produzir vídeo 2D';
-  if((running||done||failed)&&watching!==episode){
+  if(running && watching!==episode){
     watching=episode;
     const card=el('activeJobCard');
     if(card)card.style.display='block';
     if(typeof watchJob==='function')watchJob(episode);
   }
+  if(!running && watching===episode && (done||failed))watching=null;
 }
 async function refresh(){
   if(!episode||busy||el('storyPreview').style.display==='none')return;
