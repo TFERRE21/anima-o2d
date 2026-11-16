@@ -115,6 +115,27 @@ def hand_asset() -> Path | None:
     return path
 
 
+def real_hand_video() -> Path | None:
+    """Optional real filming of a hand drawing against a green-screen backdrop.
+
+    Video should have consistent lighting, no copyrighted branding, and a
+    saturated green screen (#00ff00) for the CPU FFmpeg chromakey pipeline.
+    The same clip can be reused across the whole series.
+    """
+    raw=os.getenv("ANIMA_REAL_HAND_VIDEO","").strip()
+    if not raw:
+        return None
+    path=Path(raw)
+    if not path.is_file() or path.suffix.lower() not in {".mp4",".mov",".webm"}:
+        raise FileNotFoundError(
+            "Filmagem da mão real não encontrada em ANIMA_REAL_HAND_VIDEO. "
+            "Forneça MP4/MOV/WebM gravado com fundo verde."
+        )
+    if path.stat().st_size < 1024:
+        raise ValueError("Filmagem da mão não contém dados suficientes.")
+    return path
+
+
 def scene_art_path(workdir: Path, scene_index: int) -> Path | None:
     """Optional one-time curated illustration library for each episode.
 
