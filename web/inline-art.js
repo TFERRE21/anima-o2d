@@ -61,12 +61,41 @@ function statusText(value){
   }
   if(!running && watching===episode && (done||failed))watching=null;
 }
+async function refreshLivePreview(value){
+  const area=el('inlineLiveArea'),image=el('inlineLiveImage');
+  const placeholder=el('inlineLivePlaceholder'),badge=el('inlineLiveState');
+  const frame=el('inlineLiveFrame'),caption=el('inlineLiveCaption');
+  if(!area||!image||!episode)return;
+  const running=['queued','processing'].includes(value.video_status);
+  const done=value.video_status==='done';
+  area.style.display=(running||done)?'block':'none';
+  if(!running&&!done)return;
+  const fmt=value.video_stage==='rendering_short'||(value.formats||[]).length===1&&value.formats[0]==='9:16'?'9:16':'16:9';
+  frame.style.aspectRatio=fmt==='9:16'?'9 / 16':'16 / 9';
+  badge.textContent=done?'VÍDEO CONCLUÍDO':value.video_stage==='rendering_short'?'SHORTS 2D':'DESENHO AO VIVO';
+  try{
+    const state=await json(endpoint()+'/render-status');
+    if(state.preview_ready){
+      const url=endpoint()+'/preview/'+encodeURIComponent(state.format||fmt)+'?t='+Date.now();
+      image.onload=()=>{image.style.display='block';placeholder.style.display='none';};
+      image.onerror=()=>{image.style.display='none';placeholder.style.display='block';};
+      image.src=url;
+      caption.textContent=(state.message||'')+' · Atualização do quadro produzido pela VPS.';
+    }else{
+      image.style.display='none';placeholder.style.display='block';
+      placeholder.textContent='Preparando a voz ou o primeiro quadrinho. O desenho aparecerá aqui quando o renderizador começar.';
+      caption.textContent=state.message||'Preparando renderização 2D.';
+    }
+  }catch(error){
+    caption.textContent='Prévia indisponível: '+error.message;
+  }
+}
 async function refresh(){
   if(!episode||busy||el('storyPreview').style.display==='none')return;
   busy=true;
   try{
     const state=await json(endpoint()+'/art/board');
-    if(state.job_id===episode)statusText(state);
+    if(state.job_id===episode){statusText(state);await refreshLivePreview(state);}
   }catch(error){
     el('inlineArtStatus').textContent='Não foi possível acompanhar a produção: '+error.message;
   }finally{busy=false}
@@ -119,7 +148,7 @@ window.prepareInlineArt=async id=>{
   if(id!==episode)stop();
   episode=id;
   await refresh();
-  if(!poll)poll=setInterval(refresh,5000);
+  if(!poll)poll=setInterval(refresh,2500);
 };
 window.startInlineArt=async id=>{
   if(!id)return;
