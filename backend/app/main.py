@@ -822,6 +822,22 @@ def job_render_status(job_id: str):
             log_age_seconds = round(max(0, time.time() - log_file.stat().st_mtime), 1)
         except OSError:
             pass
+    clips_dir = folder / f"draw2d-{key}"
+    # Only completed scenes are playable; the in-progress clip is written
+    # by FFmpeg and must not be offered until its header is finalized.
+    finished = []
+    if clips_dir.is_dir():
+        for clip in clips_dir.glob("scene-*.mp4"):
+            try:
+                number = int(clip.stem.split("-")[-1])
+            except ValueError:
+                continue
+            if clip.is_file() and clip.stat().st_size > 1000 and (
+                job.get("status") == "done"
+                or number < int(job.get("drawing_scenes_finished") or 0)
+            ):
+                finished.append(number)
+    latest_clip = max(finished) if finished else None
     ready = preview_file.is_file()
     phase = ("completed" if job.get("status") == "done" else
              "failed" if job.get("status") == "failed" else
@@ -831,10 +847,29 @@ def job_render_status(job_id: str):
         "job_id": job_id, "status": job.get("status"), "phase": phase,
         "format": fmt, "progress": job.get("progress", 0),
         "frames_generated": count, "preview_ready": ready,
+        "live_scene_number": latest_clip,
+        "live_scene_ready": latest_clip is not None,
         "last_renderer_output_age_seconds": log_age_seconds,
         "recent_renderer_events": messages,
         "message": job.get("message", ""),
     }
+
+
+@app.get("/api/jobs/{job_id}/live-scene/{fmt}/{scene_no}")
+def live_animated_scene(job_id: str, fmt: str, scene_no: int):
+    """Stream the real completed scene while the next comic panel is rendered."""
+    job = _get_job(job_id)
+    if fmt not in {"16:9", "9:16"}:
+        raise HTTPException(400, "Formato inválido.")
+    if scene_no < 0 or scene_no > 200:
+        raise HTTPException(400, "Número da cena inválido.")
+    if job.get("status") not in {"queued", "processing", "done", "failed"}:
+        raise HTTPException(404, "Produção ainda não iniciada.")
+    clip = STORAGE / job_id / ("draw2d-" + fmt.replace(":", "x")) / f"scene-{scene_no:02d}.mp4"
+    if not clip.is_file() or clip.stat().st_size < 1000:
+        raise HTTPException(404, "Cena ainda está sendo renderizada.")
+    return FileResponse(clip, media_type="video/mp4",
+                        headers={"Cache-Control":"no-store, max-age=0", "Accept-Ranges":"bytes"})
 
 
 @app.get("/api/jobs/{job_id}/art-plan")
