@@ -1,185 +1,82 @@
-"""Automated image-to-video pipeline regression tests.
-
-Tests use generated TEST shapes as input files; production has no placeholder
-image fallback. The server only accepts real image-worker outputs.
-"""
+"""CPU-only story approval and interrupted-job production regression tests."""
 from __future__ import annotations
 
-import io
 import os
-import queue
 import tempfile
 import unittest
 from pathlib import Path
 from unittest import mock
 
-from PIL import Image, ImageDraw
-
-os.environ.setdefault("ANIMA_STORAGE", str(Path(tempfile.gettempdir()) / "anima-studio-auto-ci"))
-from backend.app import auto_production, comfy_worker, main
-
-
-def sample_png(width, height, transparent=False):
-    canvas = Image.new("RGBA", (width, height),
-                       (255, 255, 255, 255) if transparent else (111, 182, 205, 255))
-    if transparent:
-        ImageDraw.Draw(canvas).ellipse((width//4, height//5, 3*width//4, 4*height//5),
-                                      fill=(185, 86, 121, 255))
-    stream = io.BytesIO()
-    canvas.save(stream, format="PNG")
-    return stream.getvalue()
+os.environ.setdefault("ANIMA_STORAGE", str(Path(tempfile.gettempdir()) / "anima-story-2d-ci"))
+from backend.app import auto_production, main
 
 
 class AutomaticEpisodeTests(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
-        self.storage = Path(self.tmp.name)
         self.id = "abc123abc123"
         self.job = {
             "id": self.id, "status": "story_ready", "story_approved": True,
-            "auto_production_requested": True, "art_stage": "queued",
-            "story_plan": {
-                "planet": "Aurora-7", "biome": "jardim",
-                "scenes": [{"title": "Encontro", "visual_action": "Os amigos exploram."}],
-                "short_scene_indices": [0],
-            },
-            "formats": ["9:16"], "title": "Uma aventura", "story": "Uma aventura linda.",
+            "auto_production_requested": True, "art_stage": "error",
+            "art_error": "Nó 5 (KSampler): CUDA error: out of memory",
+            "story_plan": {"planet": "Aurora-7", "palette": "aurora",
+                           "scenes": [{"title": "A chegada", "visual_action": "Os amigos exploram."}],
+                           "short_scene_indices": [0]},
+            "formats": ["9:16"], "title": "A nova aventura",
+            "story": "Luna, Tomi e Pipo ajudam o planeta.",
             "planet": "Aurora-7",
         }
-        self.renders = []
-        def fake_update(_id, **fields):
-            self.job.update(fields)
-        def fake_render(_id, payload):
-            self.renders.append((_id, payload.formats))
+        self.started = []
+        def update(_id, **kwargs):
+            self.job.update(kwargs)
+        def start(_id, request):
+            self.started.append((_id, request.formats))
             self.job["status"] = "queued"
             return {"job_id": _id, "status": "queued"}
-        self.patchers = [
-            mock.patch.object(main, "STORAGE", self.storage),
+        self.patches = [
+            mock.patch.object(main, "STORAGE", Path(self.tmp.name)),
             mock.patch.object(main, "JOBS", {self.id: self.job}),
-            mock.patch.object(main, "_get_job", side_effect=lambda id: self.job),
-            mock.patch.object(main, "_update", side_effect=fake_update),
-            mock.patch.object(main, "render_story", side_effect=fake_render),
+            mock.patch.object(main, "_get_job", side_effect=lambda _id: self.job),
+            mock.patch.object(main, "_update", side_effect=update),
+            mock.patch.object(main, "render_story", side_effect=start),
             mock.patch.object(main, "_has", return_value=True),
-            mock.patch.object(main, "blender_available", return_value=True),
-            mock.patch.object(comfy_worker, "_tasks", {}),
-            mock.patch.object(comfy_worker, "_queue", queue.Queue()),
-            mock.patch.object(comfy_worker, "_workers", {"test": 99999999999}),
-            mock.patch.object(comfy_worker, "_store", self.storage/"comfyui"/"task-state.json"),
         ]
-        for patch in self.patchers:
-            patch.start()
-        auto_production._stopping.clear()
+        for item in self.patches:
+            item.start()
 
     def tearDown(self):
-        for patch in reversed(self.patchers):
-            patch.stop()
+        for item in reversed(self.patches):
+            item.stop()
         self.tmp.cleanup()
 
-    def _candidate(self, asset_id, file_bytes, fmt="9:16", status="done"):
-        from backend.app.art_director import create_art_plan
-        identity = create_art_plan(self.job["story_plan"], fmt)["identity_lock"]
-        request = {
-            "prompt": "Original cartoon illustration, beautiful landscape",
-            "negative_prompt": "plastic toy",
-            "width": 576, "height": 1024, "checkpoint": "checkpoint.safetensors",
-            "steps": 20, "seed": -1, "cfg": 7,
-        }
-        item = comfy_worker.queue_art_image(request, self.id, asset_id, fmt, identity)
-        task = comfy_worker._tasks[item["task_id"]]
-        task["status"] = status
-        target = comfy_worker._store.parent/(item["task_id"]+".png")
-        target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_bytes(file_bytes)
-        task["image_file"] = str(target)
-        return task
-
-    def test_all_images_are_approved_and_video_starts_without_second_click(self):
-        for actor in ("luna", "tomi", "pipo"):
-            self._candidate(actor, sample_png(320, 480, transparent=True))
-        self._candidate("scene-00-background", sample_png(288, 512))
+    def test_old_gpu_oom_story_starts_2d_without_png_or_blender(self):
         auto_production.process_pending()
+        self.assertEqual(self.started, [(self.id, ["9:16"])])
+        self.assertEqual(self.job["production_engine"], "2d")
+        self.assertIsNone(self.job["art_error"])
         self.assertEqual(self.job["status"], "queued")
-        self.assertEqual(self.renders, [(self.id, ["9:16"])])
-        from backend.app.art_assets import locked_cast_path, readiness
-        from backend.app.art_director import create_art_plan
-        lock = create_art_plan(self.job["story_plan"])["identity_lock"]
-        self.assertTrue(locked_cast_path(self.storage, "luna", lock))
-        self.assertTrue(readiness(self.storage, self.id, self.job["story_plan"], "9:16", [0])["ready"])
         auto_production.process_pending()
-        self.assertEqual(len(self.renders), 1)
+        self.assertEqual(len(self.started), 1)
 
-    def test_invalid_art_retries_instead_of_faking_a_frame(self):
-        self._candidate("scene-00-background", b"not a PNG")
+    def test_2d_does_not_retry_its_own_render_errors_indefinitely(self):
+        self.job.update(status="failed", stage="render_error", production_engine="2d")
         auto_production.process_pending()
-        tasks = list(comfy_worker._tasks.values())
-        self.assertEqual(len(tasks), 2)
-        self.assertEqual(tasks[0]["auto_state"], "retry_queued")
-        self.assertEqual(tasks[1]["status"], "queued")
-        self.assertFalse(self.renders)
+        self.assertFalse(self.started)
 
-    def test_rx580_old_cuda_oom_recovers_once_with_profile_upgrade(self):
-        old = self._candidate("luna", b"invalid", status="failed")
-        old.update(
-            message="RuntimeError Nó 5 (KSampler): CUDA error: out of memory",
-            auto_state="failed",
-        )
-        profile = "rx580-memory-safe-v1"
-        self.assertEqual(comfy_worker._recover_gpu_memory_tasks(profile), 1)
-        self.assertEqual(old["status"], "queued")
-        self.assertEqual(old["auto_state"], "gpu_memory_profile_upgrade")
-        self.assertEqual(comfy_worker._queue.get_nowait(), old["id"])
-        self.assertEqual(comfy_worker._recover_gpu_memory_tasks(profile), 0)
-        # If the newly configured GPU profile also exhausts VRAM,
-        # another heartbeat or restart must not resubmit the same job.
-        old.update(status="failed", gpu_profile_version=profile)
-        self.assertEqual(comfy_worker._recover_gpu_memory_tasks(profile), 0)
+    def test_ffmpeg_or_speech_unavailable_waits_without_gpu_queue(self):
+        with mock.patch.object(main, "_has", return_value=False):
+            auto_production.process_pending()
+        self.assertFalse(self.started)
+        self.assertEqual(self.job["art_stage"], "waiting_video_engine")
 
-    def test_fp16_upgraded_gpu_profile_recovers_old_fp32_oom_once(self):
-        failed = self._candidate("luna", b"invalid", status="failed")
-        failed.update(
-            message="Nó 5 (KSampler): CUDA error: out of memory",
-            auto_state="gpu_memory_exhausted",
-            gpu_profile_version="rx580-memory-safe-v1",
-            gpu_recovery_version="rx580-memory-safe-v1",
-        )
-        upgraded = "rx580-unet-fp16-v2"
-        self.assertEqual(comfy_worker._recover_gpu_memory_tasks(upgraded), 1)
-        self.assertEqual(failed["status"], "queued")
-        self.assertEqual(failed["gpu_recovery_version"], upgraded)
-        self.assertEqual(comfy_worker._recover_gpu_memory_tasks(upgraded), 0)
-        failed.update(status="failed", gpu_profile_version=upgraded)
-        self.assertEqual(comfy_worker._recover_gpu_memory_tasks(upgraded), 0)
-
-    def test_directml_profile_recovers_previously_failed_oom_art_once(self):
-        task = self._candidate("pipo", b"invalid", status="failed")
-        task.update(
-            message="RX 580 sem VRAM mesmo com resolução reduzida: CUDA error: out of memory",
-            auto_state="gpu_memory_exhausted",
-            gpu_profile_version="rx580-unet-fp16-v2",
-            gpu_recovery_version="rx580-unet-fp16-v2",
-        )
-        next_profile = "rx580-directml-v3"
-        self.assertEqual(comfy_worker._recover_gpu_memory_tasks(next_profile), 1)
-        self.assertEqual(task["status"], "queued")
-        self.assertEqual(task["gpu_recovery_version"], next_profile)
-        self.assertEqual(comfy_worker._recover_gpu_memory_tasks(next_profile), 0)
-        task.update(status="failed", gpu_profile_version=next_profile)
-        self.assertEqual(comfy_worker._recover_gpu_memory_tasks(next_profile), 0)
-
-    def test_rx580_oom_no_repeated_server_retries(self):
-        old = self._candidate("luna", b"invalid", status="failed")
-        old["message"] = "Nó 5 (KSampler): RuntimeError: CUDA error: out of memory"
+    def test_interrupted_old_job_is_resumed_only_once(self):
+        self.job.update(status="failed", stage="interrupted", auto_video_recovery_count=0)
         auto_production.process_pending()
-        self.assertEqual(len(comfy_worker._tasks), 1)
-        self.assertEqual(old["auto_state"], "gpu_memory_exhausted")
-        self.assertIn("RX 580", self.job.get("art_error", ""))
-        self.assertFalse(self.renders)
-
-    def test_worker_offline_keeps_queue_waiting_with_no_video(self):
-        comfy_worker._workers.clear()
+        self.assertEqual(self.job["auto_video_recovery_count"], 1)
+        self.assertEqual(len(self.started), 1)
+        self.job.update(status="failed", stage="interrupted")
         auto_production.process_pending()
-        self.assertEqual(self.job["art_stage"], "waiting_image_engine")
-        self.assertFalse(self.renders)
+        self.assertEqual(len(self.started), 1)
 
 
 if __name__ == "__main__":
