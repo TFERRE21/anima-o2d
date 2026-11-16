@@ -112,6 +112,7 @@
   <div id="inlineLiveArea" style="display:none;margin-top:12px">
     <div class="live-preview-head"><b>Prévia ao vivo — desenho sendo criado</b><span class="badge ready" id="inlineLiveState">PREPARANDO</span></div>
     <div class="live-preview-frame" id="inlineLiveFrame" style="aspect-ratio:16/9;max-width:720px">
+      <video id="inlineLiveVideo" autoplay muted playsinline controls style="display:none;width:100%;height:100%;object-fit:contain" aria-label="Trecho real da animação em criação"></video>
       <img id="inlineLiveImage" alt="Quadro que está sendo desenhado na produção" style="display:none">
       <div class="live-preview-placeholder" id="inlineLivePlaceholder">Preparando a primeira ilustração…</div>
     </div>
@@ -373,5 +374,5 @@ $('saveSettings').addEventListener('click',()=>saveSettings());
 $('saveSchedule').addEventListener('click',()=>saveSettings({production_days:[...document.querySelectorAll('.productionDay:checked')].map(x=>x.value),production_time:$('productionTime').value}));
 loadDashboard();loadSettings();setInterval(loadDashboard,8000);
 </script>
-<script src="/inline-art.js?v=20261116-automatic-live-v4"></script>
+<script src="/inline-art.js?v=20261116-automatic-live-v5"></script>
 </body></html>
