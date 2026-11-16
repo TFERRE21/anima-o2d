@@ -1,83 +1,71 @@
-# Anima Studio — Cartoon infantil com arte aprovada e animação Blender
+# ANIMA STUDIO — Histórias Desenhadas em 2D
 
-Estúdio web dos **Pequenos Guardiões**: roteiro aprovado → geração automática de artes com IA → validação técnica das imagens → animação de ilustrações no Blender → vídeo com áudio e formatos YouTube/Shorts.
+Estúdio infantil **2D com narradora**, sem GPU, ComfyUI, Runway, APIs de imagem ou Blender. O projeto reaproveita a biblioteca original de ilustrações 2D dos Pequenos Guardiões (Luna, Tomi e Pipo), produzidas por código e mantidas visualmente estáveis entre os episódios.
 
-## Mudança de motor artístico
+## Experiência no painel
 
-O antigo renderizador que criava bonecos com esferas e armaduras **não é mais chamado** no fluxo de produção de episódios. O novo motor é baseado em imagens de personagens e cenários **validadas tecnicamente pelo pipeline automático**. Se faltar uma imagem, a API retorna 409 com os identificadores pendentes. Ela nunca troca o projeto visual por bonecos procedurais.
+1. Clique em **Criar história original** (tema opcional).
+2. Confira o roteiro e o storyboard da aventura em um novo planeta.
+3. Clique em **Aprovar roteiro e produzir vídeo 2D** uma vez.
+4. O servidor cria a voz da **narradora** e monta as ilustrações de cada cena.
+5. Cada ilustração começa como papel vazio, recebe os traços de lápis, ganha cor progressivamente e é exibida enquanto a narradora conta aquela parte da história.
+6. O painel mantém o progresso, a **prévia visual ao vivo** e os downloads finais.
+7. A revisão e a publicação no YouTube continuam separadas.
 
-A primeira integração de animação usa **planos ilustrados em Blender (2.5D, com Cycles CPU)**. Ela permite câmera, profundidade básica, deslocamento suave, balanço corporal e reações à fala por mudança de escala. **Não oferece ainda rig de membros, expressões faciais deformáveis nem sincronia labial verdadeira**. Esses recursos exigem a produção de recortes/poses e uma etapa adicional de rigging. Não confunda um PNG plano com personagem 3D completamente modelado.
+O motor não tenta produzir vídeos 3D, nem fica aguardando GPU ou o ComfyUI. Episódios antigos com roteiro aprovado e bloqueados por `CUDA out of memory` podem ser retomados automaticamente ao atualizar a aplicação sem apagar o armazenamento.
 
-## Produção automática no painel único
+## Tecnologia e qualidade
 
-1. Clique em **Criar roteiro**: a história, o planeta, as falas e o storyboard aparecem no próprio painel.
-2. Clique em **Aprovar roteiro e produzir vídeo**: o servidor inicia a geração pelo primeiro motor configurado (Runway API, OpenAI Images API ou ComfyUI local). A fila é persistida em `ANIMA_STORAGE/comfyui/task-state.json`; se nenhum motor estiver disponível, o painel explica por que o processamento não começou, sem pedir fotos.
-3. **Luna, Tomi e Pipo** são gerados e fixados automaticamente **uma única vez** na série. Os PNGs oficiais ficam em `ANIMA_STORAGE/series/characters/official/`, com hash SHA-256 e trava de identidade. Nenhum episódio pode regenerá-los ou substituí-los pela interface comum.
-4. Cada novo planeta produz somente as artes dos **cenários do episódio**; 16:9 e 9:16 usam fundos próprios, mas os mesmos personagens oficiais. O sistema mostra automaticamente as miniaturas embaixo do roteiro e permite ampliar a imagem sem sair da página.
-5. O motor de imagens configurado entrega PNGs ao servidor. Um coordenador persistente valida formato, tamanho, transparência e hash, recorta automaticamente o fundo branco uniforme dos protagonistas, solicita nova tentativa quando a imagem é tecnicamente inválida (até duas tentativas adicionais) e salva os arquivos aprovados. **Essas verificações não substituem uma avaliação estética por visão computacional.**
-6. Quando os personagens oficiais e cenários estão prontos, o sistema inicia **automaticamente o Blender Cycles CPU e FFmpeg**, sem botão de montagem. A tela mostra o andamento e os arquivos MP4 disponíveis. Se o Blender falhar, o erro fica visível; o sistema não reinicia vídeos pesados indefinidamente.
-7. O usuário não precisa enviar imagens, digitar token na tela, aprovar uma por uma nem abrir outra página. O token do agente ComfyUI fica configurado como segredo do servidor e no computador que executa o agente.
+- Ilustrações: `backend/app/cartoon2d.py` (arte 2D original da série: personagens consistentes, cenários de planetas e acessórios);
+- Desenho progressivo: `backend/app/narrated_draw_2d.py` (extração de contornos, papel de desenho, lápis e revelação em duas etapas);
+- Narração: `espeak-ng` voz feminina brasileira (`pt-br+f3`), incluída na VPS. É uma voz sintética local; pode soar robótica. O projeto também contém integração Edge TTS, mas a produção 2D padrão não depende de serviço de voz em nuvem;
+- Montagem: FFmpeg, libx264, formatos **1920×1080** e **1080×1920**;
+- Durações: episódio 16:9 de **5 a 10 minutos**, Shorts 9:16 entre **1:00 e 1:30**;
+- Infraestrutura: CPU e RAM da VPS, sem GPU externa, assinatura de imagem ou APIs pagas.
 
-O motor não cria bonecos geométricos como substitutos. Quando nenhuma API de imagem ou estação ComfyUI está online, o painel mostra **Motor de imagens indisponível** e mantém a fila salva; não afirma que uma imagem foi gerada antes de receber o arquivo verdadeiro.
+**Limitação artística:** o motor mostra um desenho previamente criado surgindo progressivamente por contorno e cor. Não gera uma nova ilustração complexa por inteligência artificial a partir de cada frase nem faz animação quadro a quadro de personagens articulados. O resultado é uma história ilustrada 2D, não um filme cinematográfico gerado por difusão.
 
-### Motores de imagem — seleção automática
+## Implantação no iContainer
 
-No painel iContainer, configure **uma vez** as variáveis de ambiente do container da aplicação (não no terminal do host sem repassá-las ao Docker):
+No GitHub: `TFERRE21/anima-o2d`, branch `main`.
 
-- `ANIMA_IMAGE_PROVIDER=auto` (padrão): tenta Runway e, se a conta informar falta de créditos, bloqueia temporariamente novas solicitações a ela e escolhe uma API OpenAI configurada ou o agente ComfyUI conectado. Sem alternativa, pausa e conserva a fila.
-- `ANIMA_IMAGE_PROVIDER=runway` + `RUNWAYML_API_SECRET`: usa diretamente a API Runway (modelo padrão `nano_banana_2.1`; selecione com `ANIMA_RUNWAY_IMAGE_MODEL`).
-- `ANIMA_IMAGE_PROVIDER=openai` + `OPENAI_API_KEY`: usa a API de imagens da OpenAI (modelo padrão `gpt-image-1.5`; selecione com `ANIMA_OPENAI_IMAGE_MODEL`, qualidade com `ANIMA_IMAGE_QUALITY`).
-- `ANIMA_IMAGE_PROVIDER=comfyui`: usa somente o agente local Windows/RX 580, com token `ANIMA_COMFY_TOKEN` configurado no servidor e na estação.
+Faça atualização/rebuild da aplicação `animacao2d`, preservando **obrigatoriamente** o volume persistente `/data/jobs`, que mantém roteiros, episódios e vídeos.
 
-**As APIs Runway e OpenAI podem cobrar a cada imagem gerada.** Uma assinatura ChatGPT Plus não fornece chave de API nem créditos de geração na VPS. O sistema nunca tenta acessar as conversas do ChatGPT como substituto da API. Não coloque chaves no GitHub nem na página pública.
-
-O endpoint `GET /api/image-engine/status` mostra qual motor está selecionado e se está pronto **sem revelar chaves**. Após alterar as variáveis no iContainer, recrie a aplicação preservando `/data/jobs`. Tarefas antigas pendentes e tarefas que falharam com **HTTP 400 / You do not have enough credits** podem ser retomadas automaticamente pelo motor recém-conectado, sem recriar o roteiro. A indisponibilidade de créditos fica registrada em `ANIMA_STORAGE/comfyui/provider-blocks.json` (sem armazenar o segredo), por padrão durante 30 minutos, configurável por `ANIMA_CREDIT_RECHECK_SECONDS` (300–86400). Após esse prazo, o sistema pode verificar o mesmo provedor novamente; trocar a chave também permite nova tentativa. Se nenhum serviço estiver conectado, o sistema não inventa imagens nem inicia o Blender.
-
-Para operar sem API paga, conecte o agente ComfyUI, instale um checkpoint adequado e defina `ANIMA_COMFY_TOKEN` na aplicação. Veja `docs/integracao-comfyui.md`. O modelo de imagem utilizado pode afetar bastante a qualidade. O sistema valida tecnicamente o arquivo recebido, mas não pode garantir que a imagem gerada tenha qualidade artística profissional ou consistência perfeita antes de renderizar.
-
-## Endpoints para integrar/diagnosticar
-
-- `POST /api/jobs/{id}/story/approve`: aprovar roteiro, enfileirar as imagens no motor selecionado e habilitar a montagem automática quando estiverem prontas.
-- `GET /api/image-engine/status`: disponibilidade e modelo selecionado do motor de imagens.
-- `GET /api/jobs/{id}/art/board`: estado de todos os personagens oficiais, cenários, aprovações e tarefas em fila.
-- `GET /api/jobs/{id}/art/candidate/{task_id}`: imagem candidata para revisão na própria página.
-- `GET /api/jobs/{id}/art/approved/{asset_id}?fmt=9:16`: imagem oficial aprovada.
-- `GET /api/jobs/{id}/art-plan?fmt=9:16`: referência visual, prompts e lista de cenas.
-- `GET /api/jobs/{id}/art/status?fmt=9:16`: aprovação e arquivos faltantes.
-- `POST /api/jobs/{id}/art/generate`: enfileirar artes no ComfyUI (token Bearer; body `{"format":"9:16"}`).
-- `POST /api/jobs/{id}/art/approve/{task_id}`: validar e aprovar uma imagem ComfyUI (Bearer).
-- `POST /api/jobs/{id}/art/upload/{asset_id}?fmt=9:16`: enviar PNG aprovado no corpo da requisição (Bearer).
-- `POST /api/jobs/{id}/render`: gerar vídeo somente com arte aprovada.
-- `GET /api/jobs/{id}/render-status`: progresso, quadros e eventos recentes.
-- `GET /api/health/3d`: verificar Blender dentro do container.
-- `GET /api/diagnostics`: diagnosticar dependências e instalação do Blender.
-
-Os personagens aprovados são compartilhados entre 9:16 e 16:9. Os cenários são específicos por formato. Cada aprovação associa um SHA-256 ao arquivo e trava a identidade visual pelo `identity_lock` do elenco.
-
-## Ambiente e deploy
-
-A VPS iContainer pode usar uma imagem `python:3.13.0` genérica e **ignorar o Dockerfile**. Instalar Blender à mão dentro desse container não resiste à sua recriação. O bootstrap tenta recuperar dependências na inicialização com root+apt-get, mas o melhor é construir a imagem personalizada com o Dockerfile.
-
-O novo renderizador usa Cycles em **CPU**, por isso não exige GPU CUDA/HIP no servidor e evita depender diretamente do contexto Eevee/OpenGL que apresentou segmentation fault no container anterior. A execução de uma cena de teste em CI não garante desempenho em episódios completos. O motor gera PNGs intermediários e o FFmpeg compõe e codifica os vídeos finais.
-
-Os arquivos de episódio e aprovações ficam no volume persistente `/data/jobs`. Não remova esse volume ao atualizar a aplicação. Código enviado ao GitHub **não instala automaticamente a atualização no iContainer**: faça o deploy da versão nova pelo painel.
-
-### Executar a imagem Docker local
+Para Docker:
 
 ```bash
 docker compose up -d --build
 ```
 
-A única página de produção fica em `http://localhost:5000`. A antiga `/arte.html` permanece disponível apenas para compatibilidade, mas não faz parte do fluxo normal.
+Variáveis principais:
 
-## Verificações
+```env
+ANIMA_STORAGE=/data/jobs
+ANIMA_RENDER_ENGINE=2d
+ANIMA_DRAW_FPS=8
+ANIMA_AUTO_INSTALL_BLENDER=0
+```
 
-- `python -m unittest discover -s backend/tests -v` valida roteiro, aprovação PNG, pipeline de áudio/FFmpeg e frames Blender quando as dependências estão instaladas.
-- O GitHub Actions executa testes, valida o painel e constrói o Docker.
-- Os PNGs simples criados nos testes são **somente fixtures técnicas**, nunca personagens de produção ou fallback artístico.
+Não precisa configurar `ANIMA_IMAGE_PROVIDER`, `RUNWAYML_API_SECRET`, `OPENAI_API_KEY`, `ANIMA_COMFY_TOKEN`, nem instalar/ligar ComfyUI. Se as chaves antigas existirem no iContainer, o novo pipeline não as usa; por segurança, pode removê-las mais tarde.
 
-## Segurança e limitações
+**Verificações:**
+- `GET /api/health`: `render_engine=narrated-draw-2d`, `gpu_required=false`.
+- `GET /api/health/2d`: FFmpeg e voz local disponíveis.
+- `GET /api/diagnostics`: detalhes da capacidade de mídia.
+- `GET /api/jobs/{id}/art/board`: status da produção 2D, sem fila de imagens.
+- `GET /api/jobs/{id}/render-status`: progresso e prévia de ilustração.
+- `GET /api/jobs/{id}/download/16:9` e `/9:16`: download dos vídeos.
 
-Proteja o painel com HTTPS e autenticação/restrições de acesso antes de disponibilizar ao público. Os endpoints de geração e aprovação artística exigem `ANIMA_COMFY_TOKEN`; o restante da API tem pontos de acesso administrativos que também devem ser protegidos na implantação.
+O projeto mantém alguns módulos antigos do Blender e ComfyUI para histórico/compatibilidade de APIs, mas o caminho ativo de produção 2D não os executa.
 
-A fila de tarefas ComfyUI é persistida em disco e tarefas em execução no momento do reinício retornam para a fila. Imagens **já aprovadas** permanecem persistentes. O estado das artes fica salvo nos metadados da série e dos episódios. O coordenador automático retoma episódios elegíveis após reinicialização do serviço. A qualidade final ainda depende de gerar personagens consistentes, sem artefatos, e aprimorar o rigging.
+## Testes
+
+```bash
+python -m unittest discover -s backend/tests -v
+```
+
+O CI do GitHub valida o motor 2D, a renderização real de um trecho de lápis/cor via FFmpeg e a construção da imagem Docker.
+
+## Segurança
+
+Não coloque credenciais do YouTube nem tokens no Git. Mantenha o controle de revisão antes de publicar vídeos. O painel usa histórias fictícias e material próprio para as ilustrações; conteúdos enviados à plataforma devem ser revisados.
