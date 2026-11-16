@@ -579,9 +579,13 @@ def render_story(job_id: str, payload: RenderRequest):
             409, f"Instale o modelo oficial Luna/Tomi/Pipo em {model_path()} "
             "para evitar os desenhos antigos. Reinicie a produção depois."
         )
-    # No artwork approval gate, remote GPU, image credits or Blender.
-    _update(job_id, status="queued", stage="render_queued", progress=8,
-            message="Roteiro aprovado. Preparando narração e desenhos 2D na VPS.",
+    # A retry must never expose yesterday's preview or a stale scene count.
+    for preview_format in formats:
+        previous_preview = STORAGE / job_id / ("preview-" + preview_format.replace(":", "x") + ".jpg")
+        previous_preview.unlink(missing_ok=True)
+    _update(job_id, status="queued", stage="render_queued", progress=0,
+            drawing_scenes_finished=0,
+            message="Preparando a voz narradora e os primeiros quadros oficiais.",
             production_engine="2d", art_stage="drawing", formats=formats,
             review_status="pending_review", outputs={}, error=None)
     render_payload = GenerateRequest(title=job["title"], story=job["story"],
