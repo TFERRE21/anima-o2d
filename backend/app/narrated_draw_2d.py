@@ -106,16 +106,13 @@ def _with_caption(image: Image.Image, title: str, scene_no: int, total: int) -> 
 
 
 def _sketch_image(colored: Image.Image) -> Image.Image:
-    """Ink-paper stage made from actual illustrated outlines, not placeholders."""
+    """Sketch stage preserving the approved comic ink instead of edge-detection noise."""
     colored = colored.convert("RGB")
+    paper = Image.new("RGB", colored.size, "#faf5e9")
     gray = ImageOps.grayscale(colored)
-    # FIND_EDGES produces bright lines; invert to ink on pale sketchbook paper.
-    edges = gray.filter(ImageFilter.FIND_EDGES)
-    edges = ImageEnhance.Contrast(edges).enhance(2.2)
-    edges = ImageOps.invert(edges)
-    edges = edges.point(lambda x: 24 if x < 156 else 244)
-    ink = ImageOps.colorize(edges, black="#343944", white="#faf5e9")
-    return ink.convert("RGB")
+    # Pencil tracing uses the same clean contour geometry as the final image.
+    pencil = ImageOps.colorize(gray, black="#777a7d", white="#faf5e9").convert("RGB")
+    return Image.blend(paper, pencil, 0.82)
 
 
 def _pencil_image() -> Image.Image:
@@ -149,22 +146,19 @@ def artwork_for_scene(
         with Image.open(image_path) as im:
             image = im.convert("RGB")
     else:
-        # Missing scene artwork must not block automatic production. Use the
-        # established local cast/scene renderer and persist the generated image
-        # so both output formats and retries reuse exactly the same frame.
-        # Curated artwork, when present, always takes precedence.
-        portrait = False  # Individual comic panels are landscape in both formats.
+        # Official reusable cast: never silently fall back to the old crude
+        # procedural characters. A missing model is reported explicitly.
+        from backend.app.official_comic_2d import draw_official_scene
         scene_action = str(
             scene.get("visual_action") or scene.get("action")
             or scene.get("caption") or scene.get("description")
             or scene.get("title") or ""
         )
-        image = cartoon2d._draw_story_scene(
-            0.45, str(plan.get("planet") or "Novo planeta"),
-            str(plan.get("biome") or ""),
-            str(plan.get("palette") or "aurora"),
-            int(scene_index), scene_action, portrait, "",
-        ).convert("RGB")
+        image = draw_official_scene(
+            int(scene_index),
+            str(plan.get("planet") or "Novo planeta"),
+            scene_action, width=1280, height=720,
+        )
         if workdir is not None:
             art_dir = workdir / "comic-art"
             art_dir.mkdir(parents=True, exist_ok=True)
