@@ -181,10 +181,13 @@ VOICE_PROFILE = load_voice_profiles()
 async def _edge_tts_save(text: str, output: Path, speaker: str = "Narrador") -> None:
     import edge_tts
     profile = VOICE_PROFILE.get(speaker, VOICE_PROFILE["Narrador"])
+    # Saved voice profiles may predate the calmer narrator preset. Enforce
+    # a gentle speaking pace unless the operator explicitly overrides it.
+    narrator_rate = os.getenv("ANIMA_NARRATOR_RATE", "-8%")
     communicate = edge_tts.Communicate(
         text=text,
         voice=profile["voice"],
-        rate=profile["rate"],
+        rate=narrator_rate if speaker == "Narrador" else profile["rate"],
         volume="+0%",
         pitch=profile["pitch"],
     )
