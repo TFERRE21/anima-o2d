@@ -173,6 +173,31 @@ def render_story_background(size,scene_index,planet,biome,scene):
         d.text((133,h-40),f'CENA {scene_index+1}',font=_font(20),fill=ink,anchor='mm')
     return im,theme,palette
 
+def _expressive_sprite(sprite, character, emotion):
+    """Subtle mouth and eyebrow variants over the approved facial design."""
+    if emotion=='alegria':
+        return sprite
+    image=sprite.copy().convert('RGBA')
+    w,h=image.size
+    # Approximate mouth centers taken from the approved official silhouettes.
+    anchors={'luna':(.715,.395),'tomi':(.615,.386),'pipo':(.455,.525)}
+    cx,cy=anchors[character];x=round(w*cx);y=round(h*cy)
+    rx=max(5,round(w*.095));ry=max(4,round(h*.056))
+    d=ImageDraw.Draw(image)
+    # Remove only the old mouth, preserving the rest of the face.
+    d.ellipse((x-rx,y-ry,x+rx,y+ry),fill=(252,249,238,255))
+    ink=(28,40,54,255)
+    if emotion=='surpresa':
+        d.ellipse((x-5,y-8,x+5,y+9),fill=(255,255,252,255),outline=ink,width=3)
+        d.arc((x-27,y-27,x-9,y-16),180,350,fill=ink,width=2)
+    elif emotion=='preocupacao':
+        d.arc((x-9,y-1,x+9,y+13),195,350,fill=ink,width=3)
+    elif emotion=='curiosidade':
+        d.arc((x-9,y-4,x+9,y+4),5,160,fill=ink,width=3)
+    else:
+        d.arc((x-10,y-7,x+10,y+8),10,168,fill=ink,width=3)
+    return image
+
 def draw_story_scene(base,scene_index,planet,biome,scene,sprites):
     w,h=base.size; im=base.convert('RGBA');d=ImageDraw.Draw(im)
     scene_text=' '.join(str(scene.get(k,'')) for k in ('title','caption','visual_action','action'))
@@ -198,7 +223,7 @@ def draw_story_scene(base,scene_index,planet,biome,scene,sprites):
         positions=[(.25,.84,.50),(.53,.84,.49),(.76,.84,.36)]
     for idx,name in enumerate(('luna','tomi','pipo')):
         cx,ground,height_fraction=positions[idx]
-        sprite=sprites[name]
+        sprite=_expressive_sprite(sprites[name],name,emotion)
         target_height=max(80,int(h*height_fraction))
         target_width=max(50,int(sprite.width*target_height/max(sprite.height,1)))
         sprite=sprite.resize((target_width,target_height),Image.Resampling.LANCZOS)
