@@ -28,7 +28,7 @@ from backend.app.renderer import (
 )
 
 DRAW_ENGINE = "Anima 2D · desenho narrado na VPS (CPU)"
-DRAW_ART_VERSION = "illustrated-planet-worldbible-v9"
+DRAW_ART_VERSION = "dialogue-synchronized-worlds-v10"
 DEFAULT_FPS = 8
 
 
@@ -195,9 +195,9 @@ def artwork_for_scene(
             cache_token = hashlib.sha256(
                 (ART_VERSION + "|" + model_tag + "|" + quality_tag).encode()
             ).hexdigest()[:12]
-            official_dir = workdir / ("story-comic-illustrated-v9-" + cache_token)
+            official_dir = workdir / ("story-comic-dialogue-v10-" + cache_token)
         else:
-            official_dir = workdir / "story-comic-procedural-v9"
+            official_dir = workdir / "story-comic-dialogue-local-v10"
     else:
         official_dir = None
     official_image = official_dir / f"scene-{scene_index:02d}.png" if official_dir else None
@@ -259,10 +259,10 @@ def _render_scene_clip(
     A one-time RGBA photograph of a real hand is composited only when the
     user provides it. Without that file, the video shows the drawings alone.
     """
-    seconds = max(1.5, float(seconds))
-    ink_seconds = min(35.0, max(0.35, seconds * .37))
-    color_seconds = min(30.0, max(0.35, seconds * .33))
-    ink_offset = 0.18
+    seconds = max(0.7, float(seconds))
+    ink_seconds = min(35.0, max(0.18, seconds * .32))
+    color_seconds = min(30.0, max(0.18, seconds * .27))
+    ink_offset = min(0.18, seconds*.07)
     color_offset = ink_offset + ink_seconds
     draw_ends = color_offset + color_seconds
     input_seconds = seconds + 1.0
@@ -387,8 +387,18 @@ def _video_from_scenes(
     workdir: Path, fmt: str, plan: dict, indices: list[int],
     seconds_per_scene: list[float], fps: int,
     progress_callback: Callable[[int, str], None] | None,
+    voice_timeline: list[dict] | None = None,
+    narration_segments: list[dict] | None = None,
 ) -> Path:
-    """Comic pages advance one panel with each new narrated scene."""
+    """Render each spoken dialogue beat with exactly its own real balloon.
+
+    A narrator passage displays the art without a speech balloon. Dialogue
+    text comes only from the recorded script; one panel changes its bubble
+    while narration continues, without redrawing the characters each time.
+    """
+    from backend.app.dialogue_timeline import (
+        dialogue_beats, draw_balloon, speaker_coordinates,
+    )
     target = workdir / ("silent-" + fmt.replace(":", "x") + ".mp4")
     scenes_dir = workdir / ("draw2d-" + fmt.replace(":", "x"))
     scenes_dir.mkdir(parents=True, exist_ok=True)
@@ -397,6 +407,8 @@ def _video_from_scenes(
     max_panels = (comic_panels.MAX_PANELS_PORTRAIT if portrait
                   else comic_panels.MAX_PANELS_LANDSCAPE)
     actual_hand = comic_panels.real_hand_video() or comic_panels.hand_asset()
+    timeline_beats = dialogue_beats(
+        narration_segments or [], voice_timeline or [], indices, fmt)
     clips = []
     previous_on_page: list[Image.Image] = []
     title = str(plan.get("title") or "Pequenos Guardiões")
@@ -412,65 +424,97 @@ def _video_from_scenes(
                 f" do planeta {plan.get('planet','')} — cena {j+1}/{len(indices)}.",
             )
         art, sketch = artwork_for_scene(
-            plan, index, fmt, 1280, 720, j+1, len(indices), workdir=workdir,
-        )
-        paper_page, panel_rect = comic_panels.comic_page(
-            previous_on_page + [art], (w,h), title, portrait,
-            stage="paper", previous_count=len(previous_on_page),
-        )
-        sketch_page, _ = comic_panels.comic_page(
-            previous_on_page + [sketch], (w,h), title, portrait,
-            stage="sketch", previous_count=len(previous_on_page),
-        )
-        color_page, _ = comic_panels.comic_page(
-            previous_on_page + [art], (w,h), title, portrait,
-            stage="color", previous_count=len(previous_on_page),
-        )
-        paper = scenes_dir / f"paper-{j:02d}.png"
-        outline = scenes_dir / f"sketch-{j:02d}.png"
-        painting = scenes_dir / f"paint-{j:02d}.png"
-        paper_page.save(paper)
-        sketch_page.save(outline)
-        color_page.save(painting)
-        _preview(workdir, fmt, sketch_page)
-        clip = scenes_dir / f"scene-{j:02d}.mp4"
-        # Publish a real-time preview following FFmpeg's encoded timestamps.
+            plan,index,fmt,1280,720,j+1,len(indices),workdir=workdir)
+        beats = timeline_beats.get(index) or [
+            {"speaker":None,"text":"","start":0.0,"end":1.0}]
+        raw_durations = [max(.01,float(beat["end"])-float(beat["start"]))
+                         for beat in beats]
+        total_weight=sum(raw_durations)
+        clip_parts=[]
         preview_path = workdir / ("preview-" + fmt.replace(":", "x") + ".jpg")
-        def report_live(fraction: float) -> None:
-            if progress_callback:
-                overall = 18 + int(69*(j + fraction)/max(1,len(indices)))
-                progress_callback(
-                    overall,
-                    f"Desenhando quadrinho {j+1} de {len(indices)}: {round(fraction*100)}% codificado.",
-                )
-        _render_scene_clip(
-            _ffmpeg_executable(), paper, outline, painting, actual_hand,
-            clip, seconds_per_scene[j], fps, active_panel=panel_rect,
-            preview_path=preview_path, draw_progress=report_live,
-        )
+        paper_page, panel_rect = comic_panels.comic_page(
+            previous_on_page+[art],(w,h),title,portrait,
+            stage="paper",previous_count=len(previous_on_page))
+        for beat_idx,beat in enumerate(beats):
+            # Narrator expository lines deliberately have no speech balloons.
+            active = art
+            if beat.get("speaker") and beat.get("text"):
+                anchor,center=speaker_coordinates(
+                    index,beat["speaker"],art.size)
+                active=draw_balloon(art,beat["text"],beat["speaker"],
+                                    anchor,center)
+            colored_page,_ = comic_panels.comic_page(
+                previous_on_page+[active],(w,h),title,portrait,
+                stage="color",previous_count=len(previous_on_page))
+            if beat_idx==0:
+                sketch_scene = _sketch_image(active)
+                sketch_page,_=comic_panels.comic_page(
+                    previous_on_page+[sketch_scene],(w,h),title,portrait,
+                    stage="sketch",previous_count=len(previous_on_page))
+                frame_paper=paper_page
+            else:
+                # The characters/scenario are already drawn. Only the exact
+                # spoken bubble changes with the next narration segment.
+                sketch_page=colored_page
+                frame_paper=colored_page
+            clip_duration=float(seconds_per_scene[j]) * raw_durations[beat_idx]/total_weight
+            frame_prefix=f"{j:02d}-{beat_idx:03d}"
+            paper=scenes_dir/f"paper-{frame_prefix}.png"
+            outline=scenes_dir/f"sketch-{frame_prefix}.png"
+            painting=scenes_dir/f"paint-{frame_prefix}.png"
+            frame_paper.save(paper)
+            sketch_page.save(outline)
+            colored_page.save(painting)
+            if beat_idx==0:
+                _preview(workdir,fmt,sketch_page)
+            beat_clip=scenes_dir/f"beat-{frame_prefix}.mp4"
+            start_weight=sum(raw_durations[:beat_idx])/total_weight
+            beat_weight=raw_durations[beat_idx]/total_weight
+            def report_live(fraction: float) -> None:
+                if progress_callback:
+                    scene_fraction=start_weight+fraction*beat_weight
+                    overall=18+int(69*(j+scene_fraction)/max(1,len(indices)))
+                    progress_callback(
+                        overall,f"Quadrinho {j+1}/{len(indices)} — "
+                        f"fala {beat_idx+1}/{len(beats)}, {round(fraction*100)}%."
+                    )
+            _render_scene_clip(
+                _ffmpeg_executable(),paper,outline,painting,
+                actual_hand if beat_idx==0 else None,
+                beat_clip,clip_duration,fps,active_panel=panel_rect,
+                preview_path=preview_path,draw_progress=report_live,
+            )
+            clip_parts.append(beat_clip)
+            _preview(workdir,fmt,colored_page)
+        clip=scenes_dir/f"scene-{j:02d}.mp4"
+        if len(clip_parts)==1:
+            shutil.copyfile(clip_parts[0],clip)
+        else:
+            local_manifest=scenes_dir/f"beats-{j:02d}.txt"
+            def quote(p:Path)->str:
+                return p.resolve().as_posix().replace("'","'\\''")
+            local_manifest.write_text(
+                "".join("file '"+quote(p)+"'\\n" for p in clip_parts),
+                encoding="utf8")
+            _run([_ffmpeg_executable(),"-y","-loglevel","error","-f","concat",
+                  "-safe","0","-i",str(local_manifest),"-c","copy",str(clip)])
         clips.append(clip)
         previous_on_page.append(art)
-        _preview(workdir, fmt, color_page)
         if progress_callback:
             progress_callback(
-                18 + int(69*(j+1)/max(1,len(indices))),
-                f"Narradora desenhando quadrinho {j+1}/{len(indices)}.",
+                18+int(69*(j+1)/max(1,len(indices))),
+                f"Cena {j+1}/{len(indices)} finalizada, com falas sincronizadas."
             )
-
-    manifest = scenes_dir / "concat.txt"
-    def ffmpeg_escape(p: Path) -> str:
-        return p.resolve().as_posix().replace("'", "'\\''")
+    manifest=scenes_dir/"concat.txt"
+    def ffmpeg_escape(p:Path)->str:
+        return p.resolve().as_posix().replace("'","'\\''")
     manifest.write_text(
-        "".join("file '" + ffmpeg_escape(p) + "'\n" for p in clips),
-        encoding="utf-8",
-    )
-    _run([
-        _ffmpeg_executable(), "-y", "-loglevel", "error",
-        "-f", "concat", "-safe", "0", "-i", str(manifest),
-        "-c", "copy", str(target),
-    ])
+        "".join("file '"+ffmpeg_escape(p)+"'\\n" for p in clips),
+        encoding="utf8")
+    _run([_ffmpeg_executable(),"-y","-loglevel","error",
+          "-f","concat","-safe","0","-i",str(manifest),
+          "-c","copy",str(target)])
     return target
-
 
 
 def render_narrated_draw_episode(title: str, story: str, fmt: str,
@@ -515,7 +559,10 @@ def render_narrated_draw_episode(title: str, story: str, fmt: str,
         raise ValueError("ANIMA_DRAW_FPS deve ficar entre 4 e 15.")
     if progress_callback:
         progress_callback(15, "Narração pronta. Preparando os desenhos de cada cena.")
-    silent = _video_from_scenes(workdir, fmt, plan, indices, seconds, fps, progress_callback)
+    silent = _video_from_scenes(
+        workdir,fmt,plan,indices,seconds,fps,progress_callback,
+        voice_timeline=timeline,narration_segments=narration_segments,
+    )
 
     if progress_callback:
         progress_callback(90, "Unindo desenho, narradora e música infantil suave.")
