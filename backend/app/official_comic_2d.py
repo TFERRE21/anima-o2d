@@ -134,8 +134,18 @@ def _scene_background(size: tuple[int,int], scene_index: int, planet: str,
 def draw_official_scene(scene_index: int, planet: str, action: str,
                         width: int = 1280, height: int = 720,
                         scene: dict | None = None, biome: str = "",
-                        illustrated_background: Image.Image | None = None) -> Image.Image:
-    """Stage one original scene, keeping the approved cast silhouettes intact."""
+                        illustrated_background: Image.Image | None = None,
+                        generated_cast: bool = False) -> Image.Image:
+    """Compose a scene: AI-generated complete cast OR fixed original sprite cast.
+
+    With generated_cast=True, Cloudflare already drew Luna/Tomi/Pipo using the
+    permanent reference sheet. Never paste a second sprite copy over them.
+    """
+    if generated_cast:
+        if illustrated_background is None:
+            raise ValueError("Cena com elenco gerado pela IA não recebeu ilustração.")
+        return ImageOps.fit(illustrated_background.convert("RGB"),
+                            (width,height),Image.Resampling.LANCZOS)
     from backend.app.story_comic_director import render_story_background, draw_story_scene
     path = model_path()
     if path.is_file():
