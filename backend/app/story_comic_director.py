@@ -157,28 +157,33 @@ def render_story_background(size, scene_index, planet, biome, scene):
 
 
 def _expressive_sprite(sprite, character, emotion):
-    """Subtle mouth and eyebrow variants over the approved facial design."""
-    if emotion=='alegria':
-        return sprite
-    image=sprite.copy().convert('RGBA')
+    """Keep the approved face; no circular zero-mouth stickers.
+
+    Tiny eyebrow and mouth accent lines indicate reactions without drawing
+    an opaque patch over the reference smile. Speech itself is displayed
+    verbatim in the timed comic balloon, not as a generic mouth glyph.
+    """
+    original=sprite.convert("RGBA")
+    if emotion=="alegria":
+        return original
+    image=original.copy()
     w,h=image.size
-    # Approximate mouth centers taken from the approved official silhouettes.
-    anchors={'luna':(.715,.395),'tomi':(.615,.386),'pipo':(.455,.525)}
-    cx,cy=anchors[character];x=round(w*cx);y=round(h*cy)
-    rx=max(5,round(w*.095));ry=max(4,round(h*.056))
+    anchors={"luna":(.715,.395),"tomi":(.615,.386),"pipo":(.455,.525)}
+    fx,fy=anchors[character]
+    x=int(w*fx);y=int(h*fy)
     d=ImageDraw.Draw(image)
-    # Remove only the old mouth, preserving the rest of the face.
-    d.ellipse((x-rx,y-ry,x+rx,y+ry),fill=(252,249,238,255))
     ink=(28,40,54,255)
-    if emotion=='surpresa':
-        d.ellipse((x-5,y-8,x+5,y+9),fill=(255,255,252,255),outline=ink,width=3)
-        d.arc((x-27,y-27,x-9,y-16),180,350,fill=ink,width=2)
-    elif emotion=='preocupacao':
-        d.arc((x-9,y-1,x+9,y+13),195,350,fill=ink,width=3)
-    elif emotion=='curiosidade':
-        d.arc((x-9,y-4,x+9,y+4),5,160,fill=ink,width=3)
+    line=max(2,round(w*.018))
+    if emotion=="surpresa":
+        # Raised brows and a small open smile, NOT the old O-shaped mouth.
+        d.arc((x-13,y-13,x+12,y+8),12,167,fill=ink,width=line)
+        d.arc((x-19,y-30,x-5,y-23),195,340,fill=ink,width=line)
+    elif emotion=="preocupacao":
+        d.arc((x-10,y+1,x+11,y+12),195,340,fill=ink,width=line)
+    elif emotion=="curiosidade":
+        d.arc((x-10,y-5,x+12,y+7),3,158,fill=ink,width=line)
     else:
-        d.arc((x-10,y-7,x+10,y+8),10,168,fill=ink,width=3)
+        d.line((x-9,y+6,x+9,y+6),fill=ink,width=line)
     return image
 
 def _color_approved_ink(sprite, name):
@@ -269,12 +274,6 @@ def draw_story_scene(base,scene_index,planet,biome,scene,sprites):
         shadow=shadow.filter(ImageFilter.GaussianBlur(9))
         im.alpha_composite(shadow)
         im.alpha_composite(rgba,(x,y))
-    d=ImageDraw.Draw(im)
-    speaker=scene.get('bubble_speaker') or ['luna','tomi','pipo'][scene_index%3]
-    if speaker not in ('luna','tomi','pipo'):
-        speaker='luna'
-    box_x=int(w*positions[('luna','tomi','pipo').index(speaker)][0])
-    _balloon(d,word,(box_x,max(60,int(h*.13))),(box_x,int(h*.27)),canvas_size=(w,h))
     image=im.convert('RGB')
     image=ImageEnhance.Color(image).enhance(1.24)
     image=ImageEnhance.Contrast(image).enhance(1.10)
