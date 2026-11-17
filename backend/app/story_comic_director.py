@@ -10,7 +10,7 @@ import math
 import random
 import re
 import unicodedata
-from PIL import Image, ImageDraw, ImageFont, ImageOps
+from PIL import Image, ImageDraw, ImageEnhance, ImageFilter, ImageFont, ImageOps
 
 def normal(text):
     return ''.join(c for c in unicodedata.normalize('NFKD',str(text)).lower() if not unicodedata.combining(c))
@@ -99,16 +99,50 @@ def _alien(d,x,y,scale,variant,palette,emotion):
     d.line([(x-s*.45,y+s*.9),(x-s*.57,y+s*1.32)],fill=ink,width=4)
     d.line([(x+s*.45,y+s*.9),(x+s*.57,y+s*1.32)],fill=ink,width=4)
 
-def _balloon(d,text,center,anchor,wide=180):
-    cx,cy=center;f=_font(23,True)
-    text=str(text).upper()[:20]
-    box=d.textbbox((0,0),text,font=f)
-    width=min(wide,max(90,box[2]+35));height=46
-    x=max(15,int(cx-width/2));y=max(12,int(cy-height/2))
-    d.rounded_rectangle((x,y,x+width,y+height),radius=20,fill=(255,255,255),outline=(37,49,72),width=4)
-    d.polygon([(int(cx),y+height-2),(int(cx)+14,y+height+16),(int(anchor[0]),int(anchor[1]))],fill=(255,255,255))
-    d.line([(int(cx),y+height),(int(anchor[0]),int(anchor[1]))],fill=(37,49,72),width=2)
-    d.text((x+width/2,y+height/2-1),text,font=f,fill=(37,49,72),anchor='mm')
+def _balloon(d, text, center, anchor, canvas_size=(1280,720)):
+    """Cloud-shaped speech bubble with a single clean perimeter and a tail.
+
+    Text stays inside the white cloud and the tail points to the speaking
+    character. The transparent mask avoids overlapping ellipse outlines.
+    """
+    w,h=canvas_size
+    label=str(text or '').strip().upper()[:15]
+    if not label:
+        return
+    size=max(14,min(26,round(w/51)))
+    font=_font(size,True)
+    ink=(30,48,78)
+    bounds=d.textbbox((0,0),label,font=font)
+    tw=bounds[2]-bounds[0]
+    bubble_w=max(112,min(w-28,tw+80))
+    bubble_h=max(75,round(bubble_w*.43))
+    cx=max(bubble_w//2+12,min(w-bubble_w//2-12,int(center[0])))
+    cy=max(bubble_h//2+12,min(int(h*.26),int(center[1])))
+    left=int(cx-bubble_w/2)
+    top=int(cy-bubble_h/2)
+    mask=Image.new('L',(w,h),0)
+    painter=ImageDraw.Draw(mask)
+    # Overlapping lobes union into a single silhouette; no interior outlines.
+    lobes=[
+        (.18,.51,.19),(.34,.30,.19),(.53,.27,.21),
+        (.73,.34,.20),(.87,.55,.15),(.70,.70,.19),(.44,.75,.19),(.24,.70,.17)
+    ]
+    for px,py,radius in lobes:
+        x=left+bubble_w*px;y=top+bubble_h*py
+        rx=bubble_w*radius;ry=bubble_h*radius
+        painter.ellipse((int(x-rx),int(y-ry),int(x+rx),int(y+ry)),fill=255)
+    painter.ellipse((left+int(.12*bubble_w),top+int(.30*bubble_h),
+                     left+int(.88*bubble_w),top+int(.80*bubble_h)),fill=255)
+    tx=max(8,min(w-8,int(anchor[0])))
+    ty=max(top+bubble_h+6,min(h-8,int(anchor[1])))
+    painter.polygon([(cx-10,top+int(.72*bubble_h)),
+                     (cx+12,top+int(.75*bubble_h)),(tx,ty)],fill=255)
+    # Stroke only the outer edge of the cloud and its tail.
+    border=mask.filter(ImageFilter.MaxFilter(9))
+    d.bitmap((0,0),border,fill=ink)
+    d.bitmap((0,0),mask,fill=(255,255,255))
+    d.text((cx,cy),label,font=font,fill=ink,anchor='mm')
+
 
 def render_story_background(size,scene_index,planet,biome,scene):
     w,h=size
@@ -126,10 +160,25 @@ def render_story_background(size,scene_index,planet,biome,scene):
         yy=int(h*(.12+.08*(i%2)))
         d.ellipse((xx-65,yy-25,xx+70,yy+20),fill=(255,255,251),outline=ink,width=3)
     if theme=='nave':
-        d.rounded_rectangle((80,150,w-80,h-80),radius=110,fill=(230,239,250),outline=ink,width=12)
-        d.ellipse((150,190,w-150,h+170),fill=dark,outline=ink,width=7)
-        d.ellipse((260,220,w-260,h+100),fill=light,outline=ink,width=4)
-        d.line((140,h-85,w-140,h-85),fill=ink,width=14)
+        # Open spaceship deck: no closed rectangular TV/window around cast.
+        # Outside space and the curved horizon occupy the full panel.
+        d.ellipse((-int(w*.20),-int(h*.72),int(w*1.20),int(h*.68)),
+                  fill=(20,48,115),outline=dark,width=9)
+        d.ellipse((-int(w*.12),-int(h*.66),int(w*1.12),int(h*.61)),
+                  fill=(96,179,244),outline=(245,249,255),width=6)
+        d.ellipse((-int(w*.25),int(h*.45),int(w*1.25),int(h*1.28)),
+                  fill=(105,166,214),outline=ink,width=6)
+        d.arc((-int(w*.22),int(h*.50),int(w*1.22),int(h*1.22)),
+              184,357,fill=(244,249,255),width=8)
+        for n in range(9):
+            sx=rng.randint(35,w-35);sy=rng.randint(35,int(h*.31))
+            d.ellipse((sx,sy,sx+5,sy+5),fill=(255,255,255))
+        # Console details are at the sides and cannot frame the characters.
+        for x in (40,w-180):
+            d.ellipse((x,int(h*.77),x+125,int(h*.94)),
+                      fill=(30,70,133),outline=ink,width=4)
+            d.ellipse((x+30,int(h*.81),x+70,int(h*.87)),
+                      fill=accent,outline=(255,255,255),width=3)
     elif theme in ('vila','praca','mercado','biblioteca','oficina'):
         for n in range(3):
             bx=40+n*420+rng.randrange(-35,35)
@@ -226,9 +275,9 @@ def _color_approved_ink(sprite, name):
             ImageDraw.floodfill(empty,position,128,thresh=0)
     inside=empty.point(lambda p:255 if p==255 else 0)
     fills={
-        'luna':((255,222,198),(247,139,191)),
-        'tomi':((255,220,194),(103,177,244)),
-        'pipo':((255,234,171),(248,207,111)),
+        'luna':((255,224,201),(255,95,185)),
+        'tomi':((255,221,198),(70,165,255)),
+        'pipo':((248,251,255),(255,205,70)),
     }
     skin,costume=fills[name]
     underlay=Image.new('RGBA',(w,h),(0,0,0,0))
@@ -274,11 +323,24 @@ def draw_story_scene(base,scene_index,planet,biome,scene,sprites):
         if scene_index%5 in (1,3) and name!='pipo':
             rgba=ImageOps.mirror(rgba)
         x=int(w*cx-target_width/2);y=int(h*ground-target_height)
+        # Soft contact shadow seats the sprite on the illustrated terrain.
+        shadow=Image.new('RGBA',im.size,(0,0,0,0))
+        shadow_draw=ImageDraw.Draw(shadow)
+        base_y=y+target_height-4
+        shadow_draw.ellipse((x+target_width*.12,base_y-13,
+                             x+target_width*.88,base_y+18),fill=(21,43,63,95))
+        shadow=shadow.filter(ImageFilter.GaussianBlur(9))
+        im.alpha_composite(shadow)
         im.alpha_composite(rgba,(x,y))
     d=ImageDraw.Draw(im)
     speaker=scene.get('bubble_speaker') or ['luna','tomi','pipo'][scene_index%3]
     if speaker not in ('luna','tomi','pipo'):
         speaker='luna'
     box_x=int(w*positions[('luna','tomi','pipo').index(speaker)][0])
-    _balloon(d,word,(box_x,max(34,int(h*.10))),(box_x,int(h*.19)))
-    return im.convert('RGB'),emotion,theme
+    _balloon(d,word,(box_x,max(60,int(h*.13))),(box_x,int(h*.27)),canvas_size=(w,h))
+    image=im.convert('RGB')
+    image=ImageEnhance.Color(image).enhance(1.24)
+    image=ImageEnhance.Contrast(image).enhance(1.10)
+    image=ImageEnhance.Brightness(image).enhance(1.02)
+    image=ImageEnhance.Sharpness(image).enhance(1.06)
+    return image,emotion,theme
