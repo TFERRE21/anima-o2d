@@ -28,7 +28,7 @@ from backend.app.renderer import (
 )
 
 DRAW_ENGINE = "Anima 2D · desenho narrado na VPS (CPU)"
-DRAW_ART_VERSION = "dialogue-synchronized-worlds-v10"
+DRAW_ART_VERSION = "reference-aware-proportional-cast-v11"
 DEFAULT_FPS = 8
 
 
@@ -180,9 +180,10 @@ def artwork_for_scene(
     from backend.app.official_comic_2d import draw_official_scene, model_path
     from backend.app.illustrated_scene_engine import (
         enabled as image_api_enabled, required as premium_required,
-        illustrated_background, cache_tag,
+        illustrated_background, cache_tag, character_mode,
     )
     has_premium = image_api_enabled()
+    ai_cast = has_premium and character_mode()=="reference_ai"
     if premium_required() and not has_premium:
         raise RuntimeError(
             "O motor ilustrado precisa de CLOUDFLARE_API_TOKEN e "
@@ -191,9 +192,9 @@ def artwork_for_scene(
         )
     if workdir is not None:
         if has_premium:
-            official_dir = workdir / ("story-comic-dialogue-v10-" + cache_tag())
+            official_dir = workdir / ("story-comic-reference-v11-" + cache_tag())
         else:
-            official_dir = workdir / "story-comic-dialogue-local-v10"
+            official_dir = workdir / "story-comic-reference-local-v11"
     else:
         official_dir = None
     official_image = official_dir / f"scene-{scene_index:02d}.png" if official_dir else None
@@ -220,6 +221,7 @@ def artwork_for_scene(
             scene_action, width=1280, height=720,
             scene=scene, biome=str(plan.get("biome") or ""),
             illustrated_background=illustrated,
+            generated_cast=ai_cast,
         )
         if official_dir is not None:
             official_dir.mkdir(parents=True, exist_ok=True)
