@@ -1,5 +1,7 @@
 """Regression tests for approved-cast dynamic comics and soundtrack."""
 import hashlib
+import shutil
+import subprocess
 import tempfile
 import unittest
 import wave
@@ -40,6 +42,39 @@ class StoryComicV5Tests(unittest.TestCase):
         self.assertEqual(emotions("Uma surpresa inesperada!")[0],"surpresa")
         self.assertEqual(emotions("Descobriu uma pista")[0],"surpresa")
         self.assertEqual(emotions("Precisamos organizar um plano")[0],"concentracao")
+
+    def test_story_balloon_and_spaceship_composition(self):
+        from backend.app.story_comic_director import _balloon, render_story_background
+        from PIL import Image, ImageDraw
+        base, theme, _ = render_story_background(
+            (640,360),0,"Aurora-7","cristais",{
+                "title":"A partida","caption":"Nave decola",
+                "visual_action":"A tripulação confere os cintos na nave Estrelinha."
+            })
+        self.assertEqual(theme, "nave")
+        self.assertEqual(base.size,(640,360))
+        bubble=Image.new("RGB",(640,360),"#c8e5f9")
+        _balloon(ImageDraw.Draw(bubble),"UAU!",(180,85),(185,150),
+                 canvas_size=bubble.size)
+        self.assertNotEqual(bubble.getpixel((180,85)),(200,229,249))
+
+    @unittest.skipUnless(shutil.which("ffmpeg"),"ffmpeg não instalado")
+    def test_narration_music_duck_filter(self):
+        # Make sure narration is split before both sidechain + final mix.
+        filters=(
+            "[0:a]apad=pad_dur=1,asplit=2[voice][key];"
+            "[1:a]volume=0.30,lowpass=f=2400[music];"
+            "[music][key]sidechaincompress=threshold=0.012:ratio=5:attack=80:release=500[duck];"
+            "[voice][duck]amix=inputs=2:duration=first:weights='1 0.32':normalize=0[a]"
+        )
+        command=[
+            "ffmpeg","-hide_banner","-loglevel","error","-y",
+            "-f","lavfi","-i","sine=frequency=440:duration=0.5",
+            "-f","lavfi","-i","sine=frequency=523:duration=0.5",
+            "-filter_complex",filters,"-map","[a]","-t","0.5","-f","null","-"
+        ]
+        result=subprocess.run(command,capture_output=True,text=True,timeout=15)
+        self.assertEqual(result.returncode,0,result.stderr)
 
     def test_original_music_generation(self):
         with tempfile.TemporaryDirectory() as temp:
