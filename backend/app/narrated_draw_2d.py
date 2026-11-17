@@ -1,9 +1,10 @@
-"""Narrated 2D 'drawing comes to life' video production without GPU or Blender.
+"""Narrated 2D storybook video production with fixed cast and live preview.
 
-Uses the existing authored 2D cartoon cast and scene illustrations, sketches them
-as pencil line art, and progressively reveals drawing and color while the
-narrator tells the story. All image/animation computation runs on the VPS CPU.
-It does not generate new AI artwork, claim image diffusion, or require ComfyUI.
+When an image API is configured, each scene receives a detailed illustrated
+planetary background from the story and narration. Without one, the legacy
+local procedural background is used and visibly labeled as basic quality.
+The approved Luna/Tomi/Pipo artwork is composited after background creation.
+Pillow and FFmpeg produce the progressive coloring and final video on the VPS.
 """
 from __future__ import annotations
 
