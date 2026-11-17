@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import math
 import time
+import hashlib
 import os
 import sys
 import threading
@@ -117,8 +118,14 @@ def health_2d():
     from backend.app.official_comic_2d import has_official_model, model_path
     if not _has("ffmpeg") or not _has("tts"):
         raise HTTPException(503, "Motor de desenho 2D requer FFmpeg e narradora TTS.")
-    return {"status": "ready",
-            "engine": "official-comic-2d", "official_model_ready": has_official_model(), "automatic_generation_ready": True,
+    from backend.app.illustrated_scene_engine import (
+        enabled as images_ready, required as images_required,
+    )
+    return {"status": "ready" if (images_ready() or not images_required()) else "image_api_configuration_required",
+            "engine": "official-comic-2d",
+            "illustrated_scenes_ready": images_ready(),
+            "illustration_backend": ("image-api" if images_ready() else "procedural-local"),
+            "official_model_ready": has_official_model(), "automatic_generation_ready": True,
             "official_model_path": str(model_path()),
             "gpu_required": False, "blender_required": False,
             "formats": ["1920x1080", "1080x1920"]}
@@ -328,10 +335,18 @@ def approve_story_generate_images(job_id: str):
 @app.get("/api/image-engine/status")
 def image_engine_status():
     """The new production renderer requires no image API or GPU worker."""
+    from backend.app.illustrated_scene_engine import enabled, required
+    premium = enabled()
     return {
-        "provider": "cpu-2d", "ready": _has("ffmpeg") and _has("tts"),
+        "provider": ("image-api" if premium else "cpu-2d"),
+        "ready": (_has("ffmpeg") and _has("tts") and
+                  (premium or not required())),
+        "premium_images_enabled": premium,
         "gpu_required": False, "blender_required": False,
-        "detail": "Ilustrações 2D produzidas na VPS com Pillow, FFmpeg e voz narradora.",
+        "detail": ("Cenários ilustrados gerados automaticamente por API e "
+                   "protagonistas preservados" if premium else
+                   "Cenários simples locais: configure ANIMA_SCENE_IMAGE_API_KEY "
+                   "na VPS para gerar imagens detalhadas automaticamente."),
     }
 
 
@@ -347,7 +362,19 @@ def get_episode_art_board(job_id: str):
         from backend.app.official_comic_2d import has_official_model
         count = len((job.get("story_plan") or {}).get("scenes") or [])
         model_ready = has_official_model()
-        scene_folder = STORAGE / job_id / "story-comic-planet-v8"
+        from backend.app.illustrated_scene_engine import (
+            enabled as scene_images_ready, required as scene_images_required,
+            ART_VERSION,
+        )
+        if scene_images_ready():
+            quality = os.getenv("ANIMA_SCENE_IMAGE_QUALITY", "medium")
+            model = os.getenv("ANIMA_SCENE_IMAGE_MODEL", "gpt-image-2.5-flare")
+            cache_token = hashlib.sha256(
+                (ART_VERSION + "|" + model + "|" + quality).encode()
+            ).hexdigest()[:12]
+            scene_folder = STORAGE / job_id / ("story-comic-illustrated-v9-" + cache_token)
+        else:
+            scene_folder = STORAGE / job_id / "story-comic-procedural-v9"
         curated = sum((scene_folder / f"scene-{i:02d}.png").is_file()
                       for i in range(count))
         hand_ready = False
@@ -361,12 +388,16 @@ def get_episode_art_board(job_id: str):
             "official_model_ready": model_ready,
             "curated_artworks": curated, "required_artworks": count,
             "real_hand_ready": hand_ready,
-            "visual_quality": ("official-cast" if model_ready
-                               else "automatic-local-illustration"),
+            "visual_quality": ("illustrated-scenes" if scene_images_ready()
+                               else "basic-local-fallback"),
+            "advanced_illustration_ready": scene_images_ready(),
+            "advanced_illustration_required": scene_images_required(),
             "story_approved": bool(job.get("story_approved")),
             "auto_production": bool(job.get("auto_production_requested")),
             "formats": job.get("formats") or ["9:16"], "formats_status": {},
-            "image_engine": {"provider": "automatic-cpu-2d", "ready": True},
+            "image_engine": {"provider": ("gpt-image-scenes" if scene_images_ready()
+                else "procedural-cpu-2d"), "ready": (
+                scene_images_ready() or not scene_images_required())},
             "ready": job.get("status") == "done", "tasks": [],
             "total_artworks": count, "approved_artworks": int(job.get("drawing_scenes_finished") or 0),
             "art_stage": job.get("art_stage") or "not_started",
