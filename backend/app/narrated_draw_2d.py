@@ -25,7 +25,7 @@ from backend.app.renderer import (
 )
 
 DRAW_ENGINE = "Anima 2D · desenho narrado na VPS (CPU)"
-DRAW_ART_VERSION = "approved-cast-embedded-live-v3"
+DRAW_ART_VERSION = "storybook-scene-director-v4"
 DEFAULT_FPS = 8
 
 
@@ -145,7 +145,7 @@ def artwork_for_scene(
     # precedence over the approved Luna/Tomi/Pipo artwork.
     from backend.app.official_comic_2d import draw_official_scene, model_path
     # No file upload or manual asset configuration required.
-    official_dir = workdir / "approved-cast-v3" if workdir is not None else None
+    official_dir = workdir / "story-comic-v4" if workdir is not None else None
     official_image = official_dir / f"scene-{scene_index:02d}.png" if official_dir else None
     if official_image and official_image.is_file() and (
         not model_path().is_file()
@@ -163,6 +163,7 @@ def artwork_for_scene(
             int(scene_index),
             str(plan.get("planet") or "Novo planeta"),
             scene_action, width=1280, height=720,
+            scene=scene, biome=str(plan.get("biome") or ""),
         )
         if official_dir is not None:
             official_dir.mkdir(parents=True, exist_ok=True)
