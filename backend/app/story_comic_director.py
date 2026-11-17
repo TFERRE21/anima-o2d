@@ -233,7 +233,7 @@ def draw_story_scene(base,scene_index,planet,biome,scene,sprites):
         "habitante","morador","amigo","pessoa","comunidade","receb",
         "ajud","todos","equipe","especialista","convers","cumpriment"
     ))
-    if theme != "flight" and natives_requested:
+    if theme != "flight" and natives_requested and not scene.get("illustrated_native_residents"):
         for n in range(1 + scene_index%2):
             x=round(w*(.10+n*.15))
             draw_resident(d,x,round(h*.71),planet_style["species"],
