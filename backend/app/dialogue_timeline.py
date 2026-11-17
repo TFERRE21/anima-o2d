@@ -105,6 +105,26 @@ def draw_balloon(canvas: Image.Image,text: str,speaker: str,
         d.text((cx,first_y+i*line_h),line,font=font,fill=ink,anchor="mt")
     return img
 
+def speaker_coordinates(scene_index: int, speaker: str, size: tuple[int,int]):
+    """Track cast positions used by story_comic_director for each shot."""
+    w,h=size
+    if scene_index % 4==1:
+        positions={"luna":.19,"tomi":.52,"pipo":.81,"resident":.12}
+    elif scene_index % 4==2:
+        positions={"luna":.36,"tomi":.65,"pipo":.83,"resident":.12}
+    elif scene_index % 4==3:
+        positions={"luna":.18,"tomi":.49,"pipo":.76,"resident":.12}
+    else:
+        positions={"luna":.25,"tomi":.53,"pipo":.76,"resident":.12}
+    x=int(w*positions.get(speaker,.53))
+    # Distribute balloons across the upper sky to avoid collisions.
+    if speaker=="luna": center=(int(w*.21),int(h*.17))
+    elif speaker=="tomi":center=(int(w*.56),int(h*.12))
+    elif speaker=="pipo":center=(int(w*.79),int(h*.22))
+    else:center=(int(w*.16),int(h*.13))
+    return (x,int(h*.44)),center
+
+
 def _font(size:int):
     from backend.app.cartoon2d import _font as font
     return font(size,True)
