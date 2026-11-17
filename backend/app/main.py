@@ -374,11 +374,12 @@ def get_episode_art_board(job_id: str):
         from backend.app.illustrated_scene_engine import (
             enabled as scene_images_ready, required as scene_images_required,
             cache_tag, provider as scene_provider,
+            character_mode,
         )
         if scene_images_ready():
-            scene_folder = STORAGE / job_id / ("story-comic-dialogue-v10-" + cache_tag())
+            scene_folder = STORAGE / job_id / ("story-comic-reference-v11-" + cache_tag())
         else:
-            scene_folder = STORAGE / job_id / "story-comic-dialogue-local-v10"
+            scene_folder = STORAGE / job_id / "story-comic-reference-local-v11"
         curated = sum((scene_folder / f"scene-{i:02d}.png").is_file()
                       for i in range(count))
         hand_ready = False
@@ -395,6 +396,7 @@ def get_episode_art_board(job_id: str):
             "visual_quality": ("illustrated-scenes" if scene_images_ready()
                                else "basic-local-fallback"),
             "advanced_illustration_ready": scene_images_ready(),
+            "character_render_mode": character_mode(),
             "illustration_provider": scene_provider() if scene_images_ready() else "local",
             "advanced_illustration_required": scene_images_required(),
             "story_approved": bool(job.get("story_approved")),
