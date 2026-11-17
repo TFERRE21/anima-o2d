@@ -57,15 +57,15 @@ def stage_direction(scene:dict,index:int,planet:str,biome:str,theme:str,inhabita
     village=theme in ("town","library","workshop")
     closeup=any(word in text for word in ("abraça","emoção","comemora","sussurra","expressão"))
     if panorama:
-        scale="long distance establishing shot, all three protagonists together only 18-25 percent of canvas height"
+        scale="long distance establishing shot: protagonists are small foreground figures, 15-21 percent of canvas height, scenery dominates"
     elif village:
-        scale="wide village perspective, all three protagonists together only 25-32 percent of canvas height, houses considerably taller than people"
+        scale="wide village perspective: protagonists are only 20-27 percent of image height, nearby houses at least twice their height, streets and plants visibly larger in depth"
     elif resident_focus:
-        scale="balanced mid-wide interaction, protagonists 27-34 percent of image height, residents proportional to the buildings"
+        scale="balanced mid-wide interaction: protagonists 24-30 percent of image height, local residents in consistent scale with doorways and windows"
     elif closeup:
-        scale="medium framing, protagonists 35-43 percent image height"
+        scale="medium framing, protagonists 32-39 percent image height"
     else:
-        scale="medium-wide framing, protagonists 28-36 percent of image height"
+        scale="medium-wide framing, protagonists 24-32 percent of image height"
     native_rule=(
         "Show 1-3 endearing distinctive indigenous residents designed for this planet, "
         "with consistent color, anatomy and scale, interacting appropriately with the trio."
@@ -83,9 +83,15 @@ def stage_direction(scene:dict,index:int,planet:str,biome:str,theme:str,inhabita
         "TOMI is the middle boy with lifted hair and blue spacesuit; "
         "PIPO is the small round white-and-yellow robot at right. "
         "Maintain same distinctive faces, hair, uniform marks and proportions across episodes. "
-        "Draw all three as fully integrated original 2D children's storybook characters "
-        "with expressive, natural smiling mouths and matching painterly lighting, "
-        "occlusion, shadows, perspective and environment. "
+        "Use the reference sheet for who they ARE, not for the rough line-art "
+        "finish. REDRAW their same facial identity, hair and uniforms as lavishly "
+        "colored premium storybook illustrations, with the EXACT SAME painterly "
+        "finish as trees, houses and indigenous characters. Do not paste their "
+        "flat outlines on top of a realistic scene. All three must stand on the "
+        "ground at human-child scale compared with doors, bridges and tree trunks; "
+        "Pipo is about 60 percent of Luna's height. "
+        "Use expressive eyebrows, anatomically natural mouths, matched ambient "
+        "light, contact shadows and shared perspective. "
         "Do not create duplicate protagonists, circular O mouths, any speech text, "
         "balloons, letters, captions, watermark, rectangular frames or TV borders. "
         "Illustrate the narrated event with a detailed city/vegetation/landscape in "
