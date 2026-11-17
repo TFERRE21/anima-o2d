@@ -25,7 +25,7 @@ from backend.app.renderer import (
 )
 
 DRAW_ENGINE = "Anima 2D · desenho narrado na VPS (CPU)"
-DRAW_ART_VERSION = "storybook-scene-director-color-v6"
+DRAW_ART_VERSION = "storybook-scene-director-color-v7"
 DEFAULT_FPS = 8
 
 
@@ -152,7 +152,7 @@ def artwork_for_scene(
     # precedence over the approved Luna/Tomi/Pipo artwork.
     from backend.app.official_comic_2d import draw_official_scene, model_path
     # No file upload or manual asset configuration required.
-    official_dir = workdir / "story-comic-v6" if workdir is not None else None
+    official_dir = workdir / "story-comic-v7" if workdir is not None else None
     official_image = official_dir / f"scene-{scene_index:02d}.png" if official_dir else None
     if official_image and official_image.is_file() and (
         not model_path().is_file()
@@ -468,10 +468,10 @@ def render_narrated_draw_episode(title: str, story: str, fmt: str,
         "-i", str(silent), "-i", str(fitted), "-i", str(music),
         "-filter_complex",
         f"[0:v]scale={target_size}:flags=lanczos,setsar=1[v];"
-        "[1:a]apad=pad_dur=2,loudnorm=I=-16:TP=-1.5:LRA=11[n];"
-        "[2:a]volume=0.60,lowpass=f=2400[m];"
-        "[m][n]sidechaincompress=threshold=0.012:ratio=5:attack=80:release=500[duck];"
-        "[n][duck]amix=inputs=2:duration=first:weights=1 0.40:normalize=0[a]",
+        "[1:a]apad=pad_dur=2,loudnorm=I=-16:TP=-1.5:LRA=11,asplit=2[voice][key];"
+        "[2:a]volume=0.30,lowpass=f=2400[music];"
+        "[music][key]sidechaincompress=threshold=0.012:ratio=5:attack=80:release=500[duck];"
+        "[voice][duck]amix=inputs=2:duration=first:weights='1 0.32':normalize=0[a]",
         "-map", "[v]", "-map", "[a]",
         "-t", f"{duration:.3f}", "-c:v", "libx264", "-preset", "ultrafast",
         "-crf", "22", "-pix_fmt", "yuv420p", "-r", "24",
