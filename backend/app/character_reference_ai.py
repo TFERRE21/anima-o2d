@@ -24,12 +24,10 @@ def reference_sheet() -> bytes:
         d.rounded_rectangle((left+2,47,left+144,415),radius=16,
                             fill=(236,245,252),outline=(199,217,232),width=2)
         sprite=character_sprite(key).convert("RGBA")
-        # Do not erase or redraw the approved ink outlines. Light costume color
-        # beneath the ink makes the encoded reference readable by image models.
-        ink=sprite.getchannel("A")
-        fill=Image.new("RGBA",sprite.size,(*color,0))
-        fill.putalpha(ink.point(lambda n:45 if n>35 else 0))
-        fill.alpha_composite(sprite)
+        # Reuse the exact on-screen color-filling logic so the reference has
+        # the same approved faces and costume colors as previous episodes.
+        from backend.app.story_comic_director import _color_approved_ink
+        fill=_color_approved_ink(sprite,key)
         fit_h=270 if key!="pipo" else 215
         fit_w=round(fill.width*fit_h/fill.height)
         fit=fill.resize((fit_w,fit_h),Image.Resampling.LANCZOS)
