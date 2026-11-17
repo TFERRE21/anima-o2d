@@ -7,6 +7,8 @@ It does not generate new AI artwork, claim image diffusion, or require ComfyUI.
 """
 from __future__ import annotations
 
+import hashlib
+
 import math
 import os
 import re
@@ -25,7 +27,7 @@ from backend.app.renderer import (
 )
 
 DRAW_ENGINE = "Anima 2D · desenho narrado na VPS (CPU)"
-DRAW_ART_VERSION = "storybook-planet-worldbible-v8"
+DRAW_ART_VERSION = "illustrated-planet-worldbible-v9"
 DEFAULT_FPS = 8
 
 
@@ -159,11 +161,31 @@ def artwork_for_scene(
             if passage.get("scene") == scene_index:
                 scene["spoken_excerpt"] = str(passage.get("text") or "")[:260]
                 break
-    # New output namespace prevents pre-upgrade crude pictures from taking
-    # precedence over the approved Luna/Tomi/Pipo artwork.
+    # Premium illustrated worlds are generated automatically when an API key
+    # is configured. Both scene and model are versioned independently.
     from backend.app.official_comic_2d import draw_official_scene, model_path
-    # No file upload or manual asset configuration required.
-    official_dir = workdir / "story-comic-planet-v8" if workdir is not None else None
+    from backend.app.illustrated_scene_engine import (
+        enabled as image_api_enabled, required as premium_required,
+        illustrated_background, ART_VERSION,
+    )
+    has_premium = image_api_enabled()
+    if premium_required() and not has_premium:
+        raise RuntimeError(
+            "O motor de cenários ilustrados exige ANIMA_SCENE_IMAGE_API_KEY "
+            "ou OPENAI_API_KEY configurada na VPS. Não é preciso enviar imagens."
+        )
+    if workdir is not None:
+        if has_premium:
+            model_tag = str(os.getenv("ANIMA_SCENE_IMAGE_MODEL", "gpt-image-2.5-flare"))
+            quality_tag = str(os.getenv("ANIMA_SCENE_IMAGE_QUALITY", "medium"))
+            cache_token = hashlib.sha256(
+                (ART_VERSION + "|" + model_tag + "|" + quality_tag).encode()
+            ).hexdigest()[:12]
+            official_dir = workdir / ("story-comic-illustrated-v9-" + cache_token)
+        else:
+            official_dir = workdir / "story-comic-procedural-v9"
+    else:
+        official_dir = None
     official_image = official_dir / f"scene-{scene_index:02d}.png" if official_dir else None
     if official_image and official_image.is_file() and (
         not model_path().is_file()
@@ -177,11 +199,17 @@ def artwork_for_scene(
             or scene.get("caption") or scene.get("description")
             or scene.get("title") or ""
         )
+        illustrated = (
+            illustrated_background(plan, scene, int(scene_index), workdir,
+                                   output_size=(1280,720))
+            if has_premium and workdir is not None else None
+        )
         image = draw_official_scene(
             int(scene_index),
             str(plan.get("planet") or "Novo planeta"),
             scene_action, width=1280, height=720,
             scene=scene, biome=str(plan.get("biome") or ""),
+            illustrated_background=illustrated,
         )
         if official_dir is not None:
             official_dir.mkdir(parents=True, exist_ok=True)
@@ -361,6 +389,14 @@ def _video_from_scenes(
     for j, index in enumerate(indices):
         if j % max_panels == 0:
             previous_on_page = []
+        if progress_callback:
+            from backend.app.illustrated_scene_engine import enabled as illustration_ready
+            progress_callback(
+                16 + int(65*j/max(1,len(indices))),
+                ("Criando ilustração detalhada" if illustration_ready()
+                 else "Preparando cenário local") +
+                f" do planeta {plan.get('planet','')} — cena {j+1}/{len(indices)}.",
+            )
         art, sketch = artwork_for_scene(
             plan, index, fmt, 1280, 720, j+1, len(indices), workdir=workdir,
         )
