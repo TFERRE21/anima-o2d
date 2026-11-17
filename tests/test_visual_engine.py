@@ -76,6 +76,43 @@ class StoryComicV5Tests(unittest.TestCase):
         result=subprocess.run(command,capture_output=True,text=True,timeout=15)
         self.assertEqual(result.returncode,0,result.stderr)
 
+    def test_every_planet_has_its_own_identity(self):
+        from backend.app.planet_art_direction import (
+            PROFILES,profile_for,draw_background,scene_theme,
+        )
+        from backend.app.worlds import WORLDS
+        distinct=set()
+        for world in WORLDS:
+            key,profile=profile_for(
+                world["planet"],world["biome"],world["inhabitants"])
+            distinct.add(key)
+            self.assertIn(profile["species"],
+                          {entry["species"] for entry in PROFILES.values()})
+        self.assertGreaterEqual(len(distinct),7)
+
+    def test_narration_changes_scene_without_changing_planet(self):
+        from backend.app.planet_art_direction import draw_background
+        planet="Vermelhão"
+        biome="cânions vermelhos e desertos de areia dourada"
+        native="Rochins, simpáticos construtores de pontes"
+        scenes=[
+            {"title":"Na vila","visual_action":"Os moradores recebem a equipe."},
+            {"title":"Na ponte","visual_action":"Os amigos atravessam a ponte sobre o rio."},
+            {"title":"A pista","visual_action":"Luna investiga pegadas estranhas."},
+        ]
+        pictures=[]
+        themes=[]
+        identities=[]
+        for idx,scene in enumerate(scenes):
+            picture,theme,key,profile=draw_background(
+                (640,360),planet,biome,native,scene,idx)
+            pictures.append(hashlib.sha256(picture.tobytes()).hexdigest())
+            themes.append(theme)
+            identities.append(profile["species"])
+        self.assertEqual(themes,["town","river","clue"])
+        self.assertEqual(len(set(pictures)),3)
+        self.assertEqual(len(set(identities)),1)
+
     def test_original_music_generation(self):
         with tempfile.TemporaryDirectory() as temp:
             path=create_music(Path(temp)/"music.wav",2.0,"Aurora-7")
