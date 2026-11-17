@@ -205,6 +205,35 @@ def _expressive_sprite(sprite, character, emotion):
         d.arc((x-10,y-7,x+10,y+8),10,168,fill=ink,width=3)
     return image
 
+def _color_approved_ink(sprite, name):
+    """Flood-fill enclosed regions inside the authentic approved line art.
+
+    It colors the interiors of inked shapes while retaining the original
+    contour pixels. An outside flood-fill prevents painted rectangles.
+    """
+    from PIL import ImageDraw, ImageFilter, ImageOps
+    rgba=sprite.convert('RGBA')
+    w,h=rgba.size
+    ink=rgba.getchannel('A').point(lambda value:255 if value>=80 else 0)
+    ink=ink.filter(ImageFilter.MaxFilter(5))
+    empty=ImageOps.invert(ink)
+    ImageDraw.floodfill(empty,(0,0),128,thresh=0)
+    inside=empty.point(lambda p:255 if p==255 else 0)
+    fills={
+        'luna':((255,222,198),(247,139,191)),
+        'tomi':((255,220,194),(103,177,244)),
+        'pipo':((255,234,171),(248,207,111)),
+    }
+    skin,costume=fills[name]
+    underlay=Image.new('RGBA',(w,h),(0,0,0,0))
+    d=ImageDraw.Draw(underlay)
+    split=int(h*(.51 if name!='pipo' else .66))
+    d.rectangle((0,0,w,split),fill=(*skin,255))
+    d.rectangle((0,split,w,h),fill=(*costume,255))
+    underlay.putalpha(inside)
+    underlay.alpha_composite(rgba)
+    return underlay
+
 def draw_story_scene(base,scene_index,planet,biome,scene,sprites):
     w,h=base.size; im=base.convert('RGBA');d=ImageDraw.Draw(im)
     scene_text=' '.join(str(scene.get(k,'')) for k in ('title','caption','visual_action','action','spoken_excerpt'))
@@ -234,11 +263,8 @@ def draw_story_scene(base,scene_index,planet,biome,scene,sprites):
         target_height=max(80,int(h*height_fraction))
         target_width=max(50,int(sprite.width*target_height/max(sprite.height,1)))
         sprite=sprite.resize((target_width,target_height),Image.Resampling.LANCZOS)
-        # Color blocks under the approved black line art, preserving silhouettes.
-        color={'luna':(247,135,190),'tomi':(98,178,243),'pipo':(252,211,102)}[name]
-        rgba=Image.new('RGBA',sprite.size,(*color,0))
-        rgba.putalpha(sprite.getchannel('A').point(lambda alpha: 32 if alpha>50 else 0))
-        rgba.alpha_composite(sprite)
+        # Fill enclosed face/costume regions, never repaint the black ink.
+        rgba=_color_approved_ink(sprite,name)
         if scene_index%5 in (1,3) and name!='pipo':
             rgba=ImageOps.mirror(rgba)
         x=int(w*cx-target_width/2);y=int(h*ground-target_height)
