@@ -25,15 +25,22 @@ SUPPORTED = {"gpt-image-2.5-flare", "gpt-image-2.5-sunburst",
              "gpt-image-2", "gpt-image-1.5", "gpt-image-1-mini"}
 
 def enabled() -> bool:
-    return bool(os.getenv("ANIMA_SCENE_IMAGE_API_KEY", "").strip()
-                or os.getenv("OPENAI_API_KEY", "").strip())
+    # A dedicated key opts in. A generic OpenAI key may already serve another
+    # subsystem; never start billable image jobs with it without explicit opt-in.
+    dedicated = bool(os.getenv("ANIMA_SCENE_IMAGE_API_KEY", "").strip())
+    generic_opt_in = (os.getenv("ANIMA_SCENE_IMAGE_ENABLED", "0") == "1"
+                      and bool(os.getenv("OPENAI_API_KEY", "").strip()))
+    return dedicated or generic_opt_in
 
 def required() -> bool:
     return os.getenv("ANIMA_REQUIRE_ILLUSTRATED_SCENES", "0") == "1"
 
 def _key() -> str:
-    return (os.getenv("ANIMA_SCENE_IMAGE_API_KEY", "").strip()
-            or os.getenv("OPENAI_API_KEY", "").strip())
+    if os.getenv("ANIMA_SCENE_IMAGE_API_KEY", "").strip():
+        return os.getenv("ANIMA_SCENE_IMAGE_API_KEY", "").strip()
+    if os.getenv("ANIMA_SCENE_IMAGE_ENABLED", "0") == "1":
+        return os.getenv("OPENAI_API_KEY", "").strip()
+    return ""
 
 def scene_prompt(plan: dict, scene: dict, index: int) -> str:
     planet = str(plan.get("planet") or "Planeta desconhecido")
@@ -124,7 +131,7 @@ def illustrated_background(plan: dict, scene: dict, index: int,
         if required():
             raise RuntimeError(
                 "Ilustrações avançadas precisam da chave ANIMA_SCENE_IMAGE_API_KEY "
-                "ou OPENAI_API_KEY no ambiente da VPS. Nenhuma chave deve ir para o GitHub."
+                "ou ANIMA_SCENE_IMAGE_ENABLED=1 com OPENAI_API_KEY na VPS. Nunca no GitHub."
             )
         return None
     model = os.getenv("ANIMA_SCENE_IMAGE_MODEL", "gpt-image-2.5-flare").strip()
