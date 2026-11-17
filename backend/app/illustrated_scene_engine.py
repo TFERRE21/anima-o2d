@@ -20,7 +20,7 @@ from PIL import Image, ImageEnhance, ImageOps
 
 from backend.app.planet_art_direction import profile_for, scene_theme
 
-ART_VERSION = "reference-aware-worlds-v11"
+ART_VERSION = "reference-aware-worlds-v12"
 SUPPORTED = {"gpt-image-2.5-flare", "gpt-image-2.5-sunburst",
              "gpt-image-2", "gpt-image-1.5", "gpt-image-1-mini"}
 
@@ -35,11 +35,20 @@ def provider() -> str:
     return "openai"
 
 def character_mode() -> str:
-    # Explicit opt-in because reference-aware models may be billable.
-    mode=os.getenv("ANIMA_CHARACTER_MODE","fixed").strip().lower()
-    if mode not in {"fixed","reference_ai"}:
+    # The user selected AI characters and connected Cloudflare for this Studio.
+    # On Cloudflare the entire scene now defaults to reference-aware rendering.
+    # An explicit ANIMA_CHARACTER_MODE=fixed remains a reversible opt-out.
+    selected=os.getenv("ANIMA_CHARACTER_MODE","").strip().lower()
+    if selected not in ("","fixed","reference_ai"):
         raise ValueError("ANIMA_CHARACTER_MODE deve ser fixed ou reference_ai.")
-    return mode
+    if selected:
+        return selected
+    if provider()=="cloudflare" and (
+        os.getenv("CLOUDFLARE_API_TOKEN","").strip()
+        and os.getenv("CLOUDFLARE_ACCOUNT_ID","").strip()
+    ):
+        return "reference_ai"
+    return "fixed"
 
 
 def selected_model() -> str:
@@ -251,6 +260,11 @@ def illustrated_background(plan: dict, scene: dict, index: int,
     Provider failures are raised, never silently replaced with basic shapes.
     """
     if not enabled():
+        if character_mode()=="reference_ai":
+            raise RuntimeError(
+                "O modo reference_ai exige Cloudflare configurada; não serão "
+                "mostrados personagens antigos no lugar da cena ilustrada."
+            )
         if required():
             raise RuntimeError(
                 "Ilustrações avançadas precisam da chave ANIMA_SCENE_IMAGE_API_KEY "
@@ -272,6 +286,8 @@ def illustrated_background(plan: dict, scene: dict, index: int,
     if character_mode()=="reference_ai":
         if engine!="cloudflare":
             raise RuntimeError("Modo reference_ai requer Cloudflare Workers AI.")
+        if not enabled():
+            raise RuntimeError("Modo de elenco IA precisa das credenciais Cloudflare.")
         from backend.app.character_reference_ai import stage_direction
         theme=scene_theme(scene,index)
         prompt=stage_direction(
