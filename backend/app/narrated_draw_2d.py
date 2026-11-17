@@ -180,7 +180,7 @@ def artwork_for_scene(
     from backend.app.official_comic_2d import draw_official_scene, model_path
     from backend.app.illustrated_scene_engine import (
         enabled as image_api_enabled, required as premium_required,
-        illustrated_background, ART_VERSION,
+        illustrated_background, cache_tag,
     )
     has_premium = image_api_enabled()
     if premium_required() and not has_premium:
@@ -190,12 +190,7 @@ def artwork_for_scene(
         )
     if workdir is not None:
         if has_premium:
-            model_tag = str(os.getenv("ANIMA_SCENE_IMAGE_MODEL", "gpt-image-2.5-flare"))
-            quality_tag = str(os.getenv("ANIMA_SCENE_IMAGE_QUALITY", "medium"))
-            cache_token = hashlib.sha256(
-                (ART_VERSION + "|" + model_tag + "|" + quality_tag).encode()
-            ).hexdigest()[:12]
-            official_dir = workdir / ("story-comic-dialogue-v10-" + cache_token)
+            official_dir = workdir / ("story-comic-dialogue-v10-" + cache_tag())
         else:
             official_dir = workdir / "story-comic-dialogue-local-v10"
     else:
