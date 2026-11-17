@@ -38,7 +38,11 @@ function statusText(value){
     text='Esta história já foi aprovada. Vamos produzi-la no novo motor 2D da VPS, sem esperar GPU ou fotos.';
   }
   if(value.production_engine==='2d'){
-
+    if(value.advanced_illustration_ready){
+      text+=' · Cenários ilustrados por IA: ativos.';
+    }else{
+      text+=' · Cenários em modo local simples. Para qualidade de ilustração detalhada, configure a API de imagens na VPS.';
+    }
     if(value.real_hand_ready)text+=' · Mão real configurada.';
   }
   el('inlineArtBadge').textContent=badge;
