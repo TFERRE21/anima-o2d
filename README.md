@@ -1,5 +1,46 @@
 # ANIMA STUDIO — Histórias Desenhadas em 2D
 
+## Balões com as falas reais e cenários Cloudflare — v10
+
+O arquivo `backend/app/dialogue_timeline.py` usa as linhas do roteiro
+aprovado e os intervalos do áudio montado. Balões mostram **somente
+palavras realmente previstas para Luna, Tomi, Pipo e moradores**.
+A narração descritiva continua sem balão; nenhum “UAU!” ou “VAMOS!”
+genérico é inventado. Falas compridas são divididas em balões de até
+oito palavras, sem substituir o texto, e cada segmento recebe um intervalo
+proporcional à duração real do trecho de voz. Durante o mesmo quadrinho, a
+fala visível muda com o trecho narrado, sem redesenhar tudo. Os quadros
+concluídos preservam a última fala da cena. As expressões do elenco foram
+corrigidas para evitar a boca circular “0” desenhada por cima dos rostos.
+
+A API da **Cloudflare Workers AI/FLUX.1 Schnell** também é compatível com
+o gerador de fundos ilustrados. Para ativá-la no contêiner da VPS:
+
+```env
+CLOUDFLARE_API_TOKEN=seu_token_secreto
+CLOUDFLARE_ACCOUNT_ID=seu_account_id
+CLOUDFLARE_AI_MODEL=@cf/black-forest-labs/flux-1-schnell
+CLOUDFLARE_AI_STEPS=4
+ANIMA_REQUIRE_ILLUSTRATED_SCENES=1
+```
+
+Não envie o token para o GitHub, não coloque a chave no JavaScript do
+navegador e não compartilhe a credencial em capturas de tela.
+O sistema detecta Cloudflare automaticamente quando Account ID e token
+estão presentes (a menos que `ANIMA_SCENE_IMAGE_PROVIDER=openai` seja
+explicitamente configurado). Com a Cloudflare ativa, os fundos se baseiam
+no planeta, vegetação, vilas, personagens locais e ação narrada. O resultado
+da API tem cache, mas **a franquia gratuita não é ilimitada** e a qualidade
+exata da imagem de referência não é garantida pelo modelo FLUX Schnell.
+
+O motor registra o conjunto ilustrado em
+`story-comic-dialogue-v10-<cache_tag>`, ou no fallback local
+`story-comic-dialogue-local-v10`, evitando reaproveitar balões antigos.
+O render produz pequenos trechos MP4 sincronizados aos segmentos da
+narração e os concatena em cada cena. Testes estão em
+`tests/test_dialogue_timeline.py`; execução integral no servidor ainda
+precisa ser confirmada.
+
 ## Motor de cenários ilustrados v9 — qualidade de livro infantil
 
 O mecanismo simples de Pillow continua disponível apenas como alternativa
