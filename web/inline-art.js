@@ -38,10 +38,12 @@ function statusText(value){
     text='Esta história já foi aprovada. Vamos produzi-la no novo motor 2D da VPS, sem esperar GPU ou fotos.';
   }
   if(value.production_engine==='2d'){
-    if(value.advanced_illustration_ready){
-      text+=' · Cenários ilustrados por IA: ativos.';
+    if(value.advanced_illustration_ready && value.character_render_mode==='reference_ai'){
+      text+=' · Motor de cena completa: IA desenha personagens e planeta juntos, em escala contextual (FLUX.2 + referência fixa).';
+    }else if(value.advanced_illustration_ready){
+      text+=' · MODO ANTIGO ATIVO: cenário IA + personagens fixos sobrepostos. Para o novo motor, retire ANIMA_CHARACTER_MODE=fixed da VPS ou defina reference_ai.';
     }else{
-      text+=' · Cenários em modo local simples. Para qualidade de ilustração detalhada, configure a API de imagens na VPS.';
+      text+=' · Motor de ilustração indisponível: sem Cloudflare ativa, não será possível gerar a cena completa com personagens IA.';
     }
     if(value.real_hand_ready)text+=' · Mão real configurada.';
   }
