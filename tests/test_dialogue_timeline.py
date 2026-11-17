@@ -44,9 +44,9 @@ class RealDialogueTests(unittest.TestCase):
 
     def test_multiple_speakers_follow_actual_audio(self):
         plan={"audio_segments_short":[
-            {"scene":7,"speaker":"Luna","text":"Tomi, olha a pista!"},
-            {"scene":7,"speaker":"Tomi","text":"Vamos ouvir os moradores."},
-            {"scene":8,"speaker":"Pipo","text":"Au! Eu encontrei outra pista!"}
+            {"scene":7,"speaker":"Luna","text":"Tomi, olha a pista!","visual_dialogue":True},
+            {"scene":7,"speaker":"Tomi","text":"Vamos ouvir os moradores.","visual_dialogue":True},
+            {"scene":8,"speaker":"Pipo","text":"Au! Eu encontrei outra pista!","visual_dialogue":True}
         ]}
         segments=narrator_segments(plan,"9:16","")
         timeline=[{"scene":7,"start":0,"end":2},{"scene":7,"start":2,"end":4},
@@ -56,6 +56,23 @@ class RealDialogueTests(unittest.TestCase):
         self.assertEqual([item["text"] for item in beats[7]],
                          ["Tomi, olha a pista!","Vamos ouvir os moradores."])
         self.assertEqual(beats[8][0]["speaker"],"pipo")
+
+    def test_short_narration_recap_is_not_a_character_speech_bubble(self):
+        plan={"audio_segments_short":[
+            {"scene":7,"speaker":"Luna",
+             "text":"Na parte mais difícil da missão em Aurora-7, a tentativa falhou."},
+            {"scene":7,"speaker":"Tomi","text":"Vamos procurar outra solução!",
+             "visual_dialogue":True},
+        ]}
+        segments=narrator_segments(plan,"9:16","")
+        self.assertEqual(segments[0]["original_speaker"],"Narrador")
+        self.assertEqual(segments[0]["dialogue_text"],"")
+        beats=dialogue_beats(segments,[
+            {"scene":7,"start":0.0,"end":3.0},
+            {"scene":7,"start":3.0,"end":6.0},
+        ],[7],"9:16")[7]
+        self.assertEqual(beats[0]["text"],"")
+        self.assertEqual(beats[1]["text"],"Vamos procurar outra solução!")
 
     def test_balloon_is_legible_and_does_not_replace_art(self):
         blank=Image.new("RGB",(1280,720),(110,195,218))
