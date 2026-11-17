@@ -38,6 +38,22 @@ class CharacterReferenceTests(unittest.TestCase):
         self.assertIn("18-25 percent",text)
         self.assertIn("No extra indigenous residents",text)
 
+    def test_cloudflare_defaults_to_reference_illustration(self):
+        from backend.app.illustrated_scene_engine import character_mode, selected_model
+        with mock.patch.dict(os.environ,{
+            "ANIMA_CHARACTER_MODE":"",
+            "ANIMA_SCENE_IMAGE_PROVIDER":"cloudflare",
+            "CLOUDFLARE_API_TOKEN":"fake",
+            "CLOUDFLARE_ACCOUNT_ID":"fake-account",
+        }):
+            self.assertEqual(character_mode(),"reference_ai")
+            self.assertEqual(selected_model(),"@cf/black-forest-labs/flux-2-klein-4b")
+        with mock.patch.dict(os.environ,{
+            "ANIMA_CHARACTER_MODE":"fixed",
+            "ANIMA_SCENE_IMAGE_PROVIDER":"cloudflare",
+        }):
+            self.assertEqual(character_mode(),"fixed")
+
     def test_model_switch_needs_explicit_opt_in(self):
         with mock.patch.dict(os.environ, {
             "CLOUDFLARE_API_TOKEN":"test", "CLOUDFLARE_ACCOUNT_ID":"account",
@@ -79,6 +95,7 @@ class CharacterReferenceTests(unittest.TestCase):
         kwargs=client.post.call_args.kwargs
         self.assertIn("input_image_0",kwargs["files"])
         self.assertEqual(kwargs["data"]["width"],"1024")
+        self.assertEqual(kwargs["data"]["height"],"576")
         self.assertNotIn("seed",kwargs["data"])
         self.assertNotIn("Content-Type",kwargs["headers"])
         self.assertEqual(kwargs["files"]["input_image_0"][2],"image/png")
