@@ -18,7 +18,7 @@ ANIMA_SCENE_IMAGE_QUALITY=medium
 ANIMA_REQUIRE_ILLUSTRATED_SCENES=1
 ```
 
-Também aceita `OPENAI_API_KEY` em lugar da variável específica. A
+Também aceita `OPENAI_API_KEY` com **`ANIMA_SCENE_IMAGE_ENABLED=1`** (opt-in explícito) em lugar da chave específica, evitando consumir créditos de outras integrações sem autorização. A
 configuração não solicita imagens, ZIP ou aprovação por cena. Usa o endpoint
 oficial de imagens por padrão. As chamadas da API têm cobrança de uso à
 parte, **não estão incluídas na assinatura do ChatGPT**. Cada nova cena pode
