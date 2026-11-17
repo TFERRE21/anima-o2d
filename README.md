@@ -1,5 +1,28 @@
 # ANIMA STUDIO — Histórias Desenhadas em 2D
 
+## Correção do visual dos personagens — v12
+
+Com as credenciais Cloudflare configuradas, o Anima Studio usa agora o
+modo `reference_ai` por padrão, salvo quando
+`ANIMA_CHARACTER_MODE=fixed` estiver explicitamente definido na VPS.
+Esse modo usa o FLUX.2 Klein 4B e a prancha incorporada para ilustrar
+protagonistas, habitantes e cenário juntos; não cola os personagens antigos
+por cima da arte. Reaplica composição 16:9 (1024×576), evitando recortes
+verticais que aumentavam as pessoas e escondiam as cidades. O prompt limita
+a escala dos personagens conforme cidade, panorama e conversa.
+
+Os balões exibem apenas diálogos diretos: resumos de narração nos Shorts
+como “Na parte mais difícil da missão...” não são mais tratados como
+falas de Luna ou Tomi. Balões verdadeiros continuam sincronizados com
+o texto falado. Os novos arquivos estão em
+`story-comic-reference-v12-<cache_tag>`, evitando imagens antigas em cache.
+
+**Atenção:** o modo de referência gera imagens pela Cloudflare e consome
+sua franquia de Workers AI. Para retornar ao modo simples basta definir
+`ANIMA_CHARACTER_MODE=fixed`, mas a qualidade antiga volta. A identidade
+dos personagens é guiada por referência, não matematicamente garantida.
+Uma renderização real na VPS é necessária para validar qualidade e escala.
+
 ## Elenco com referência visual por IA — v11 (opcional)
 
 O caminho de maior fidelidade agora pode gerar a **cena completa** pela IA,
