@@ -118,7 +118,12 @@ def enabled() -> bool:
     return dedicated or generic_opt_in
 
 def required() -> bool:
-    return os.getenv("ANIMA_REQUIRE_ILLUSTRATED_SCENES", "0") == "1"
+    # Also accept the previously documented singular setting: some hosting
+    # dashboards truncate long env names, causing accidental misconfiguration.
+    value=os.getenv("ANIMA_REQUIRE_ILLUSTRATED_SCENES")
+    if value is None:
+        value=os.getenv("ANIMA_REQUIRE_ILLUSTRATED_SCENE","0")
+    return str(value).strip().lower() in ("1","true","yes","on")
 
 def _key() -> str:
     if os.getenv("ANIMA_SCENE_IMAGE_API_KEY", "").strip():
