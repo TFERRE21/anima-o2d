@@ -132,34 +132,24 @@ def _scene_background(size: tuple[int,int], scene_index: int, planet: str,
 
 
 def draw_official_scene(scene_index: int, planet: str, action: str,
-                        width: int = 1280, height: int = 720) -> Image.Image:
+                        width: int = 1280, height: int = 720,
+                        scene: dict | None = None, biome: str = "") -> Image.Image:
+    """Stage one original scene, keeping the approved cast silhouettes intact."""
+    from backend.app.story_comic_director import render_story_background, draw_story_scene
     path = model_path()
     if path.is_file():
         with Image.open(path) as source:
             source.load()
             if source.width < 800 or source.height < 1000:
-                raise ValueError("A prancha oficial deve ter pelo menos 800x1000 pixels.")
-            sprites = {name:_character_from_sheet(source,name) for name in CAST}
+                raise ValueError("Prancha oficial muito pequena.")
+            sprites = {name: _character_from_sheet(source, name) for name in CAST}
     else:
-        # Automatically use the exact approved reference contours bundled
-        # with the application. NEVER invoke the old crude cartoon renderer.
         from backend.app.approved_cast_embedded import character_sprite
         sprites = {name: character_sprite(name) for name in CAST}
-    scene = _scene_background((width,height),scene_index,planet,action)
-    page = scene.convert("RGBA")
-    # Cast remains exactly the same from one panel to the next.
-    roster = ["luna","tomi","pipo"]
-    positions = [(.21,.84,.52),(.47,.84,.51),(.72,.84,.37)]
-    if scene_index % 3 == 1:
-        positions=[(.18,.84,.48),(.46,.84,.53),(.72,.84,.36)]
-    elif scene_index % 3 == 2:
-        positions=[(.24,.84,.50),(.51,.84,.48),(.76,.84,.38)]
-    for name,(cx,base,scale) in zip(roster,positions):
-        sprite=sprites[name]
-        target_height=round(height*scale)
-        target_width=round(sprite.width*target_height/max(1,sprite.height))
-        sprite=sprite.resize((target_width,target_height),Image.Resampling.LANCZOS)
-        x=round(width*cx-target_width*.5)
-        y=round(height*base-target_height)
-        page.alpha_composite(sprite,(x,y))
-    return page.convert("RGB")
+    story_scene = dict(scene or {})
+    story_scene.setdefault("visual_action", action)
+    background, _, _ = render_story_background(
+        (width,height),scene_index,planet,biome,story_scene)
+    finished, _, _ = draw_story_scene(
+        background,scene_index,planet,biome,story_scene,sprites)
+    return finished
