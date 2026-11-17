@@ -137,7 +137,7 @@ def _probe_duration(path: Path) -> float:
 
 
 DEFAULT_VOICE_PROFILE = {
-    "Narrador": {"voice": "pt-BR-ThalitaMultilingualNeural", "rate": "+0%", "pitch": "+0Hz", "espeak_pitch": 48},
+    "Narrador": {"voice": "pt-BR-ThalitaMultilingualNeural", "rate": "-8%", "pitch": "+0Hz", "espeak_pitch": 48},
     "Luna": {"voice": "pt-BR-FranciscaNeural", "rate": "+2%", "pitch": "+5Hz", "espeak_pitch": 60},
     "Tomi": {"voice": "pt-BR-AntonioNeural", "rate": "+0%", "pitch": "-3Hz", "espeak_pitch": 43},
     "Pipo": {"voice": "pt-BR-AntonioNeural", "rate": "+8%", "pitch": "+22Hz", "espeak_pitch": 76},
@@ -246,7 +246,10 @@ def _synthesize_segments(segments: list[dict], workdir: Path, fmt: str,
                          speech_rate: int, progress_callback=None) -> tuple[Path, Path, list[dict]]:
     """Create one continuous track by alternating narrator and distinct character voices."""
     suffix = fmt.replace(":", "x")
-    use_espeak = bool(shutil.which("espeak-ng"))
+    # Prefer natural neural voices for children's stories. eSpeak remains a
+    # fully automatic offline fallback, never a required manual setup step.
+    requested_backend = os.getenv("ANIMA_TTS_BACKEND", "neural").lower()
+    use_espeak = requested_backend == "espeak"
     extension = "wav" if use_espeak else "mp3"
     parts_dir = workdir / f"voice-parts-{suffix}"
     parts_dir.mkdir(parents=True, exist_ok=True)
@@ -273,10 +276,22 @@ def _synthesize_segments(segments: list[dict], workdir: Path, fmt: str,
         try:
             asyncio.run(_synthesize_edge_segments(segments, files, progress_callback))
         except Exception as exc:
-            raise RuntimeError(
-                "Não foi possível gerar as falas com voz neural. Verifique a conexão de saída "
-                "do servidor e a disponibilidade do Edge TTS: " + str(exc)
-            ) from exc
+            if not shutil.which("espeak-ng"):
+                raise RuntimeError("Voz neural indisponível e eSpeak não instalado: "+str(exc)) from exc
+            use_espeak = True
+            files = [parts_dir / f"part-{i:03d}.wav" for i in range(len(segments))]
+            for index, (segment, part) in enumerate(zip(segments, files)):
+                speaker = str(segment.get("speaker", "Narrador"))
+                profile = VOICE_PROFILE.get(speaker, VOICE_PROFILE["Narrador"])
+                rate = speech_rate + (8 if speaker == "Pipo" else 0)
+                _run([
+                    "espeak-ng", "-v",
+                    ("pt-br+f3" if speaker == "Narrador" else "pt-br"),
+                    "-s", str(rate), "-p", str(int(profile["espeak_pitch"])),
+                    "-a", "165", "-w", str(part), str(segment.get("text", ""))
+                ])
+            if progress_callback:
+                progress_callback(10, "Voz neural indisponível: usando narração local de segurança.")
 
     raw = workdir / f"narration-source-{suffix}.{'wav' if use_espeak else 'm4a'}"
     fitted = workdir / f"narration-final-{suffix}.{'wav' if use_espeak else 'm4a'}"
