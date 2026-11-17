@@ -17,12 +17,13 @@
   ambientais e da identidade do planeta. A paleta do planeta permanece estável
   durante o episódio, mas os habitantes aparecem apenas quando a história
   pede. São desenhos procedurais, não imagens geradas por modelo difusivo.
+- **Colorização:** o motor preenche regiões fechadas da arte aprovada com cores de pele e uniforme, mantendo os contornos originais e cenário colorido.
 - **Desenho em tempo real:** traçado, colorização e prévia continuam
   sincronizados ao trecho de voz de cada cena.
 - **Música:** `children_music.py` cria uma trilha original tipo caixinha
   de música, sem royalties ou chamadas de APIs; o FFmpeg mistura com a
   narradora e reduz a música durante a fala.
-- **Cache:** a arte usa `story-comic-v5` para impedir que quadros gerados
+- **Cache:** a arte usa `story-comic-v6` para impedir que quadros gerados
   por versões anteriores contaminem o resultado.
 
 **Limite conhecido:** esta etapa usa poses da arte-base e variações de expressão
