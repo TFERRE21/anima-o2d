@@ -1,5 +1,45 @@
 # ANIMA STUDIO — Histórias Desenhadas em 2D
 
+## Motor de cenários ilustrados v9 — qualidade de livro infantil
+
+O mecanismo simples de Pillow continua disponível apenas como alternativa
+local. Para criar paisagens ricas como as referências, o renderizador agora
+gera **uma ilustração completa por cena** com GPT Image e depois sobrepõe
+os personagens fixos Luna, Tomi e Pipo. Casas, vegetação, cidades, nativos,
+céu e detalhes seguem o planeta e cada trecho narrado. Um planeta mantém
+seu bioma e identidade visual; cenas usam ângulos e ações diferentes.
+
+**Ativação única no ambiente do contêiner da VPS** (nunca no repositório):
+
+```env
+ANIMA_SCENE_IMAGE_API_KEY=chave_da_api_de_imagens
+ANIMA_SCENE_IMAGE_MODEL=gpt-image-2.5-flare
+ANIMA_SCENE_IMAGE_QUALITY=medium
+ANIMA_REQUIRE_ILLUSTRATED_SCENES=1
+```
+
+Também aceita `OPENAI_API_KEY` em lugar da variável específica. A
+configuração não solicita imagens, ZIP ou aprovação por cena. Usa o endpoint
+oficial de imagens por padrão. As chamadas da API têm cobrança de uso à
+parte, **não estão incluídas na assinatura do ChatGPT**. Cada nova cena pode
+gerar um custo e exigir tempo adicional de processamento; a arte gerada é
+guardada em `illustrated-backgrounds-v9`, com hash do prompt, modelo e
+qualidade, para evitar repetir cobranças em tentativas idênticas.
+
+Com `ANIMA_REQUIRE_ILLUSTRATED_SCENES=1`, o vídeo informa claramente a
+ausência ou falha da API, **sem substituir silenciosamente** a ilustração
+por montanhas e casas geométricas. Para usar o fallback local de menor
+qualidade, defina `ANIMA_REQUIRE_ILLUSTRATED_SCENES=0` (padrão), sem
+chave de imagens. O painel informa qual motor de cenário está ativo.
+
+Arquivos: `backend/app/illustrated_scene_engine.py` (prompt, API,
+cache), `backend/app/narrated_draw_2d.py` (automação), `backend/app/
+official_comic_2d.py` (elenco fixo). A qualidade pode se aproximar da
+referência, mas o modelo de imagens não garante reprodução idêntica da
+estética em todas as cenas. Sem API de imagem ou outro gerador de imagens
+de qualidade equivalente, não há um motor de ilustração generativa de
+alta qualidade embutido na VPS.
+
 ## Direção de arte por planeta v8
 
 O motor consulta o planeta, bioma, habitantes, marco geográfico e objeto da
