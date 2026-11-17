@@ -75,6 +75,7 @@ class RealDialogueTests(unittest.TestCase):
         test_image.save(buffer,format="JPEG")
         encoded=base64.b64encode(buffer.getvalue()).decode()
         response=mock.MagicMock()
+        response.status_code=200
         response.raise_for_status.return_value=None
         response.json.return_value={
             "success":True,"result":{"image":encoded},"errors":[]}
