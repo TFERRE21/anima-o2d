@@ -1,5 +1,35 @@
 # ANIMA STUDIO — Histórias Desenhadas em 2D
 
+## Motor de narrativa visual — personagens e cenas v5
+
+- **Elenco fixo:** mantém as formas originais aprovadas de Luna, Tomi e Pipo
+  em `approved_cast_embedded.py`. Acrescenta pequenas mudanças de boca e
+  sobrancelhas para alegria, dúvida, surpresa, preocupação e concentração.
+- **Balões:** palavrinhas curtas de reação, associadas ao personagem que
+  fala no roteiro, quando há diálogo correspondente. Não são cópias de
+  personagens ou desenhos de outras franquias.
+- **História encenada:** o diretor `story_comic_director.py` consulta
+  `title`, `caption`, `visual_action`, `action` e falas do storyboard
+  para selecionar ambiente, objetos, composição e cor em cada quadrinho.
+  Possui cenários desenhados por código (nave, vila, jardim, investigação,
+  oficina, mar, biblioteca e outros) com variações determinísticas por cena.
+- **Habitantes locais:** criaturas infantis geradas a partir de características
+  ambientais e da identidade do planeta. A paleta do planeta permanece estável
+  durante o episódio, mas os habitantes aparecem apenas quando a história
+  pede. São desenhos procedurais, não imagens geradas por modelo difusivo.
+- **Desenho em tempo real:** traçado, colorização e prévia continuam
+  sincronizados ao trecho de voz de cada cena.
+- **Música:** `children_music.py` cria uma trilha original tipo caixinha
+  de música, sem royalties ou chamadas de APIs; o FFmpeg mistura com a
+  narradora e reduz a música durante a fala.
+- **Cache:** a arte usa `story-comic-v5` para impedir que quadros gerados
+  por versões anteriores contaminem o resultado.
+
+**Limite conhecido:** esta etapa usa poses da arte-base e variações de expressão
+feitas por camadas; ainda não é animação frame-a-frame articulada, nem geração
+livre de cenários complexos por uma IA de ilustração. A identidade visual e a
+composição são mantidas sem pedir arquivos ao usuário.
+
 ## Produção automática e acompanhamento ao vivo
 
 Após a aprovação do roteiro, o sistema gera a narração, desenha os quadrinhos
