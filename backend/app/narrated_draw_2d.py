@@ -185,8 +185,9 @@ def artwork_for_scene(
     has_premium = image_api_enabled()
     if premium_required() and not has_premium:
         raise RuntimeError(
-            "O motor de cenários ilustrados exige ANIMA_SCENE_IMAGE_API_KEY "
-            "ou OPENAI_API_KEY configurada na VPS. Não é preciso enviar imagens."
+            "O motor ilustrado precisa de CLOUDFLARE_API_TOKEN e "
+            "CLOUDFLARE_ACCOUNT_ID, ou uma API de imagens configurada. "
+            "Não é preciso enviar imagens."
         )
     if workdir is not None:
         if has_premium:
@@ -426,6 +427,7 @@ def _video_from_scenes(
                          for beat in beats]
         total_weight=sum(raw_durations)
         clip_parts=[]
+        last_spoken_art = None
         preview_path = workdir / ("preview-" + fmt.replace(":", "x") + ".jpg")
         paper_page, panel_rect = comic_panels.comic_page(
             previous_on_page+[art],(w,h),title,portrait,
@@ -438,6 +440,7 @@ def _video_from_scenes(
                     index,beat["speaker"],art.size)
                 active=draw_balloon(art,beat["text"],beat["speaker"],
                                     anchor,center)
+                last_spoken_art = active
             colored_page,_ = comic_panels.comic_page(
                 previous_on_page+[active],(w,h),title,portrait,
                 stage="color",previous_count=len(previous_on_page))
@@ -494,7 +497,9 @@ def _video_from_scenes(
             _run([_ffmpeg_executable(),"-y","-loglevel","error","-f","concat",
                   "-safe","0","-i",str(local_manifest),"-c","copy",str(clip)])
         clips.append(clip)
-        previous_on_page.append(art)
+        # Completed panels keep the latest authentic dialogue bubble,
+        # rather than returning to an arbitrary generic exclamation.
+        previous_on_page.append(last_spoken_art or art)
         if progress_callback:
             progress_callback(
                 18+int(69*(j+1)/max(1,len(indices))),
