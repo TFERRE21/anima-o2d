@@ -18,3 +18,5 @@ jobs:
         run: python -m compileall -q backend/app
       - name: Test cast, worlds, backgrounds, caching and original music
         run: python -m unittest discover -s tests -p 'test_*engine.py' -v
+      - name: Test spoken dialogue synchronization and Cloudflare configuration
+        run: python -m unittest discover -s tests -p 'test_dialogue_timeline.py' -v
