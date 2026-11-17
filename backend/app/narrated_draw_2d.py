@@ -494,7 +494,7 @@ def _video_from_scenes(
             def quote(p:Path)->str:
                 return p.resolve().as_posix().replace("'","'\\''")
             local_manifest.write_text(
-                "".join("file '"+quote(p)+"'\\n" for p in clip_parts),
+                "".join("file '"+quote(p)+"'\n" for p in clip_parts),
                 encoding="utf8")
             _run([_ffmpeg_executable(),"-y","-loglevel","error","-f","concat",
                   "-safe","0","-i",str(local_manifest),"-c","copy",str(clip)])
@@ -509,7 +509,7 @@ def _video_from_scenes(
     def ffmpeg_escape(p:Path)->str:
         return p.resolve().as_posix().replace("'","'\\''")
     manifest.write_text(
-        "".join("file '"+ffmpeg_escape(p)+"'\\n" for p in clips),
+        "".join("file '"+ffmpeg_escape(p)+"'\n" for p in clips),
         encoding="utf8")
     _run([_ffmpeg_executable(),"-y","-loglevel","error",
           "-f","concat","-safe","0","-i",str(manifest),
