@@ -25,7 +25,7 @@ from backend.app.renderer import (
 )
 
 DRAW_ENGINE = "Anima 2D · desenho narrado na VPS (CPU)"
-DRAW_ART_VERSION = "storybook-scene-director-color-v7"
+DRAW_ART_VERSION = "storybook-planet-worldbible-v8"
 DEFAULT_FPS = 8
 
 
@@ -148,11 +148,22 @@ def artwork_for_scene(
     if dialogues:
         scene["bubble_speaker"] = dialogues[0]["speaker"].lower()
         scene["spoken_excerpt"] = str(dialogues[0].get("text", ""))
+    # World identity is fixed across the entire episode; the scene's own
+    # action/narration determines which part of that world is visible.
+    scene["world_inhabitants"] = str(plan.get("inhabitants") or "")
+    scene["world_landmark"] = str(plan.get("landmark") or "")
+    scene["mission_object"] = str(plan.get("mission_object") or "")
+    if not scene.get("spoken_excerpt"):
+        track = plan.get("audio_segments_long") or []
+        for passage in track:
+            if passage.get("scene") == scene_index:
+                scene["spoken_excerpt"] = str(passage.get("text") or "")[:260]
+                break
     # New output namespace prevents pre-upgrade crude pictures from taking
     # precedence over the approved Luna/Tomi/Pipo artwork.
     from backend.app.official_comic_2d import draw_official_scene, model_path
     # No file upload or manual asset configuration required.
-    official_dir = workdir / "story-comic-v7" if workdir is not None else None
+    official_dir = workdir / "story-comic-planet-v8" if workdir is not None else None
     official_image = official_dir / f"scene-{scene_index:02d}.png" if official_dir else None
     if official_image and official_image.is_file() and (
         not model_path().is_file()
