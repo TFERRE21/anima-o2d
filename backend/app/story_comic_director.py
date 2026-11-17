@@ -144,90 +144,17 @@ def _balloon(d, text, center, anchor, canvas_size=(1280,720)):
     d.text((cx,cy),label,font=font,fill=ink,anchor='mm')
 
 
-def render_story_background(size,scene_index,planet,biome,scene):
-    w,h=size
-    theme=_scene_theme(scene_index,scene)
-    palette=_world_palette(planet,biome)
-    light,dark,accent,variant=palette
-    rng=random.Random(seed_for(planet,scene_index,theme,str(scene.get('visual_action',''))))
-    im=Image.new('RGB',(w,h),light);d=ImageDraw.Draw(im)
-    ink=(37,54,76)
-    # Composition changes per scene, with distinct terrain silhouettes.
-    horizon=int(h*(.53+.05*(scene_index%4)))
-    d.rectangle((0,0,w,horizon),fill=tuple(min(255,c+35) for c in light))
-    for i in range(3):
-        xx=int((i+.7)*w/3+rng.randrange(-90,90))
-        yy=int(h*(.12+.08*(i%2)))
-        d.ellipse((xx-65,yy-25,xx+70,yy+20),fill=(255,255,251),outline=ink,width=3)
-    if theme=='nave':
-        # Open spaceship deck: no closed rectangular TV/window around cast.
-        # Outside space and the curved horizon occupy the full panel.
-        d.ellipse((-int(w*.20),-int(h*.72),int(w*1.20),int(h*.68)),
-                  fill=(20,48,115),outline=dark,width=9)
-        d.ellipse((-int(w*.12),-int(h*.66),int(w*1.12),int(h*.61)),
-                  fill=(96,179,244),outline=(245,249,255),width=6)
-        d.ellipse((-int(w*.25),int(h*.45),int(w*1.25),int(h*1.28)),
-                  fill=(105,166,214),outline=ink,width=6)
-        d.arc((-int(w*.22),int(h*.50),int(w*1.22),int(h*1.22)),
-              184,357,fill=(244,249,255),width=8)
-        for n in range(9):
-            sx=rng.randint(35,w-35);sy=rng.randint(35,int(h*.31))
-            d.ellipse((sx,sy,sx+5,sy+5),fill=(255,255,255))
-        # Console details are at the sides and cannot frame the characters.
-        for x in (40,w-180):
-            d.ellipse((x,int(h*.77),x+125,int(h*.94)),
-                      fill=(30,70,133),outline=ink,width=4)
-            d.ellipse((x+30,int(h*.81),x+70,int(h*.87)),
-                      fill=accent,outline=(255,255,255),width=3)
-    elif theme in ('vila','praca','mercado','biblioteca','oficina'):
-        for n in range(3):
-            bx=40+n*420+rng.randrange(-35,35)
-            by=horizon-rng.randint(140,240)
-            d.rounded_rectangle((bx,by,bx+295,horizon+65),radius=34,fill=accent if n%2 else dark,outline=ink,width=7)
-            d.ellipse((bx+96,by+25,bx+195,by+125),fill=(250,244,208),outline=ink,width=5)
-            if theme=='biblioteca':
-                for j in range(7):
-                    d.rectangle((bx+20+j*33,by+145,bx+38+j*33,by+212),fill=(85+15*j,120,155),outline=ink,width=2)
-            if theme=='oficina':
-                d.ellipse((bx+120,by+140,bx+177,by+197),outline=ink,width=6)
-    elif theme=='investigacao':
-        for n in range(5):
-            x=140+n*220+rng.randrange(-40,40)
-            d.ellipse((x,horizon+25,x+55,horizon+50),fill=accent,outline=ink,width=3)
-            d.line((x+20,horizon+30,x+35,horizon+45),fill=ink,width=4)
-        d.rounded_rectangle((w-300,90,w-120,230),radius=15,fill=(255,247,217),outline=ink,width=6)
-        d.line((w-265,125,w-155,125),fill=ink,width=4)
-        d.line((w-265,160,w-195,160),fill=ink,width=4)
-    elif theme=='jardim':
-        for n in range(9):
-            x=70+n*140+rng.randrange(-25,25); y=horizon+rng.randrange(-30,40)
-            d.line((x,y+70,x,y-85),fill=dark,width=12)
-            for angle in range(0,360,60):
-                xx=x+55*math.cos(math.radians(angle))
-                yy=y-85+55*math.sin(math.radians(angle))
-                d.ellipse((xx-40,yy-40,xx+40,yy+40),fill=accent,outline=ink,width=3)
-            d.ellipse((x-27,y-112,x+27,y-58),fill=(255,231,118),outline=ink,width=4)
-    elif theme=='mar':
-        d.rectangle((0,horizon,w,h),fill=dark)
-        for n in range(3):
-            d.arc((-60,horizon+n*75,w+100,horizon+130+n*75),0,180,fill=(247,253,253),width=8)
-        for n in range(7):
-            x=rng.randrange(50,w-50);y=rng.randrange(horizon+35,h-30)
-            d.ellipse((x,y,x+23,y+23),outline=(243,249,250),width=3)
-    else:
-        for n in range(5):
-            x=n*290-90+rng.randrange(-65,65);y=horizon+rng.randrange(-45,45)
-            d.ellipse((x-180,y-120,x+220,y+160),fill=dark if n%2 else accent,outline=ink,width=5)
-        if theme=='ponte':
-            d.arc((100,130,w-100,h+250),180,360,fill=(252,248,221),width=50)
-    # Different foreground props and visual accents every scene.
-    for n in range(7):
-        x=rng.randrange(20,w-20);y=rng.randrange(int(h*.83),h-15)
-        d.ellipse((x-14,y-9,x+14,y+9),fill=accent,outline=ink,width=2)
-    if scene_index%2:
-        d.rounded_rectangle((20,h-65,245,h-15),radius=15,fill=(255,255,255),outline=ink,width=3)
-        d.text((133,h-40),f'CENA {scene_index+1}',font=_font(20),fill=ink,anchor='mm')
-    return im,theme,palette
+def render_story_background(size, scene_index, planet, biome, scene):
+    """Planet owns its world bible; action controls each unique shot."""
+    from backend.app.planet_art_direction import draw_background
+    img,theme,world_type,world=draw_background(
+        size,planet,biome,str(scene.get("world_inhabitants") or ""),
+        scene,scene_index,
+    )
+    # The legacy palette interface is preserved for existing call sites.
+    palette=(world["sky"],world["hill"],world["accent"],world_type)
+    return img,theme,palette
+
 
 def _expressive_sprite(sprite, character, emotion):
     """Subtle mouth and eyebrow variants over the approved facial design."""
@@ -293,14 +220,24 @@ def draw_story_scene(base,scene_index,planet,biome,scene,sprites):
     w,h=base.size; im=base.convert('RGBA');d=ImageDraw.Draw(im)
     scene_text=' '.join(str(scene.get(k,'')) for k in ('title','caption','visual_action','action','spoken_excerpt'))
     emotion,word=emotions(scene_text)
-    palette=_world_palette(planet,biome)
-    theme=_scene_theme(scene_index,scene)
-    # Inhabitants vary by planet but persist across scenes on the same planet.
-    _,_,_,variant=palette
-    if theme in ('vila','praca','mercado','festa','oficina','jardim','investigacao'):
-        for n in range(2+(scene_index%2)):
-            x=110+n*240+(scene_index%3)*15
-            _alien(d,x,int(h*.70),32+n*5,variant,palette,emotion)
+    from backend.app.planet_art_direction import (
+        profile_for, scene_theme, draw_resident,
+    )
+    theme=scene_theme(scene,scene_index)
+    _,planet_style=profile_for(
+        planet,biome,str(scene.get("world_inhabitants") or ""))
+    # Native residents have a consistent species in this planet, but appear
+    # only when the scene describes the people or local interaction.
+    scene_text_lower=normal(scene_text)
+    natives_requested=any(word in scene_text_lower for word in (
+        "habitante","morador","amigo","pessoa","comunidade","receb",
+        "ajud","todos","equipe","especialista","convers","cumpriment"
+    ))
+    if theme != "flight" and natives_requested:
+        for n in range(1 + scene_index%2):
+            x=round(w*(.10+n*.15))
+            draw_resident(d,x,round(h*.71),planet_style["species"],
+                          planet_style,n,emotion)
     # Preserve original approved faces, costume contours and proportions.
     if theme=='nave':
         positions=[(.27,.82,.48),(.49,.82,.48),(.75,.84,.34)]
