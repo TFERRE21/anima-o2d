@@ -377,9 +377,9 @@ def get_episode_art_board(job_id: str):
             character_mode,
         )
         if scene_images_ready():
-            scene_folder = STORAGE / job_id / ("story-comic-reference-v11-" + cache_tag())
+            scene_folder = STORAGE / job_id / ("story-comic-reference-v12-" + cache_tag())
         else:
-            scene_folder = STORAGE / job_id / "story-comic-reference-local-v11"
+            scene_folder = STORAGE / job_id / "story-comic-reference-local-v12"
         curated = sum((scene_folder / f"scene-{i:02d}.png").is_file()
                       for i in range(count))
         hand_ready = False
