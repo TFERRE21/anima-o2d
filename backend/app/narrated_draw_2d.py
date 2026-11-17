@@ -28,7 +28,7 @@ from backend.app.renderer import (
 )
 
 DRAW_ENGINE = "Anima 2D · desenho narrado na VPS (CPU)"
-DRAW_ART_VERSION = "reference-aware-proportional-cast-v11"
+DRAW_ART_VERSION = "reference-aware-proportional-cast-v12"
 DEFAULT_FPS = 8
 
 
@@ -53,9 +53,12 @@ def narrator_segments(plan: dict, fmt: str, story: str) -> list[dict]:
             continue
         original_speaker = str(item.get("speaker") or "Narrador").strip()
         scene_number = int(item.get("scene",0))
+        # Only actual scripted dialogue is a speech balloon. Legacy Shorts
+        # used speaker='Luna' for narrative summaries ("Na parte mais difícil
+        # da missão..."), which must NEVER appear in a character's balloon.
         is_real_dialogue = (
             original_speaker != "Narrador" and
-            (fmt == "9:16" or
+            (item.get("visual_dialogue") is True or
              (scene_number,original_speaker,original_text) in scripted_dialogue)
         )
         spoken_audio = original_text
@@ -192,9 +195,9 @@ def artwork_for_scene(
         )
     if workdir is not None:
         if has_premium:
-            official_dir = workdir / ("story-comic-reference-v11-" + cache_tag())
+            official_dir = workdir / ("story-comic-reference-v12-" + cache_tag())
         else:
-            official_dir = workdir / "story-comic-reference-local-v11"
+            official_dir = workdir / "story-comic-reference-local-v12"
     else:
         official_dir = None
     official_image = official_dir / f"scene-{scene_index:02d}.png" if official_dir else None
