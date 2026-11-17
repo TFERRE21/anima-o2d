@@ -217,7 +217,13 @@ def _color_approved_ink(sprite, name):
     ink=rgba.getchannel('A').point(lambda value:255 if value>=80 else 0)
     ink=ink.filter(ImageFilter.MaxFilter(5))
     empty=ImageOps.invert(ink)
-    ImageDraw.floodfill(empty,(0,0),128,thresh=0)
+    # Clear every outside region touching the crop boundary. Starting only
+    # at (0,0) is unsafe when that pixel happens to contain a stray ink line.
+    border=[(x,0) for x in range(w)]+[(x,h-1) for x in range(w)]
+    border += [(0,y) for y in range(h)]+[(w-1,y) for y in range(h)]
+    for position in border:
+        if empty.getpixel(position)==255:
+            ImageDraw.floodfill(empty,position,128,thresh=0)
     inside=empty.point(lambda p:255 if p==255 else 0)
     fills={
         'luna':((255,222,198),(247,139,191)),
