@@ -62,20 +62,43 @@ def _cloudflare_call(prompt: str, scene_index: int, planet: str) -> bytes:
         raise RuntimeError("CLOUDFLARE_AI_STEPS deve estar entre 1 e 8.")
     url=("https://api.cloudflare.com/client/v4/accounts/"+account+
          "/ai/run/"+model)
-    # The FLUX model accepts up to 2048 prompt characters.
-    # Place the specific scene/planet context at the start.
-    body={"prompt":prompt[:2048],"steps":steps,
-          "seed":int(hashlib.sha256((planet+"|"+str(scene_index)).encode()
-                       ).hexdigest()[:8],16)}
+    # Cloudflare REST model schema is strict (additionalProperties=false):
+    # FLUX.1 Schnell accepts prompt and steps. DO NOT send a 'seed'.
+    # Bound UTF-8 payload for accented Portuguese narration and long scripts.
+    prompt=prompt.strip()
+    while len(prompt.encode("utf-8")) > 2000:
+        prompt=prompt[:-1]
+    body={"prompt":prompt,"steps":steps}
     with httpx.Client(timeout=httpx.Timeout(180,connect=15)) as client:
         response=client.post(url,json=body,headers={
             "Authorization":"Bearer "+token,
             "Content-Type":"application/json"})
-    response.raise_for_status()
+    if response.status_code >= 400:
+        details="sem detalhes"
+        try:
+            info=response.json()
+            reported=info.get("errors") or info.get("message") or info.get("error") or []
+            if isinstance(reported,list):
+                details="; ".join(
+                    str(item.get("message") or item.get("code") or item)
+                    if isinstance(item,dict) else str(item)
+                    for item in reported
+                )
+            else:
+                details=str(reported)
+        except (ValueError,TypeError,AttributeError):
+            details=response.text[:250]
+        # Do not leak credentials, account IDs or echo customer payloads.
+        details=details.replace(token,"[protegido]").replace(account,"[conta]")
+        raise RuntimeError(
+            f"Cloudflare FLUX HTTP {response.status_code}: {details[:320]}. "
+            f"Parâmetros: prompt_utf8={len(prompt.encode('utf-8'))}, steps={steps}."
+        )
     result=response.json()
     if not result.get("success",False):
+        errors=result.get("errors",[])
         raise RuntimeError("Cloudflare rejeitou a geração da imagem: "+
-                           str(result.get("errors",[]))[:240])
+                           str(errors).replace(token,"[protegido]")[:280])
     value=result.get("result") or {}
     encoded=value.get("image") if isinstance(value,dict) else None
     if not encoded:
@@ -140,6 +163,10 @@ def scene_prompt(plan: dict, scene: dict, index: int) -> str:
     mission = str(plan.get("mission_object") or "")
     inhabitants = str(plan.get("inhabitants") or "")
     return (
+        f"PLANET: {planet}. BIOME: {biome}. "
+        f"SCENE {index+1}: {scene.get('title','')}. SHOT: {shot}. "
+        f"STORY ACTION: {action}. NARRATION: {narration[:300]}. "
+        f"LANDMARK: {landmark}. NATIVE CULTURE: {inhabitants}. "
         "Create ONE exquisitely rendered 2D children's comic background, an "
         "original educational fantasy space adventure storybook illustration. "
         "Visual quality: detailed premium full-color storybook illustration, "
@@ -149,11 +176,7 @@ def scene_prompt(plan: dict, scene: dict, index: int) -> str:
         "Avoid bland vector clip art, simple circles, rectangles, flat gradients, "
         "plain colored hills, tiny repeating dots and primitive geometric props. "
         "Environment identity must stay CONSISTENT across this planet's episode. "
-        f"PLANET: {planet}. BIOME: {biome}. VISUAL BIBLE: {world}. "
-        f"LANDMARK: {landmark}. NATIVE CULTURE: {inhabitants}. "
-        f"SCENE {index+1}: {scene.get('title','')}. SHOT: {shot}. "
-        f"STORY ACTION: {action}. NARRATION: {narration[:650]}. "
-        f"IMPORTANT STORY PROP: {mission}. "
+        f"VISUAL BIBLE: {world}. IMPORTANT STORY PROP: {mission}. "
         "The environment and visual objects must explicitly illustrate the action "
         "in the narration, not a generic background. Every scene must have a "
         "distinct camera angle and specific composition. "
