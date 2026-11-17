@@ -133,7 +133,8 @@ def _scene_background(size: tuple[int,int], scene_index: int, planet: str,
 
 def draw_official_scene(scene_index: int, planet: str, action: str,
                         width: int = 1280, height: int = 720,
-                        scene: dict | None = None, biome: str = "") -> Image.Image:
+                        scene: dict | None = None, biome: str = "",
+                        illustrated_background: Image.Image | None = None) -> Image.Image:
     """Stage one original scene, keeping the approved cast silhouettes intact."""
     from backend.app.story_comic_director import render_story_background, draw_story_scene
     path = model_path()
@@ -148,8 +149,13 @@ def draw_official_scene(scene_index: int, planet: str, action: str,
         sprites = {name: character_sprite(name) for name in CAST}
     story_scene = dict(scene or {})
     story_scene.setdefault("visual_action", action)
-    background, _, _ = render_story_background(
-        (width,height),scene_index,planet,biome,story_scene)
+    if illustrated_background is not None:
+        background = ImageOps.fit(illustrated_background.convert("RGB"),
+                                  (width,height),Image.Resampling.LANCZOS)
+        story_scene["illustrated_native_residents"] = True
+    else:
+        background, _, _ = render_story_background(
+            (width,height),scene_index,planet,biome,story_scene)
     finished, _, _ = draw_story_scene(
         background,scene_index,planet,biome,story_scene,sprites)
     return finished
