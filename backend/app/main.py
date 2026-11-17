@@ -347,7 +347,7 @@ def get_episode_art_board(job_id: str):
         from backend.app.official_comic_2d import has_official_model
         count = len((job.get("story_plan") or {}).get("scenes") or [])
         model_ready = has_official_model()
-        scene_folder = STORAGE / job_id / "approved-cast-v3"
+        scene_folder = STORAGE / job_id / "story-comic-v4"
         curated = sum((scene_folder / f"scene-{i:02d}.png").is_file()
                       for i in range(count))
         hand_ready = False
