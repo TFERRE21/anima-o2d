@@ -84,7 +84,7 @@
 </section>
 
 <section class="page" id="page-create">
-<div class="sectionintro"><h2>História → Narradora → Desenho 2D.</h2><p>Crie o roteiro, aprove e acompanhe os desenhos surgirem e ganharem cor conforme a narradora conta cada cena. Tudo acontece automaticamente na VPS, sem GPU nem programas externos de imagens.</p></div>
+<div class="sectionintro"><h2>História → Narradora → Desenho 2D.</h2><p>Crie o roteiro, aprove e acompanhe os desenhos surgirem e ganharem cor conforme a narradora conta cada cena. Tudo é montado automaticamente na VPS, sem exigir imagens enviadas pelo usuário externos de imagens.</p></div>
 <div class="card"><form id="createForm"><div class="formgrid">
 <div class="field full"><label for="topic">Tema ou valor educativo (opcional)</label><input id="topic" maxlength="120" placeholder="Ex.: amizade, respeito, cuidado com a natureza. Deixe em branco para uma aventura surpresa."></div>
 <div class="field full"><label>Formatos que serão produzidos</label><div class="checks"><label class="check"><input type="checkbox" name="format" value="16:9" checked> Episódio 16:9 · mínimo 5:01 · 1920×1080</label><label class="check"><input type="checkbox" name="format" value="9:16" checked> Shorts 9:16 · 1:00 a 1:30 · 1080×1920</label></div></div>
@@ -103,7 +103,7 @@
 <div class="card" style="background:#0a1527;margin-top:12px"><div class="cardhead"><h3>Storyboard</h3><span class="muted">cena por cena</span></div><div id="storyboardList"></div></div>
 <div class="card" id="inlineArtPanel" style="margin-top:16px;background:#0b1628">
   <div class="cardhead"><h3>✎ Narradora desenhando a história · animação 2D</h3><span class="badge pending" id="inlineArtBadge">AGUARDANDO ROTEIRO</span></div>
-  <p class="muted">A narradora conta cada aventura enquanto Luna, Tomi, Pipo e os cenários aparecem em traços de lápis e ganham cor. Tudo é feito na VPS, sem GPU ou API de imagens.</p>
+  <p class="muted">A narradora conta cada aventura enquanto Luna, Tomi, Pipo e os cenários aparecem em traços de lápis e ganham cor. A VPS monta o vídeo automaticamente: os cenários premium usam API de imagens quando configurada; sem ela, o resultado é o desenho local simplificado.</p>
   <p class="inline-art-status" id="inlineArtStatus">Aprove uma vez o roteiro para iniciar automaticamente narração, desenhos e vídeo.</p>
   <div style="margin:15px 0 8px" role="progressbar" aria-label="Progresso da animação 2D" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="inlineArtProgress">
     <div class="progress" style="height:9px"><span id="inlineArtProgressFill" style="width:0%;transition:width .4s ease"></span></div>
