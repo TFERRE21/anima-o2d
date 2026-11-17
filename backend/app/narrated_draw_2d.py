@@ -43,17 +43,30 @@ def narrator_segments(plan: dict, fmt: str, story: str) -> list[dict]:
     if not raw:
         raw = [{"scene": 0, "speaker": "Narrador", "text": story}]
     segments = []
+    scripted_dialogue = {
+        (int(line.get("scene",-1)),str(line.get("speaker","")),str(line.get("text","")).strip())
+        for line in plan.get("dialogues", [])
+    }
     for item in raw:
-        words = str(item.get("text") or "").strip()
-        if not words:
+        original_text = str(item.get("text") or "").strip()
+        if not original_text:
             continue
-        who = str(item.get("speaker") or "Narrador").strip()
-        if who != "Narrador":
-            who = "uma moradora" if who == "Moradora" else who
-            words = f"{who} disse: {words}"
+        original_speaker = str(item.get("speaker") or "Narrador").strip()
+        scene_number = int(item.get("scene",0))
+        is_real_dialogue = (
+            original_speaker != "Narrador" and
+            (fmt == "9:16" or
+             (scene_number,original_speaker,original_text) in scripted_dialogue)
+        )
+        spoken_audio = original_text
+        if original_speaker != "Narrador":
+            display_name = "uma moradora" if original_speaker == "Moradora" else original_speaker
+            spoken_audio = f"{display_name} disse: {original_text}"
         segments.append({
-            "speaker": "Narrador", "scene": int(item.get("scene", 0)),
-            "text": words,
+            "speaker":"Narrador", "scene":scene_number,
+            "text":spoken_audio,
+            "original_speaker":original_speaker if is_real_dialogue else "Narrador",
+            "dialogue_text":original_text if is_real_dialogue else "",
         })
     if not segments:
         raise ValueError("O roteiro não contém narração.")
