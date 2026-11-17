@@ -97,6 +97,38 @@ class RealDialogueTests(unittest.TestCase):
         url=client.post.call_args.args[0]
         self.assertIn("/ai/run/@cf/black-forest-labs/flux-1-schnell",url)
         self.assertNotIn("fake-token-test",url)
+        payload=client.post.call_args.kwargs["json"]
+        self.assertEqual(set(payload),{"prompt","steps"})
+        self.assertLessEqual(len(payload["prompt"].encode("utf-8")),2000)
+
+    def test_cloudflare_error_displays_real_reason_without_token(self):
+        from backend.app.illustrated_scene_engine import _cloudflare_call
+        response=mock.MagicMock()
+        response.status_code=400
+        response.json.return_value={
+            "success":False,
+            "errors":[{"code":3001,"message":"Invalid request field: seed"}]
+        }
+        client=mock.MagicMock()
+        client.post.return_value=response
+        manager=mock.MagicMock()
+        manager.__enter__.return_value=client
+        with mock.patch.dict(os.environ,{
+            "ANIMA_SCENE_IMAGE_PROVIDER":"cloudflare",
+            "CLOUDFLARE_ACCOUNT_ID":"testaccount123",
+            "CLOUDFLARE_API_TOKEN":"secret-for-tests",
+            "CLOUDFLARE_AI_STEPS":"4",
+        }):
+            with mock.patch("backend.app.illustrated_scene_engine.httpx.Client",
+                            return_value=manager):
+                with self.assertRaisesRegex(RuntimeError,"HTTP 400") as error:
+                    _cloudflare_call("A"*6000,7,"Aurora-7")
+        self.assertIn("Invalid request field",str(error.exception))
+        self.assertNotIn("secret-for-tests",str(error.exception))
+        self.assertLessEqual(
+            len(client.post.call_args.kwargs["json"]["prompt"].encode("utf-8")),
+            2000
+        )
 
     def test_cloudflare_is_detected_only_with_both_credentials(self):
         with mock.patch.dict(os.environ,{
