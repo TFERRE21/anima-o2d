@@ -450,15 +450,21 @@ def render_narrated_draw_episode(title: str, story: str, fmt: str,
     silent = _video_from_scenes(workdir, fmt, plan, indices, seconds, fps, progress_callback)
 
     if progress_callback:
-        progress_callback(90, "Unindo o desenho progressivo e a voz da narradora.")
+        progress_callback(90, "Unindo desenho, narradora e música infantil suave.")
+    from backend.app.children_music import create_music
+    music = create_music(workdir / ("music-" + fmt.replace(":","x") + ".wav"),
+                         duration, str(plan.get("planet") or planet_name))
     target_size = "1080:1920" if fmt == "9:16" else "1920:1080"
     output.parent.mkdir(parents=True, exist_ok=True)
     _run_ffmpeg_with_progress([
         "ffmpeg", "-y", "-loglevel", "error",
-        "-i", str(silent), "-i", str(fitted),
+        "-i", str(silent), "-i", str(fitted), "-i", str(music),
         "-filter_complex",
         f"[0:v]scale={target_size}:flags=lanczos,setsar=1[v];"
-        "[1:a]apad=pad_dur=2,loudnorm=I=-16:TP=-1.5:LRA=11[a]",
+        "[1:a]apad=pad_dur=2,loudnorm=I=-16:TP=-1.5:LRA=11[n];"
+        "[2:a]volume=0.22,lowpass=f=2400[m];"
+        "[m][n]sidechaincompress=threshold=0.012:ratio=5:attack=80:release=500[duck];"
+        "[n][duck]amix=inputs=2:duration=first:weights=1 0.35:normalize=0[a]",
         "-map", "[v]", "-map", "[a]",
         "-t", f"{duration:.3f}", "-c:v", "libx264", "-preset", "ultrafast",
         "-crf", "22", "-pix_fmt", "yuv420p", "-r", "24",
@@ -478,6 +484,7 @@ def render_narrated_draw_episode(title: str, story: str, fmt: str,
         "resolution": "1080x1920" if fmt == "9:16" else "1920x1080",
         "scene_count": len(indices),
         "render_engine": DRAW_ENGINE,
+        "soundtrack": "original-gentle-music-box-with-narration-ducking",
         "art_version": DRAW_ART_VERSION,
         "narration_word_count": sum(len(x["text"].split()) for x in narration_segments),
         "speakers": ["Narrador"],
