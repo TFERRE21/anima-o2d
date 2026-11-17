@@ -1,5 +1,20 @@
 # ANIMA STUDIO — Histórias Desenhadas em 2D
 
+## Ajustes de qualidade e FFmpeg v7
+
+- Corrigida a falha de 90% no filtro FFmpeg: a narração agora passa por
+  `asplit=2[voice][key]` antes de ser consumida pelo compressor sidechain
+  e pela mistura final. A música instrumental fica abaixo da voz.
+- Eliminada a moldura retangular interna do cenário da nave; o painel do
+  quadrinho permanece, mas Luna, Tomi e Pipo ficam sobre o cenário aberto.
+- Balões de fala têm silhueta de nuvem com perímetro contínuo e cauda voltada
+  para o personagem. Texto curto e branco com traço azul escuro.
+- Colorização do elenco ajustada (rosa, azul, branco e amarelo), cores do
+  cenário mais vivas, contraste, leve nitidez e sombras sob os personagens.
+- Cache de imagens em `story-comic-v7`, sem reaproveitar a arte anterior.
+- Testes de regressão em `tests/test_visual_engine.py` cobrem balão,
+  cena de nave e mistura FFmpeg; exigem execução de CI/ambiente de testes.
+
 ## Motor de narrativa visual — personagens e cenas v5
 
 - **Elenco fixo:** mantém as formas originais aprovadas de Luna, Tomi e Pipo
@@ -23,7 +38,7 @@
 - **Música:** `children_music.py` cria uma trilha original tipo caixinha
   de música, sem royalties ou chamadas de APIs; o FFmpeg mistura com a
   narradora e reduz a música durante a fala.
-- **Cache:** a arte usa `story-comic-v6` para impedir que quadros gerados
+- **Cache:** a arte usa `story-comic-v7` para impedir que quadros gerados
   por versões anteriores contaminem o resultado.
 
 **Limite conhecido:** esta etapa usa poses da arte-base e variações de expressão
