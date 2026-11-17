@@ -66,6 +66,38 @@ class RealDialogueTests(unittest.TestCase):
         self.assertNotEqual(modified.tobytes(),blank.tobytes())
         self.assertEqual(blank.getpixel((1279,719)),(110,195,218))
 
+    def test_cloudflare_returns_actual_image_without_live_api_call(self):
+        import base64
+        import io
+        from backend.app.illustrated_scene_engine import _cloudflare_call
+        test_image=Image.new("RGB",(768,768),(130,200,150))
+        buffer=io.BytesIO()
+        test_image.save(buffer,format="JPEG")
+        encoded=base64.b64encode(buffer.getvalue()).decode()
+        response=mock.MagicMock()
+        response.raise_for_status.return_value=None
+        response.json.return_value={
+            "success":True,"result":{"image":encoded},"errors":[]}
+        client=mock.MagicMock()
+        client.post.return_value=response
+        manager=mock.MagicMock()
+        manager.__enter__.return_value=client
+        with mock.patch.dict(os.environ,{
+            "ANIMA_SCENE_IMAGE_PROVIDER":"cloudflare",
+            "CLOUDFLARE_ACCOUNT_ID":"testaccount123",
+            "CLOUDFLARE_API_TOKEN":"fake-token-test",
+            "CLOUDFLARE_AI_STEPS":"4",
+        }):
+            with mock.patch("backend.app.illustrated_scene_engine.httpx.Client",
+                            return_value=manager):
+                result=_cloudflare_call(
+                    "Colorful original children's comic planet village",
+                    4,"Aurora-7")
+        self.assertEqual(result,buffer.getvalue())
+        url=client.post.call_args.args[0]
+        self.assertIn("/ai/run/@cf/black-forest-labs/flux-1-schnell",url)
+        self.assertNotIn("fake-token-test",url)
+
     def test_cloudflare_is_detected_only_with_both_credentials(self):
         with mock.patch.dict(os.environ,{
             "CLOUDFLARE_API_TOKEN":"testing-not-real",
