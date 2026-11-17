@@ -1,5 +1,42 @@
 # ANIMA STUDIO — Histórias Desenhadas em 2D
 
+## Elenco com referência visual por IA — v11 (opcional)
+
+O caminho de maior fidelidade agora pode gerar a **cena completa** pela IA,
+incluindo Luna, Tomi, Pipo, habitantes e ambiente. Não cola sprites sobre
+a arte. A imagem de referência de 480×480 é montada automaticamente usando
+os desenhos fixos já incorporados ao repositório; não há ZIP ou upload manual.
+O texto da cena controla escala, enquadramento, expressões, casas, vegetação,
+identidade do planeta e quando os habitantes locais devem aparecer.
+A narração e os balões reais continuam sendo acrescentados pelo renderizador.
+
+O FLUX.1 Schnell aceita só texto; portanto, esta modalidade exige o
+**FLUX.2 Klein 4B**, que recebe referência em
+`input_image_0` via `multipart/form-data`. Configure no ambiente da VPS:
+
+```env
+ANIMA_CHARACTER_MODE=reference_ai
+ANIMA_CHARACTER_IMAGE_MODEL=@cf/black-forest-labs/flux-2-klein-4b
+CLOUDFLARE_API_TOKEN=token_ja_configurado
+CLOUDFLARE_ACCOUNT_ID=account_id_ja_configurado
+ANIMA_REQUIRE_ILLUSTRATED_SCENES=1
+```
+
+A variável `CLOUDFLARE_AI_MODEL` pode permanecer no Schnell: o modo de
+referência usa `ANIMA_CHARACTER_IMAGE_MODEL` separadamente. Para retornar
+à composição anterior, use `ANIMA_CHARACTER_MODE=fixed` (padrão).
+Os conjuntos de imagens usam `story-comic-reference-v11-<cache_tag>`, sem
+reutilizar cenas antigas. A troca para `reference_ai` é **intencionalmente
+manual**, pois gera novas chamadas à API e pode consumir créditos/cobrança.
+O plano Free permite até sua franquia, depois bloqueia operações em vez de
+garantir imagens ilimitadas. Consulte o consumo da conta Cloudflare.
+
+**Limitações:** a referência ajuda a manter os personagens, mas não garante
+identidade 100% idêntica entre cenas. O modelo pode modificar detalhes ou
+ignorar composição; o servidor não possui validação visual automática.
+Nenhuma renderização final deste modo foi confirmada na VPS.
+Os balões de fala do roteiro permanecem fora da geração por IA.
+
 ## Balões com as falas reais e cenários Cloudflare — v10
 
 O arquivo `backend/app/dialogue_timeline.py` usa as linhas do roteiro
