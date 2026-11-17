@@ -140,7 +140,14 @@ def artwork_for_scene(
     AI-generated scene. An exact match to a reference requires curated art.
     """
     scenes = plan.get("scenes") or []
-    scene = scenes[scene_index] if scene_index < len(scenes) else {}
+    scene = dict(scenes[scene_index]) if scene_index < len(scenes) else {}
+    # Link the visual reaction to the actual character speaking in this scene.
+    dialogues = [line for line in plan.get("dialogues", [])
+                 if int(line.get("scene", -1)) == scene_index
+                 and line.get("speaker") in {"Luna", "Tomi", "Pipo"}]
+    if dialogues:
+        scene["bubble_speaker"] = dialogues[0]["speaker"].lower()
+        scene["spoken_excerpt"] = str(dialogues[0].get("text", ""))
     # New output namespace prevents pre-upgrade crude pictures from taking
     # precedence over the approved Luna/Tomi/Pipo artwork.
     from backend.app.official_comic_2d import draw_official_scene, model_path
