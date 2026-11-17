@@ -105,7 +105,9 @@ def _cloudflare_call(prompt: str, scene_index: int, planet: str) -> bytes:
             # Do not set Content-Type manually: httpx supplies the boundary.
             response=client.post(
                 url,
-                data={"prompt":prompt,"width":"1024","height":"768"},
+                # Keep original landscape aspect ratio (16:9), otherwise
+                # ImageOps.fit crops 25% vertically and makes characters HUGE.
+                data={"prompt":prompt,"width":"1024","height":"576"},
                 files={"input_image_0":("fixed-cast.png",reference_sheet(),"image/png")},
                 headers={"Authorization":"Bearer "+token},
             )
