@@ -317,6 +317,15 @@ def approve_story_generate_images(job_id: str):
         raise HTTPException(409, "O episódio já está em produção ou foi finalizado.")
     if not job.get("story_plan"):
         raise HTTPException(409, "Crie primeiro uma história.")
+    from backend.app.illustrated_scene_engine import (
+        enabled as illustrated_enabled, required as illustrated_required,
+    )
+    if illustrated_required() and not illustrated_enabled():
+        raise HTTPException(
+            503, "O modo de cenários ilustrados está habilitado, mas não há "
+                 "API de imagens configurada na VPS. Configure "
+                 "ANIMA_SCENE_IMAGE_API_KEY antes de produzir."
+        )
     formats = job.get("formats") or ["9:16"]
     _update(
         job_id, story_approved=True, auto_production_requested=True,
