@@ -344,10 +344,10 @@ def approve_story_generate_images(job_id: str):
 @app.get("/api/image-engine/status")
 def image_engine_status():
     """The new production renderer requires no image API or GPU worker."""
-    from backend.app.illustrated_scene_engine import enabled, required
+    from backend.app.illustrated_scene_engine import enabled, required, provider
     premium = enabled()
     return {
-        "provider": ("image-api" if premium else "cpu-2d"),
+        "provider": (provider() if premium else "cpu-2d"),
         "ready": (_has("ffmpeg") and _has("tts") and
                   (premium or not required())),
         "premium_images_enabled": premium,
@@ -373,17 +373,12 @@ def get_episode_art_board(job_id: str):
         model_ready = has_official_model()
         from backend.app.illustrated_scene_engine import (
             enabled as scene_images_ready, required as scene_images_required,
-            ART_VERSION,
+            cache_tag, provider as scene_provider,
         )
         if scene_images_ready():
-            quality = os.getenv("ANIMA_SCENE_IMAGE_QUALITY", "medium")
-            model = os.getenv("ANIMA_SCENE_IMAGE_MODEL", "gpt-image-2.5-flare")
-            cache_token = hashlib.sha256(
-                (ART_VERSION + "|" + model + "|" + quality).encode()
-            ).hexdigest()[:12]
-            scene_folder = STORAGE / job_id / ("story-comic-illustrated-v9-" + cache_token)
+            scene_folder = STORAGE / job_id / ("story-comic-dialogue-v10-" + cache_tag())
         else:
-            scene_folder = STORAGE / job_id / "story-comic-procedural-v9"
+            scene_folder = STORAGE / job_id / "story-comic-dialogue-local-v10"
         curated = sum((scene_folder / f"scene-{i:02d}.png").is_file()
                       for i in range(count))
         hand_ready = False
@@ -400,6 +395,7 @@ def get_episode_art_board(job_id: str):
             "visual_quality": ("illustrated-scenes" if scene_images_ready()
                                else "basic-local-fallback"),
             "advanced_illustration_ready": scene_images_ready(),
+            "illustration_provider": scene_provider() if scene_images_ready() else "local",
             "advanced_illustration_required": scene_images_required(),
             "story_approved": bool(job.get("story_approved")),
             "auto_production": bool(job.get("auto_production_requested")),
