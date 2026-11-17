@@ -20,7 +20,7 @@ from PIL import Image, ImageEnhance, ImageOps
 
 from backend.app.planet_art_direction import profile_for, scene_theme
 
-ART_VERSION = "illustrated-worlds-cloudflare-v10"
+ART_VERSION = "reference-aware-worlds-v11"
 SUPPORTED = {"gpt-image-2.5-flare", "gpt-image-2.5-sunburst",
              "gpt-image-2", "gpt-image-1.5", "gpt-image-1-mini"}
 
@@ -34,8 +34,19 @@ def provider() -> str:
         return "cloudflare"
     return "openai"
 
+def character_mode() -> str:
+    # Explicit opt-in because reference-aware models may be billable.
+    mode=os.getenv("ANIMA_CHARACTER_MODE","fixed").strip().lower()
+    if mode not in {"fixed","reference_ai"}:
+        raise ValueError("ANIMA_CHARACTER_MODE deve ser fixed ou reference_ai.")
+    return mode
+
+
 def selected_model() -> str:
     if provider()=="cloudflare":
+        if character_mode()=="reference_ai":
+            return os.getenv("ANIMA_CHARACTER_IMAGE_MODEL",
+                             "@cf/black-forest-labs/flux-2-klein-4b").strip()
         return os.getenv("CLOUDFLARE_AI_MODEL",
                          "@cf/black-forest-labs/flux-1-schnell").strip()
     return os.getenv("ANIMA_SCENE_IMAGE_MODEL","gpt-image-2.5-flare").strip()
@@ -44,8 +55,12 @@ def cache_tag() -> str:
     model=selected_model()
     quality=(os.getenv("CLOUDFLARE_AI_STEPS","4") if provider()=="cloudflare"
              else os.getenv("ANIMA_SCENE_IMAGE_QUALITY","medium"))
-    return hashlib.sha256((ART_VERSION+"|"+provider()+"|"+model+"|"+quality
-                           ).encode()).hexdigest()[:12]
+    ref = ""
+    if character_mode()=="reference_ai":
+        from backend.app.character_reference_ai import reference_digest
+        ref=reference_digest()
+    return hashlib.sha256((ART_VERSION+"|"+provider()+"|"+model+"|"+quality+
+                           "|"+character_mode()+"|"+ref).encode()).hexdigest()[:12]
 
 def _cloudflare_call(prompt: str, scene_index: int, planet: str) -> bytes:
     account=os.getenv("CLOUDFLARE_ACCOUNT_ID","").strip()
@@ -55,7 +70,13 @@ def _cloudflare_call(prompt: str, scene_index: int, planet: str) -> bytes:
     if not all(c.isalnum() or c in "-_" for c in account):
         raise RuntimeError("CLOUDFLARE_ACCOUNT_ID inválido.")
     model=selected_model()
-    if model!="@cf/black-forest-labs/flux-1-schnell":
+    reference_mode=character_mode()=="reference_ai"
+    if reference_mode:
+        if model!="@cf/black-forest-labs/flux-2-klein-4b":
+            raise RuntimeError(
+                "Modo reference_ai requer FLUX.2 Klein 4B (aceita imagem de referência)."
+            )
+    elif model!="@cf/black-forest-labs/flux-1-schnell":
         raise RuntimeError("Modelo Cloudflare não suportado: "+model)
     steps=int(os.getenv("CLOUDFLARE_AI_STEPS","4"))
     if not 1 <= steps <= 8:
@@ -68,11 +89,22 @@ def _cloudflare_call(prompt: str, scene_index: int, planet: str) -> bytes:
     prompt=prompt.strip()
     while len(prompt.encode("utf-8")) > 2000:
         prompt=prompt[:-1]
-    body={"prompt":prompt,"steps":steps}
     with httpx.Client(timeout=httpx.Timeout(180,connect=15)) as client:
-        response=client.post(url,json=body,headers={
-            "Authorization":"Bearer "+token,
-            "Content-Type":"application/json"})
+        if reference_mode:
+            from backend.app.character_reference_ai import reference_sheet
+            # FLUX.2 Klein's reference input is multipart binary, <512px.
+            # Do not set Content-Type manually: httpx supplies the boundary.
+            response=client.post(
+                url,
+                data={"prompt":prompt,"width":"1024","height":"768"},
+                files={"input_image_0":("fixed-cast.png",reference_sheet(),"image/png")},
+                headers={"Authorization":"Bearer "+token},
+            )
+        else:
+            body={"prompt":prompt,"steps":steps}
+            response=client.post(url,json=body,headers={
+                "Authorization":"Bearer "+token,
+                "Content-Type":"application/json"})
     if response.status_code >= 400:
         details="sem detalhes"
         try:
@@ -92,7 +124,8 @@ def _cloudflare_call(prompt: str, scene_index: int, planet: str) -> bytes:
         details=details.replace(token,"[protegido]").replace(account,"[conta]")
         raise RuntimeError(
             f"Cloudflare FLUX HTTP {response.status_code}: {details[:320]}. "
-            f"Parâmetros: prompt_utf8={len(prompt.encode('utf-8'))}, steps={steps}."
+            f"Parâmetros: modelo={model}, prompt_utf8={len(prompt.encode('utf-8'))}, "
+            f"modo={'reference_ai' if reference_mode else 'fixed'}."
         )
     result=response.json()
     if not result.get("success",False):
@@ -226,7 +259,8 @@ def illustrated_background(plan: dict, scene: dict, index: int,
         return None
     engine=provider()
     model=selected_model()
-    quality=(os.getenv("CLOUDFLARE_AI_STEPS","4") if engine=="cloudflare"
+    quality=(("reference-4steps" if character_mode()=="reference_ai"
+              else os.getenv("CLOUDFLARE_AI_STEPS","4")) if engine=="cloudflare"
              else os.getenv("ANIMA_SCENE_IMAGE_QUALITY","medium").strip())
     if engine=="openai":
         if model not in SUPPORTED:
@@ -235,9 +269,20 @@ def illustrated_background(plan: dict, scene: dict, index: int,
             raise RuntimeError("Qualidade inválida para imagens.")
         if quality in ("xhigh","max") and not model.startswith("gpt-image-2.5"):
             raise RuntimeError("Qualidade xhigh/max exige modelo compatível.")
-    prompt = scene_prompt(plan,scene,index)
+    if character_mode()=="reference_ai":
+        if engine!="cloudflare":
+            raise RuntimeError("Modo reference_ai requer Cloudflare Workers AI.")
+        from backend.app.character_reference_ai import stage_direction
+        theme=scene_theme(scene,index)
+        prompt=stage_direction(
+            scene,index,str(plan.get("planet") or ""),
+            str(plan.get("biome") or ""),theme,
+            str(plan.get("inhabitants") or ""))
+    else:
+        prompt=scene_prompt(plan,scene,index)
     signature = hashlib.sha256(
-        (ART_VERSION+"|"+engine+"|"+model+"|"+quality+"|"+prompt).encode("utf8")).hexdigest()
+        (ART_VERSION+"|"+engine+"|"+model+"|"+quality+"|"+character_mode()+
+         "|"+cache_tag()+"|"+prompt).encode("utf8")).hexdigest()
     scene_dir = workdir / "illustrated-backgrounds-v9" / ("scene-%02d" % index)
     cached = _cached(scene_dir, signature)
     if cached is not None:
