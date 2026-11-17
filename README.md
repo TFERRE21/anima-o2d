@@ -1,5 +1,36 @@
 # ANIMA STUDIO — Histórias Desenhadas em 2D
 
+## Direção de arte por planeta v8
+
+O motor consulta o planeta, bioma, habitantes, marco geográfico e objeto da
+missão antes de ilustrar cada trecho da narração. O módulo
+`backend/app/planet_art_direction.py` define perfis estáveis por planeta:
+Aurora-7 (cristais), Vermelhão (cânions), Oceânia Azul (oceanos),
+Flora-Lume/Pétala-3 (jardins), Nuvem Doce (nuvens), Gelus-9 (gelo),
+Vulcânia Verde (vulcões), Anel de Safira (estações) e Eco-Lua (vales).
+Cada perfil controla céu, relevo, vegetação, arquitetura e espécie nativa.
+Outros nomes usam uma identidade estável calculada a partir do nome do planeta.
+
+Dentro do mesmo planeta, `title`, `caption`, `visual_action`, a
+fala da cena e o objeto da missão selecionam ações como vila, travessia,
+rio, floresta, jardim, pista, oficina, biblioteca, nave ou comemoração.
+O posicionamento dos elementos recebe uma semente exclusiva por
+cena, mantendo coerência de planeta sem clonar o mesmo desenho.
+Habitantes locais só aparecem quando o roteiro descreve interação.
+Luna, Tomi e Pipo preservam os desenhos aprovados.
+Imagens anteriores não são reutilizadas: cache `story-comic-planet-v8`.
+
+A narração usa voz neural pt-BR por padrão, com ritmo mais calmo
+(`ANIMA_NARRATOR_RATE=-8%`), e alterna automaticamente para eSpeak
+quando o serviço neural não estiver disponível. Para forçar voz local,
+use `ANIMA_TTS_BACKEND=espeak`. A voz neural depende da conectividade
+externa do Edge TTS; o motor de ilustração continua local.
+
+**Limitação:** os cenários e nativos são arte procedimental. A mudança
+de cenários depende dos temas compreendidos no texto; não equivale a
+ilustrações livres geradas por IA nem garante uma interpretação perfeita
+de toda frase. A renderização real na VPS ainda precisa ser validada.
+
 ## Ajustes de qualidade e FFmpeg v7
 
 - Corrigida a falha de 90% no filtro FFmpeg: a narração agora passa por
