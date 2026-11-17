@@ -54,7 +54,14 @@ def _world_palette(planet,biome):
     if any(s in v for s in ('vulc','vermelh','deserto')): return ((247,192,128),(186,79,87),(255,225,150),'volcano')
     if any(s in v for s in ('flora','petala','flor','jardim')): return ((188,231,154),(87,160,111),(251,170,205),'flora')
     if 'nuvem' in v: return ((185,215,250),(135,157,216),(246,212,255),'cloud')
-    return ((176,208,247),(113,148,202),(245,203,124),'aurora')
+    # Give even similar biomes their own reproducible species coloration.
+    choices=[
+        ((176,208,247),(113,148,202),(245,203,124),'aurora'),
+        ((218,184,249),(137,107,189),(255,213,142),'sapphire'),
+        ((235,215,184),(161,133,184),(150,232,219),'moon'),
+        ((174,222,206),(85,160,154),(254,200,131),'crystal'),
+    ]
+    return choices[seed_for(planet)%len(choices)]
 
 def _alien(d,x,y,scale,variant,palette,emotion):
     """Planet inhabitants keep their distinct morphology throughout an episode."""
@@ -200,7 +207,7 @@ def _expressive_sprite(sprite, character, emotion):
 
 def draw_story_scene(base,scene_index,planet,biome,scene,sprites):
     w,h=base.size; im=base.convert('RGBA');d=ImageDraw.Draw(im)
-    scene_text=' '.join(str(scene.get(k,'')) for k in ('title','caption','visual_action','action'))
+    scene_text=' '.join(str(scene.get(k,'')) for k in ('title','caption','visual_action','action','spoken_excerpt'))
     emotion,word=emotions(scene_text)
     palette=_world_palette(planet,biome)
     theme=_scene_theme(scene_index,scene)
@@ -237,7 +244,9 @@ def draw_story_scene(base,scene_index,planet,biome,scene,sprites):
         x=int(w*cx-target_width/2);y=int(h*ground-target_height)
         im.alpha_composite(rgba,(x,y))
     d=ImageDraw.Draw(im)
-    speaker=['luna','tomi','pipo'][scene_index%3]
-    box_x=int(w*positions[scene_index%3][0])
+    speaker=scene.get('bubble_speaker') or ['luna','tomi','pipo'][scene_index%3]
+    if speaker not in ('luna','tomi','pipo'):
+        speaker='luna'
+    box_x=int(w*positions[('luna','tomi','pipo').index(speaker)][0])
     _balloon(d,word,(box_x,max(34,int(h*.10))),(box_x,int(h*.19)))
     return im.convert('RGB'),emotion,theme
