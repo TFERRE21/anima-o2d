@@ -22,3 +22,5 @@ jobs:
         run: python -m unittest discover -s tests -p 'test_dialogue_timeline.py' -v
       - name: Test characters with fixed visual reference and proportional scenes
         run: python -m unittest discover -s tests -p 'test_character_reference_ai.py' -v
+      - name: Test branded videos and automatic YouTube packaging
+        run: python -m unittest discover -s tests -p 'test_channel_publication.py' -v
