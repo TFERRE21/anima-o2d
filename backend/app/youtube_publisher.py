@@ -60,6 +60,11 @@ def upload_authorized(credentials,video:Path,metadata:dict,
     video_id=response.get("id")
     if not video_id:
         raise RuntimeError("YouTube não retornou identificador do vídeo.")
+    # Unverified OAuth API projects may force uploaded videos to private.
+    actual_privacy=(response.get("status") or {}).get("privacyStatus")
+    if not actual_privacy:
+        actual_privacy="unknown" if not scheduled_at else "private"
+    forced_private=(privacy=="public" and actual_privacy=="private")
     thumbnail=Path(metadata.get("thumbnail_path") or "")
     thumbnail_status="unavailable"
     if thumbnail.is_file() and thumbnail.suffix.lower() in (".jpg",".jpeg",".png"):
@@ -76,7 +81,9 @@ def upload_authorized(credentials,video:Path,metadata:dict,
         "video_id":video_id,
         "url":"https://www.youtube.com/watch?v="+video_id,
         "format":metadata["format"],
-        "status":"scheduled" if scheduled_at else privacy,
+        "status":"scheduled" if scheduled_at else actual_privacy,
+        "requested_privacy":privacy,
+        "forced_private":forced_private,
         "scheduled_at":scheduled_at,
         "uploaded_at":datetime.now(timezone.utc).isoformat(),
         "thumbnail_status":thumbnail_status,
