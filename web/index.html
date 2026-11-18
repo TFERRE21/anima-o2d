@@ -154,14 +154,16 @@
 <div class="card"><div class="cardhead"><h3>Preferências de produção</h3><span class="badge ready">CONFIGURÁVEL</span></div>
 <div class="settingrow"><div><b>Gerar os dois formatos</b><p>Produzir versão horizontal e Shorts para cada episódio.</p></div><input class="switch" id="autoBoth" type="checkbox" checked></div>
 <div class="settingrow"><div><b>Exigir revisão antes de publicar</b><p>Evita que um vídeo seja publicado sem conferência.</p></div><input class="switch" id="requireReview" type="checkbox" checked></div>
-<div class="settingrow"><div><b>Produção automática de episódios</b><p>Cria e renderiza histórias educativas nos dias e horário escolhidos. Os episódios aguardam sua aprovação.</p></div><input class="switch" id="autoProduction" type="checkbox"></div><div class="settingrow"><div><b>Publicação automática no YouTube</b><p>Será habilitada quando a integração OAuth do canal estiver pronta.</p></div><input class="switch" id="autoPublish" type="checkbox" disabled></div>
-<div class="notice">A automação de publicação ainda não está conectada. As preferências ficam salvas, mas nenhum vídeo será enviado ao YouTube por enquanto.</div>
+<div class="settingrow"><div><b>Produção automática de episódios</b><p>Cria roteiro, ilustrações, narração, vinheta, encerramento e miniatura nos dias escolhidos.</p></div><input class="switch" id="autoProduction" type="checkbox"></div><div class="settingrow"><div><b>Publicação automática no YouTube</b><p>Com o canal conectado, envia os vídeos concluídos conforme o calendário. Só publica após aprovação quando a revisão estiver ativada.</p></div><input class="switch" id="autoPublish" type="checkbox"></div>
+<div class="notice info">Vídeos destinados a crianças serão marcados corretamente no YouTube. Notificações pelo sininho e telas finais interativas não ficam disponíveis para esse público. A vinheta final convida a se inscrever e acompanhar as histórias.</div>
 <button class="btn" id="saveSettings" style="margin-top:16px">Salvar preferências</button><span id="settingsMessage" class="muted" style="margin-left:10px"></span>
 </div>
 <div class="card"><div class="cardhead"><h3>Rotina editorial sugerida</h3><span class="badge">PLANEJAMENTO</span></div>
-<p class="muted">Dias e horário sugeridos para organizar as futuras postagens. Ainda não cria agendamentos no YouTube.</p>
+<p class="muted">Os dias e horários abaixo são aplicados à produção e à fila real de postagens (horário de Brasília).</p>
 <div class="field"><label>Dias de produção automática</label><div class="checks"><label class="check"><input type="checkbox" class="productionDay" value="Monday"> Seg</label><label class="check"><input type="checkbox" class="productionDay" value="Tuesday" checked> Ter</label><label class="check"><input type="checkbox" class="productionDay" value="Wednesday"> Qua</label><label class="check"><input type="checkbox" class="productionDay" value="Thursday" checked> Qui</label><label class="check"><input type="checkbox" class="productionDay" value="Friday"> Sex</label><label class="check"><input type="checkbox" class="productionDay" value="Saturday" checked> Sáb</label><label class="check"><input type="checkbox" class="productionDay" value="Sunday"> Dom</label></div></div>
 <div class="field"><label for="productionTime">Horário para criar episódios</label><input id="productionTime" type="time" value="10:00"></div>
+<div class="field"><label>Dias de postagem automática no YouTube</label><div class="checks"><label class="check"><input type="checkbox" class="publishDay" value="Monday"> Seg</label><label class="check"><input type="checkbox" class="publishDay" value="Tuesday" checked> Ter</label><label class="check"><input type="checkbox" class="publishDay" value="Wednesday"> Qua</label><label class="check"><input type="checkbox" class="publishDay" value="Thursday" checked> Qui</label><label class="check"><input type="checkbox" class="publishDay" value="Friday"> Sex</label><label class="check"><input type="checkbox" class="publishDay" value="Saturday" checked> Sáb</label><label class="check"><input type="checkbox" class="publishDay" value="Sunday"> Dom</label></div></div>
+<div class="field"><label for="publishTime">Horário da postagem automática no YouTube</label><input id="publishTime" type="time" value="18:00"></div>
 <button class="btn secondary" id="saveSchedule">Salvar calendário automático</button><p class="muted" id="scheduleMessage"></p>
 </div></div>
 </section>
@@ -169,8 +171,8 @@
 <section class="page" id="page-publishing">
 <div class="sectionintro"><h2>YouTube & postagens</h2><p>Acompanhe o preparo dos vídeos e a conexão com o canal.</p></div>
 <div class="layout">
-<div class="card"><div class="cardhead"><h3>Status da integração</h3><span class="badge pending" id="ytBadge">AGUARDANDO CONFIGURAÇÃO</span></div><h2 style="font-size:21px">Canal do YouTube</h2><p class="muted">Conecte seu canal com autorização segura do Google para liberar envio e agendamento dos episódios aprovados.</p><div class="notice info">O sistema exige aprovação editorial antes do envio. Vídeos agendados são enviados como privados e publicados pelo YouTube no horário escolhido.</div><div style="margin-top:15px" class="muted">Estado atual: <b id="ytStatus">Não conectado</b></div><a class="btn" id="connectYoutube" href="/api/youtube/connect" style="display:none;text-decoration:none;margin-top:15px">Conectar canal do YouTube</a></div>
-<div class="card"><div class="cardhead"><h3>Fila e histórico de postagens</h3><span class="badge">YOUTUBE</span></div><div id="postingQueue" class="empty">Os episódios aprovados aparecerão aqui para envio.</div><p class="muted">Aprove o episódio na aba Episódios e use o botão de envio no formato desejado. Para agendar, informe data e horário quando solicitado.</p></div>
+<div class="card"><div class="cardhead"><h3>Status da integração</h3><span class="badge pending" id="ytBadge">AGUARDANDO CONFIGURAÇÃO</span></div><h2 style="font-size:21px">Canal do YouTube</h2><p class="muted">Conecte seu canal com autorização segura do Google para liberar envio e agendamento dos episódios aprovados.</p><div class="notice info">Com revisão ativada, o YouTube aguarda aprovação editorial. Sem revisão e com publicação automática autorizada, os episódios são enviados no calendário escolhido. Conteúdo infantil é marcado como direcionado a crianças.</div><div style="margin-top:15px" class="muted">Estado atual: <b id="ytStatus">Não conectado</b></div><a class="btn" id="connectYoutube" href="/api/youtube/connect" style="display:none;text-decoration:none;margin-top:15px">Conectar canal do YouTube</a></div>
+<div class="card"><div class="cardhead"><h3>Fila e histórico de postagens</h3><span class="badge">YOUTUBE</span></div><div id="postingQueue" class="empty">Episódios, miniaturas e postagens serão mostrados aqui.</div><p class="muted">A fila automática verifica os horários a cada minuto. Se um upload falhar após começar, confirme o resultado no YouTube Studio antes de repetir.</p></div>
 </div>
 <div class="card" style="margin-top:16px"><div class="cardhead"><h3>Checklist antes de publicar</h3></div><div class="pipeline"><div class="pipe"><span class="pipen">✓</span><div><b>Vídeo renderizado</b><small>Verificar imagem, áudio e duração.</small></div></div><div class="pipe"><span class="pipen">✓</span><div><b>Revisão de conteúdo infantil</b><small>Conferir linguagem, segurança e mensagem educativa.</small></div></div><div class="pipe"><span class="pipen">3</span><div><b>Metadados e miniatura</b><small>Título, descrição, classificação de público infantil e thumbnail.</small></div></div><div class="pipe"><span class="pipen">4</span><div><b>Upload autorizado</b><small>Enviar e acompanhar o processamento no YouTube Studio.</small></div></div></div></div>
 </section>
@@ -243,7 +245,7 @@ async function loadDashboard(){
   youtubeConnected=!!d.youtube.connected;
   $('ytBadge').textContent=youtubeConnected?'CANAL CONECTADO':(d.youtube.configured?'PRONTO PARA CONECTAR':'AGUARDANDO CONFIGURAÇÃO');
   $('ytStatus').textContent=youtubeConnected?'Canal autorizado. Upload e agendamento disponíveis.':(d.youtube.configured?'Credenciais presentes; falta autorizar o canal.':'Não conectado');
-  $('connectYoutube').style.display=d.youtube.configured?'inline-flex':'none';
+  $('connectYoutube').style.display=d.youtube.configured?'inline-flex':'none';$('autoPublish').disabled=!youtubeConnected;
   renderEpisodes();
  }catch(e){console.error('Falha ao atualizar o painel:',e);$('systemStatus').textContent='● Falha no painel: '+(e?.message||'verifique a API');$('systemStatus').style.color='#ffb7c0';}
 }
@@ -363,14 +365,18 @@ async function reviewEpisode(id,decision){
  try{const r=await fetch('/api/jobs/'+encodeURIComponent(id)+'/review',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({decision})});const d=await r.json();if(!r.ok)throw new Error(d.detail||'Falha ao salvar revisão');await loadDashboard();}catch(e){alert(e.message);}
 }
 async function loadSettings(){
- try{const r=await fetch('/api/studio-settings');const s=await r.json();$('autoBoth').checked=(s.auto_generate_formats||[]).length===2;$('requireReview').checked=!!s.require_review_before_publish;$('autoPublish').checked=false;$('autoProduction').checked=!!s.auto_production_enabled;$('productionTime').value=s.production_time||'10:00';document.querySelectorAll('.productionDay').forEach(x=>x.checked=(s.production_days||[]).includes(x.value));}catch(e){}
+ try{const r=await fetch('/api/studio-settings');const s=await r.json();$('autoBoth').checked=(s.auto_generate_formats||[]).length===2;$('requireReview').checked=!!s.require_review_before_publish;$('autoPublish').checked=!!s.auto_publish_enabled;$('autoProduction').checked=!!s.auto_production_enabled;$('productionTime').value=s.production_time||'10:00';$('publishTime').value=s.publish_time||'18:00';document.querySelectorAll('.productionDay').forEach(x=>x.checked=(s.production_days||[]).includes(x.value));document.querySelectorAll('.publishDay').forEach(x=>x.checked=(s.publish_days||[]).includes(x.value));}catch(e){}
 }
 async function saveSettings(extra={}){
  const formats=$('autoBoth').checked?['16:9','9:16']:['16:9'];
- const payload={auto_generate_formats:formats,require_review_before_publish:$('requireReview').checked,auto_publish_enabled:false,auto_production_enabled:$('autoProduction').checked,...extra};
+ const payload={auto_generate_formats:formats,require_review_before_publish:$('requireReview').checked,auto_publish_enabled:$('autoPublish').checked,auto_production_enabled:$('autoProduction').checked,publish_days:[...document.querySelectorAll('.publishDay:checked')].map(x=>x.value),publish_time:$('publishTime').value,...extra};
  try{const r=await fetch('/api/studio-settings',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});const d=await r.json();if(!r.ok)throw new Error(d.detail||'Erro ao salvar');$('settingsMessage').textContent='Preferências salvas.';$('scheduleMessage').textContent='Rotina editorial salva.';}catch(e){$('settingsMessage').textContent=e.message;$('scheduleMessage').textContent=e.message;}
 }
-$('saveSettings').addEventListener('click',()=>saveSettings());
+$('saveSettings').addEventListener('click',()=>{
+ if($('autoPublish').checked && !$('requireReview').checked &&
+    !confirm('Ativar publicação totalmente automática? Episódios concluídos serão enviados publicamente sem revisão, conforme o calendário.'))return;
+ saveSettings();
+});
 $('saveSchedule').addEventListener('click',()=>saveSettings({production_days:[...document.querySelectorAll('.productionDay:checked')].map(x=>x.value),production_time:$('productionTime').value}));
 loadDashboard();loadSettings();setInterval(loadDashboard,8000);
 </script>
