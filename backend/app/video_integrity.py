@@ -113,7 +113,6 @@ def concat_with_audio(clips:list[Path],target:Path,*,fps:int=24) -> dict:
             f"channel_layouts=stereo[a{index}]"
         )
     filters.append(
-        "".join(f"[i{index}]" for index in []) if False else
         "".join(f"[v{index}][a{index}]" for index in range(len(clips)))+
         f"concat=n={len(clips)}:v=1:a=1[v][a]"
     )
