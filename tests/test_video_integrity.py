@@ -29,6 +29,20 @@ class VideoIntegrityTests(unittest.TestCase):
         ],check=True,timeout=40)
         return dst
 
+    def test_missing_ffprobe_uses_ffmpeg_metadata(self):
+        from unittest import mock
+        from backend.app.video_integrity import probe_media
+        with tempfile.TemporaryDirectory() as temp:
+            root=Path(temp)
+            clip=self.make_clip(root,"no-probe.mp4",1)
+            with mock.patch("backend.app.video_integrity._ffprobe_executable",
+                            return_value=None):
+                info=probe_media(clip)
+            self.assertEqual(info["probe_method"],"ffmpeg-metadata-fallback")
+            self.assertIsNotNone(info["video"])
+            self.assertIsNotNone(info["audio"])
+            self.assertGreater(info["duration"],.5)
+
     def test_landscape_scene_uses_one_large_frame(self):
         self.assertEqual(MAX_PANELS_LANDSCAPE,1)
         panels=layout(1280,720,False)
