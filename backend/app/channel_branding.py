@@ -103,8 +103,8 @@ def brand_frame(fmt:str,ending:bool,phase:float,title:str="",
 
 def _render_ident(workdir:Path,fmt:str,ending:bool,ffmpeg:str,
                   backdrop:Image.Image|None=None)->Path:
-    tag=("outro" if ending else "intro")+"-"+fmt.replace(":","x")
-    folder=workdir/"brand-sequence-v1"/tag
+    tag=("outro" if ending else "intro")+"-v2-"+fmt.replace(":","x")
+    folder=workdir/"brand-sequence-v2"/tag
     folder.mkdir(parents=True,exist_ok=True)
     target=workdir/(tag+".mp4")
     if target.is_file() and target.stat().st_size>5000:
@@ -170,4 +170,4 @@ def finish_episode(output:Path,fmt:str,workdir:Path)->dict:
     os.replace(target,output)
     return {"duration_seconds":round(result_seconds,2),
             "channel_intro":fmt=="16:9","channel_outro":True,
-            "brand_version":"original-channel-ident-v1"}
+            "brand_version":"original-channel-ident-v2"}
