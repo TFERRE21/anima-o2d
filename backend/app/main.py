@@ -1023,6 +1023,16 @@ def _run_job(job_id: str, payload: GenerateRequest):
                 planet_name=payload.planet, story_plan=current.get("story_plan"),
                 progress_callback=report,
             )
+            from backend.app.channel_branding import finish_episode
+            _update(job_id, message=f"Adicionando vinheta e encerramento ao vídeo {fmt}.")
+            metadata.update(finish_episode(output,fmt,STORAGE / job_id))
+            from backend.app.youtube_package import prepare_package
+            package = prepare_package(current.get("story_plan") or {},
+                                      fmt, output, STORAGE / job_id)
+            current = _get_job(job_id)
+            packages = dict(current.get("youtube_packages") or {})
+            packages[fmt] = package
+            _update(job_id, youtube_packages=packages)
             current = _get_job(job_id)
             outputs = dict(current.get("outputs", {}))
             outputs[fmt] = str(output)
@@ -1031,9 +1041,17 @@ def _run_job(job_id: str, payload: GenerateRequest):
             _update(job_id, art_version=metadata.get("art_version", "illustration-first-v1"), outputs=outputs, rendered_durations=durations,
                     progress=int((index + 1) * 100 / total_formats),
                     message=f"Versão {fmt} pronta ({metadata.get('duration_seconds', 0):.0f} segundos).")
+        cfg = _studio_settings()
+        auto_ready = bool(cfg.get("auto_publish_enabled") and
+                          not cfg.get("require_review_before_publish"))
+        current = _get_job(job_id)
         _update(job_id, status="done", stage="ready_for_review", progress=100,
                 art_stage="done", art_error=None,
-                message="Episódio 2D finalizado: narradora, ilustrações desenhadas e vídeo prontos.")
+                review_status=("approved" if auto_ready else
+                               current.get("review_status", "pending_review")),
+                message="Episódio finalizado: vinheta, encerramento, miniatura e metadados prontos.")
+        if cfg.get("auto_publish_enabled"):
+            _schedule_auto_uploads(job_id)
     except Exception as exc:
         _update(job_id, status="failed", stage="render_error", error=str(exc),
                 message=f"Falha na renderização: {exc}")
