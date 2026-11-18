@@ -1,3 +1,61 @@
+## Identidade do canal e automação YouTube (2026-11-17)
+
+**Canal:** Luna, Tomi e Pipo — Pequenos Guardiões.
+
+A partir da renderização final, `backend/app/channel_branding.py` adiciona:
+
+- **16:9:** vinheta animada original de 4 segundos com marca, desenho da
+  própria história, música infantil criada localmente e protagonistas;
+  encerramento de 5 segundos convidando a se inscrever e acompanhar a série.
+- **9:16 Shorts:** encerramento vertical de 5 segundos, sem a abertura longa.
+- Música original e artes da história: não usa áudios ou personagens
+  licenciados de terceiros. Mantém os vídeos originais e as falas narradas.
+
+`backend/app/youtube_package.py` gera automaticamente para cada formato:
+título até 100 caracteres, sinopse derivada do roteiro aprovado, planeta,
+aprendizado, descrição, hashtags relevantes, palavras-chave e miniatura JPG.
+Os arquivos ficam em `/data/jobs/<job_id>/youtube-ready/<16x9|9x16>/`.
+
+`backend/app/youtube_publisher.py` envia via Google OAuth usando o fluxo
+`videos.insert` resumable; configura
+`status.selfDeclaredMadeForKids=true`, categoria Film & Animation, e
+tenta inserir miniatura via `thumbnails.set`. O YouTube pode restringir
+uploads de projetos de API não verificados a **privados**. Só o YouTube
+Studio pode confirmar a publicação e o processamento da mídia.
+
+### Ativar automação — sem publicar nada antes do consentimento
+
+1. No ambiente da VPS, configure `YOUTUBE_CLIENT_ID`,
+   `YOUTUBE_CLIENT_SECRET` e `YOUTUBE_REDIRECT_URI` com a URL HTTPS
+   pública correta, usando a tela de consentimento OAuth e YouTube Data API v3
+   no Google Cloud. **Nunca comite tokens/segredos no GitHub.**
+2. Abra o painel **YouTube & postagens** e clique em **Conectar canal**.
+   Autorize o canal do YouTube na conta Google escolhida.
+3. Na **Central de automação**, habilite **Produção automática** e
+   **Publicação automática**, escolha dias e horários (Brasília) e salve.
+4. Se **Exigir revisão** estiver ligado, o upload aguarda aprovação editorial
+   de cada episódio. Para o fluxo inteiramente automático, desative a revisão
+   e confirme o aviso. Os envios continuam limitados a **novos episódios
+   concluídos após a ativação**, nunca publicando antigos sem querer.
+
+A fila persistente do servidor verifica horários de minuto em minuto e agenda
+um slot para o 16:9, com o Shorts 15 minutos depois. O progresso dos uploads,
+os IDs de vídeo, links, metadados e tentativas são preservados no `job.json`
+para sobreviver a reinicializações. Uma falha de upload depois de iniciada
+bloqueia novas tentativas do mesmo formato até conferência manual, evitando
+publicações duplicadas.
+
+**Nota sobre canais infantis:** vídeos marcados para crianças não oferecem
+notificações pelo sininho, comentários ou telas finais interativas como os
+vídeos comuns. O convite integrado no vídeo diz “Inscreva-se no canal e
+acompanhe nossas próximas histórias”, sem prometer ativar sininho.
+Essa opção não muda a classificação infantil verdadeira do vídeo.
+
+A geração visual e a fila foram implementadas, porém uma publicação real
+precisa ser validada com o OAuth já conectado, e a montagem completa
+FFmpeg precisa ser testada na VPS.
+
+
 # ANIMA STUDIO — Histórias Desenhadas em 2D
 
 ## Correção do visual dos personagens — v12
