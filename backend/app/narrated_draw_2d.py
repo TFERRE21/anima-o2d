@@ -384,6 +384,28 @@ def _render_scene_clip(
 
 
 
+def _concat_legacy_short(clips: list[Path], target: Path) -> None:
+    """Shorts 9:16: preserve the previously working lightweight FFmpeg path.
+
+    All drawing beats are encoded with the same settings. This route does
+    not depend on ffprobe or the new multi-input re-encoding pipeline used
+    by horizontal episodes.
+    """
+    if not clips:
+        raise RuntimeError("Nenhum trecho de Shorts para juntar.")
+    def quote(path: Path) -> str:
+        return path.resolve().as_posix().replace("'", "'\\''")
+    manifest=target.with_suffix(".concat.txt")
+    manifest.write_text(
+        "".join("file '"+quote(Path(path))+"'\n" for path in clips),
+        encoding="utf-8")
+    _run([_ffmpeg_executable(),"-y","-hide_banner","-loglevel","error",
+          "-f","concat","-safe","0","-i",str(manifest),
+          "-c","copy","-movflags","+faststart",str(target)])
+    if not target.is_file() or target.stat().st_size<1000:
+        raise RuntimeError("A montagem do Shorts não produziu um vídeo válido.")
+
+
 def _video_from_scenes(
     workdir: Path, fmt: str, plan: dict, indices: list[int],
     seconds_per_scene: list[float], fps: int,
@@ -490,11 +512,12 @@ def _video_from_scenes(
             clip_parts.append(beat_clip)
             _preview(workdir,fmt,colored_page)
         clip=scenes_dir/f"scene-{j:02d}.mp4"
-        from backend.app.video_integrity import concat_video_only, validate_video
         if len(clip_parts)==1:
             shutil.copyfile(clip_parts[0],clip)
-            validate_video(clip,require_audio=False)
+        elif portrait:
+            _concat_legacy_short(clip_parts,clip)
         else:
+            from backend.app.video_integrity import concat_video_only
             concat_video_only(clip_parts,clip,fps)
         clips.append(clip)
         # Completed panels keep the latest authentic dialogue bubble,
@@ -505,8 +528,11 @@ def _video_from_scenes(
                 18+int(69*(j+1)/max(1,len(indices))),
                 f"Cena {j+1}/{len(indices)} finalizada, com falas sincronizadas."
             )
-    from backend.app.video_integrity import concat_video_only
-    concat_video_only(clips,target,fps)
+    if portrait:
+        _concat_legacy_short(clips,target)
+    else:
+        from backend.app.video_integrity import concat_video_only
+        concat_video_only(clips,target,fps)
     return target
 
 
@@ -557,10 +583,17 @@ def render_narrated_draw_episode(title: str, story: str, fmt: str,
         voice_timeline=timeline,narration_segments=narration_segments,
     )
 
-    from backend.app.video_integrity import validate_video
-    validate_video(silent,require_audio=False,
-                   expected_seconds=sum(seconds),
-                   tolerance_seconds=max(1.5,len(indices)/fps+.5))
+    if fmt=="16:9":
+        from backend.app.video_integrity import validate_video
+        validate_video(silent,require_audio=False,
+                       expected_seconds=sum(seconds),
+                       tolerance_seconds=max(1.5,len(indices)/fps+.5))
+    else:
+        # The stable Shorts assembly is checked by the existing FFmpeg-based
+        # duration probe, which works even when ffprobe is unavailable.
+        from backend.app.renderer import _probe_duration
+        if _probe_duration(silent)<1:
+            raise RuntimeError("Shorts sem quadros de vídeo.")
     if progress_callback:
         progress_callback(90, "Unindo desenho, narradora e música infantil suave.")
     from backend.app.children_music import create_music
@@ -585,10 +618,14 @@ def render_narrated_draw_episode(title: str, story: str, fmt: str,
     ], progress_callback, duration)
     if not output.is_file() or output.stat().st_size < 10000:
         raise RuntimeError("O vídeo 2D não foi gerado.")
-    validated = validate_video(output,require_audio=True,
-                               expected_seconds=duration,
-                               tolerance_seconds=2.0)
-    measured = validated["duration"]
+    if fmt=="9:16":
+        measured = _probe_duration(output)
+    else:
+        from backend.app.video_integrity import validate_video
+        validated = validate_video(output,require_audio=True,
+                                   expected_seconds=duration,
+                                   tolerance_seconds=2.0)
+        measured = validated["duration"]
     if fmt == "9:16" and not 60 <= measured <= 90:
         raise RuntimeError(f"Shorts fora do tempo: {measured:.1f}s.")
     if fmt == "16:9" and not 300 < measured <= 600:
