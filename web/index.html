@@ -189,7 +189,7 @@ document.addEventListener('click',event=>{
  const id=button.dataset.id;
  if(!id)return;
  if(button.dataset.action==='open-story')openStory(id);
- else if(button.dataset.action==='review')reviewEpisode(id,'approved');
+ else if(button.dataset.action==='review')reviewEpisode(id,'approved',button);
  else if(button.dataset.action==='publish')publishEpisode(id,button.dataset.format);
 });
 const labels={dashboard:'Visão geral',episodes:'Episódios',create:'Criar episódio',automation:'Automação',publishing:'YouTube & postagens'};
@@ -366,8 +366,27 @@ async function publishEpisode(id,fmt){
  if(when){const dt=new Date(when);if(Number.isNaN(dt.getTime())||dt<=new Date()){alert('Informe uma data futura válida.');return;}scheduled_at=dt.toISOString();}
  try{const r=await fetch('/api/jobs/'+encodeURIComponent(id)+'/publish',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({format:fmt,scheduled_at,privacy_status:'public'})});const d=await r.json();if(!r.ok)throw new Error(d.detail||'Falha ao enviar');alert(scheduled_at?'Vídeo enviado e agendado no YouTube.':'Vídeo enviado ao YouTube.');await loadDashboard();}catch(e){alert(e.message);}
 }
-async function reviewEpisode(id,decision){
- try{const r=await fetch('/api/jobs/'+encodeURIComponent(id)+'/review',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({decision})});const d=await r.json();if(!r.ok)throw new Error(d.detail||'Falha ao salvar revisão');await loadDashboard();}catch(e){alert(e.message);}
+async function reviewEpisode(id,decision,button=null){
+ if(button?.disabled)return;
+ if(button){button.disabled=true;button.textContent='Salvando aprovação…';}
+ try{
+  const r=await fetch('/api/jobs/'+encodeURIComponent(id)+'/review',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({decision})});
+  const d=await r.json();
+  if(!r.ok)throw new Error(typeof d.detail==='string'?d.detail:'Falha ao salvar revisão (HTTP '+r.status+').');
+  if(d.review_status!==decision)throw new Error('A API não confirmou a aprovação. Confira o registro do episódio.');
+  const previous=jobs.findIndex(j=>j.id===id);
+  if(previous>=0)jobs[previous]=d;
+  renderEpisodes();
+  await loadDashboard();
+  if(d.review_error){
+   alert('Episódio aprovado! Mas a fila automática precisa de atenção: '+d.review_error);
+  }else{
+   alert('Episódio aprovado! O vídeo ainda NÃO foi enviado ao YouTube.');
+  }
+ }catch(e){
+  alert('Não foi possível aprovar: '+(e?.message||'erro desconhecido'));
+  if(button){button.disabled=false;button.textContent='Aprovar';}
+ }
 }
 async function loadSettings(){
  try{const r=await fetch('/api/studio-settings');const s=await r.json();$('autoBoth').checked=(s.auto_generate_formats||[]).length===2;$('requireReview').checked=!!s.require_review_before_publish;$('autoPublish').checked=!!s.auto_publish_enabled;$('autoProduction').checked=!!s.auto_production_enabled;$('productionTime').value=s.production_time||'10:00';$('publishTime').value=s.publish_time||'18:00';document.querySelectorAll('.productionDay').forEach(x=>x.checked=(s.production_days||[]).includes(x.value));document.querySelectorAll('.publishDay').forEach(x=>x.checked=(s.publish_days||[]).includes(x.value));}catch(e){}
