@@ -623,55 +623,137 @@ def youtube_callback(code: str = "", state: str = "", error: str = ""):
     YOUTUBE_TOKEN_FILE.write_text(flow.credentials.to_json(), encoding="utf-8")
     return HTMLResponse("<h2>Canal conectado com sucesso!</h2><p>Volte ao Anima Studio Cartoon 3D. Esta janela pode ser fechada.</p>")
 
-@app.post("/api/jobs/{job_id}/publish")
-def publish_job(job_id: str, payload: PublishRequest):
+def _publication_metadata(job: dict, fmt: str, description: str = "") -> dict:
+    from backend.app.youtube_package import content_metadata
+    prepared = dict((job.get("youtube_packages") or {}).get(fmt) or
+                    content_metadata(job.get("story_plan") or {}, fmt))
+    prepared["format"] = fmt
+    prepared.setdefault("title", job["title"])
+    if description.strip():
+        prepared["description"] = description.strip()
+    return prepared
+
+
+def _schedule_auto_uploads(job_id: str) -> None:
+    """Persist one publication slot per output; no upload before OAuth opt-in."""
+    from backend.app.youtube_publisher import next_publish_time
+    cfg = _studio_settings()
+    if not cfg.get("auto_publish_enabled") or not YOUTUBE_TOKEN_FILE.is_file():
+        return
+    job = _get_job(job_id)
+    if job.get("status") != "done" or job.get("review_status") != "approved":
+        return
+    due = dict(job.get("auto_publish_due") or {})
+    done_formats = {p["format"] for p in job.get("publications", [])}
+    attempted = job.get("publication_attempts") or {}
+    for slot, fmt in enumerate(sorted(job.get("outputs") or {}, reverse=True)):
+        if fmt not in due and fmt not in done_formats and fmt not in attempted:
+            due[fmt] = next_publish_time(cfg, slot)
+    if due:
+        _update(job_id, auto_publish_due=due,
+                publication_status="queued_for_automatic_upload")
+
+
+def _publish_once(job_id: str, fmt: str, privacy: str = "public",
+                  scheduled_at: str | None = None, description: str = "",
+                  automatic: bool = False) -> dict:
+    """Single-flight upload. On an uncertain API error, require human review."""
     job = _get_job(job_id)
     if job.get("status") != "done":
         raise HTTPException(409, "O episódio precisa estar renderizado antes do envio.")
     if job.get("review_status") != "approved":
-        raise HTTPException(409, "Aprove o episódio na revisão editorial antes de publicar.")
-    if payload.format not in job.get("outputs", {}):
+        raise HTTPException(409, "Aprove o episódio antes de publicar.")
+    if fmt not in job.get("outputs", {}):
         raise HTTPException(404, "Formato de vídeo não encontrado.")
-    if payload.privacy_status not in {"public", "unlisted", "private"}:
+    if privacy not in {"public", "unlisted", "private"}:
         raise HTTPException(400, "Privacidade inválida.")
-    credentials = _youtube_credentials()
-    from googleapiclient.discovery import build
-    from googleapiclient.http import MediaFileUpload
-    video_path = Path(job["outputs"][payload.format])
-    if not video_path.exists():
+    video_path = Path(job["outputs"][fmt])
+    if not video_path.is_file():
         raise HTTPException(404, "Arquivo de vídeo não encontrado.")
-    status = {"privacyStatus": payload.privacy_status, "selfDeclaredMadeForKids": True}
-    if payload.scheduled_at:
-        try:
-            scheduled = datetime.fromisoformat(payload.scheduled_at.replace("Z", "+00:00"))
-            if scheduled.tzinfo is None:
-                raise ValueError("Informe o fuso horário.")
-            if scheduled <= datetime.now(timezone.utc):
-                raise ValueError("A data precisa estar no futuro.")
-            status = {"privacyStatus": "private", "publishAt": scheduled.astimezone(timezone.utc).isoformat().replace("+00:00", "Z"), "selfDeclaredMadeForKids": True}
-        except ValueError as exc:
-            raise HTTPException(400, f"Agendamento inválido: {exc}")
-    title = job["title"][:85] + (" #Shorts" if payload.format == "9:16" else "")
-    description = (payload.description or "Uma aventura dos Pequenos Guardiões — A Liga do Bem!\\n\\nUma história que ensina amizade, honestidade, respeito e responsabilidade.").strip()
+    credentials = _youtube_credentials()
+    metadata = _publication_metadata(job, fmt, description)
+    from backend.app.youtube_publisher import upload_authorized
+    with LOCK:
+        live = JOBS[job_id]
+        existing = next((p for p in live.get("publications", [])
+                         if p.get("format") == fmt), None)
+        if existing:
+            return existing
+        attempts = dict(live.get("publication_attempts") or {})
+        if fmt in attempts:
+            raise HTTPException(409,
+                "Já existe tentativa de upload deste formato. Confira no YouTube "
+                "Studio antes de tentar novamente para evitar vídeos duplicados.")
+        attempts[fmt] = {"state": "in_progress",
+                         "started_at": datetime.now(timezone.utc).isoformat(),
+                         "mode": "automatic" if automatic else "manual"}
+        live["publication_attempts"] = attempts
+        _save(job_id, live)
     try:
-        youtube = build("youtube", "v3", credentials=credentials)
-        request = youtube.videos().insert(
-            part="snippet,status",
-            body={"snippet": {"title": title, "description": description, "categoryId": "22", "defaultLanguage": "pt-BR"},
-                  "status": status},
-            media_body=MediaFileUpload(str(video_path), mimetype="video/mp4", resumable=True),
-        )
-        response = request.execute()
+        publication = upload_authorized(credentials, video_path, metadata,
+                                        privacy=privacy, scheduled_at=scheduled_at)
     except Exception as exc:
-        raise HTTPException(502, f"Falha no envio ao YouTube: {exc}")
-    video_id = response.get("id", "")
-    publication = {"video_id": video_id, "url": "https://www.youtube.com/watch?v=" + video_id,
-                   "format": payload.format, "status": "scheduled" if payload.scheduled_at else payload.privacy_status,
-                   "scheduled_at": payload.scheduled_at, "uploaded_at": datetime.now(timezone.utc).isoformat()}
-    publications = list(job.get("publications", []))
-    publications.append(publication)
-    _update(job_id, publications=publications, publication_status=publication["status"])
+        with LOCK:
+            live = JOBS[job_id]
+            attempts = dict(live.get("publication_attempts") or {})
+            attempts[fmt] = {"state": "needs_manual_check",
+                             "error": str(exc)[:450],
+                             "started_at": attempts.get(fmt,{}).get("started_at"),
+                             "mode": "automatic" if automatic else "manual"}
+            live["publication_attempts"] = attempts
+            live["publication_status"] = "needs_manual_check"
+            _save(job_id, live)
+        if automatic:
+            print("[youtube-auto] upload requires reconciliation:", job_id, fmt,
+                  type(exc).__name__, str(exc)[:250], flush=True)
+            return {"status": "needs_manual_check", "format": fmt}
+        raise HTTPException(502, "Falha no envio. Confira se o vídeo já aparece "
+            "no YouTube Studio antes de repetir: " + str(exc)[:300]) from exc
+    with LOCK:
+        live = JOBS[job_id]
+        publications = list(live.get("publications") or [])
+        publications.append(publication)
+        live["publications"] = publications
+        live["publication_status"] = publication["status"]
+        attempts = dict(live.get("publication_attempts") or {})
+        attempts[fmt] = {"state": "complete", "video_id": publication["video_id"]}
+        live["publication_attempts"] = attempts
+        _save(job_id, live)
     return publication
+
+
+@app.post("/api/jobs/{job_id}/publish")
+def publish_job(job_id: str, payload: PublishRequest):
+    return _publish_once(job_id, payload.format, payload.privacy_status,
+                         payload.scheduled_at, payload.description)
+
+
+def _process_publish_queue():
+    """Publish due approved episodes once; survive VPS restarts using job.json."""
+    cfg = _studio_settings()
+    if not cfg.get("auto_publish_enabled") or not YOUTUBE_TOKEN_FILE.is_file():
+        return
+    now = datetime.now(timezone.utc)
+    for job in list_jobs()["jobs"]:
+        if job.get("status") != "done" or job.get("review_status") != "approved":
+            continue
+        if not job.get("auto_publish_due"):
+            _schedule_auto_uploads(job["id"])
+            job = _get_job(job["id"])
+        for fmt, due in dict(job.get("auto_publish_due") or {}).items():
+            if fmt not in job.get("outputs", {}):
+                continue
+            if fmt in (job.get("publication_attempts") or {}):
+                continue
+            try:
+                trigger = datetime.fromisoformat(due.replace("Z", "+00:00"))
+                if trigger > now:
+                    continue
+                _publish_once(job["id"], fmt, privacy="public", automatic=True)
+            except Exception as exc:
+                print("[youtube-auto] queue error:", job["id"], fmt,
+                      str(exc)[:260], flush=True)
+
 
 def _create_scheduled_episode():
     cfg = _studio_settings()
