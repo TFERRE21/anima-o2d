@@ -103,8 +103,8 @@ def brand_frame(fmt:str,ending:bool,phase:float,title:str="",
 
 def _render_ident(workdir:Path,fmt:str,ending:bool,ffmpeg:str,
                   backdrop:Image.Image|None=None)->Path:
-    tag=("outro" if ending else "intro")+"-v2-"+fmt.replace(":","x")
-    folder=workdir/"brand-sequence-v2"/tag
+    tag=("outro" if ending else "intro")+"-v3-"+fmt.replace(":","x")
+    folder=workdir/"brand-sequence-v3"/tag
     folder.mkdir(parents=True,exist_ok=True)
     target=workdir/(tag+".mp4")
     if target.is_file() and target.stat().st_size>5000:
@@ -154,20 +154,23 @@ def finish_episode(output:Path,fmt:str,workdir:Path)->dict:
     clips.append(output)
     clips.append(_render_ident(workdir,fmt,True,ffmpeg,
                                _episode_backdrop(output,ffmpeg,True)))
-    manifest=workdir/("channel-sequence-"+fmt.replace(":","x")+".txt")
-    def escape(p:Path)->str:
-        return p.resolve().as_posix().replace("'","'\\''")
-    manifest.write_text("".join("file '"+escape(p)+"'\n" for p in clips),encoding="utf8")
+    # Stream-copying differently encoded intro + episode + outro caused
+    # corrupted durations and missing narration in several players.
+    # Normalize video timestamps and both audio streams before final concat.
+    from backend.app.video_integrity import concat_with_audio, validate_video
+    story_info=validate_video(output,require_audio=True,min_seconds=15)
+    expected=story_info["duration"]+(4 if fmt=="16:9" else 0)+5
     target=output.with_name(output.stem+"-branded.mp4")
-    subprocess.run([ffmpeg,"-y","-loglevel","error","-f","concat",
-                    "-safe","0","-i",str(manifest),"-c","copy",
-                    "-movflags","+faststart",str(target)],check=True,timeout=300)
-    if not target.exists() or target.stat().st_size<10000:
-        raise RuntimeError("Falha na vinheta e encerramento do episódio.")
-    result_seconds=_probe_duration(target)
-    if result_seconds<=_probe_duration(output):
-        raise RuntimeError("Montagem da vinheta ficou sem duração adicional.")
+    result=concat_with_audio(clips,target,fps=24)
+    result_seconds=result["duration"]
+    if abs(result_seconds-expected)>2.0:
+        target.unlink(missing_ok=True)
+        raise RuntimeError(
+            f"Vídeo final com duração incorreta: {result_seconds:.1f}s "
+            f"(esperado aproximadamente {expected:.1f}s)."
+        )
+    # Never overwrite an otherwise valid story with an invalid or silent file.
     os.replace(target,output)
     return {"duration_seconds":round(result_seconds,2),
             "channel_intro":fmt=="16:9","channel_outro":True,
-            "brand_version":"original-channel-ident-v2"}
+            "brand_version":"original-channel-ident-v3"}
