@@ -905,9 +905,17 @@ def review_job(job_id: str, payload: dict[str, str]):
         raise HTTPException(400, "Decisão deve ser approved ou changes_requested.")
     if job.get("status") != "done":
         raise HTTPException(409, "Só é possível revisar episódios finalizados.")
-    _update(job_id, review_status=decision, reviewed_at=datetime.now(timezone.utc).isoformat())
+    _update(job_id, review_status=decision,
+            reviewed_at=datetime.now(timezone.utc).isoformat(),
+            review_error=None)
     if decision=="approved":
-        _schedule_auto_uploads(job_id)
+        try:
+            _schedule_auto_uploads(job_id)
+        except Exception as exc:
+            # Approval is an editorial decision, NOT a publication job. Never
+            # revert approval or fail the API because scheduling failed.
+            _update(job_id, review_error=str(exc)[:450],
+                    publication_status="schedule_needs_attention")
     return _get_job(job_id)
 
 @app.get("/api/jobs")
