@@ -24,3 +24,5 @@ jobs:
         run: python -m unittest discover -s tests -p 'test_character_reference_ai.py' -v
       - name: Test branded videos and automatic YouTube packaging
         run: python -m unittest discover -s tests -p 'test_channel_publication.py' -v
+      - name: Test playable long episodes, silent-audio rejection and fullscreen layout
+        run: python -m unittest discover -s tests -p 'test_video_integrity.py' -v
