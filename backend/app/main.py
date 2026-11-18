@@ -8,7 +8,7 @@ import os
 import sys
 import threading
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
@@ -641,14 +641,18 @@ def _schedule_auto_uploads(job_id: str) -> None:
     if not cfg.get("auto_publish_enabled") or not YOUTUBE_TOKEN_FILE.is_file():
         return
     job = _get_job(job_id)
+    # Never publish old episodes just because the owner enables automation.
+    if not job.get("auto_publish_eligible",False):
+        return
     if job.get("status") != "done" or job.get("review_status") != "approved":
         return
     due = dict(job.get("auto_publish_due") or {})
     done_formats = {p["format"] for p in job.get("publications", [])}
     attempted = job.get("publication_attempts") or {}
-    for slot, fmt in enumerate(sorted(job.get("outputs") or {}, reverse=True)):
+    base=datetime.fromisoformat(next_publish_time(cfg,0))
+    for slot, fmt in enumerate(sorted(job.get("outputs") or {})):
         if fmt not in due and fmt not in done_formats and fmt not in attempted:
-            due[fmt] = next_publish_time(cfg, slot)
+            due[fmt] = (base+timedelta(minutes=slot*15)).isoformat()
     if due:
         _update(job_id, auto_publish_due=due,
                 publication_status="queued_for_automatic_upload")
@@ -735,7 +739,9 @@ def _process_publish_queue():
         return
     now = datetime.now(timezone.utc)
     for job in list_jobs()["jobs"]:
-        if job.get("status") != "done" or job.get("review_status") != "approved":
+        if (not job.get("auto_publish_eligible") or
+            job.get("status") != "done" or
+            job.get("review_status") != "approved"):
             continue
         if not job.get("auto_publish_due"):
             _schedule_auto_uploads(job["id"])
@@ -1149,6 +1155,7 @@ def _run_job(job_id: str, payload: GenerateRequest):
                 art_stage="done", art_error=None,
                 review_status=("approved" if auto_ready else
                                current.get("review_status", "pending_review")),
+                auto_publish_eligible=bool(cfg.get("auto_publish_enabled")),
                 message="Episódio finalizado: vinheta, encerramento, miniatura e metadados prontos.")
         if cfg.get("auto_publish_enabled"):
             _schedule_auto_uploads(job_id)
