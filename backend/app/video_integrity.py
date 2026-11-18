@@ -6,6 +6,7 @@ Stream copy can produce misleading MP4 duration, blank frames and lost audio.
 from __future__ import annotations
 
 import json
+import re
 import subprocess
 from pathlib import Path
 
@@ -49,6 +50,38 @@ def validate_video(path:Path, *, require_audio:bool=True,
             "Possível falha na concatenação dos quadros."
         )
     return info
+
+
+def verify_audible_audio(path:Path, *, segment_seconds:float=20) -> float:
+    """Verify decoded output contains audible samples, not only an AAC header."""
+    info=validate_video(path,require_audio=True)
+    # Sample both the beginning and middle of the program. The second check
+    # catches a working intro followed by unexpectedly silent narration.
+    length=info["duration"]
+    offsets=[0.0,max(0.0,length*.50-segment_seconds*.5)]
+    peaks=[]
+    for offset in offsets:
+        proc=subprocess.run(
+            ["ffmpeg","-hide_banner","-nostats","-v","info",
+             "-ss",f"{offset:.3f}","-t",str(segment_seconds),
+             "-i",str(path),"-vn","-af","volumedetect",
+             "-f","null","-"],
+            capture_output=True,text=True,timeout=90,
+        )
+        if proc.returncode:
+            raise RuntimeError("Não foi possível decodificar o áudio: "+
+                               proc.stderr[-320:])
+        match=re.search(r"max_volume:\s*(-?inf|-?[0-9.]+) dB",proc.stderr)
+        if match:
+            peaks.append(float(match.group(1)))
+    if not peaks or max(peaks)<-65:
+        raise RuntimeError(
+            "O arquivo tem trilha AAC, mas o áudio está mudo ou quase inaudível."
+        )
+    # The middle of the movie should also contain audible narration or music.
+    if len(peaks)>1 and peaks[1]<-65:
+        raise RuntimeError("A vinheta tem som, mas o trecho principal está mudo.")
+    return peaks[1] if len(peaks)>1 else peaks[0]
 
 
 def concat_video_only(clips:list[Path],target:Path,fps:int) -> dict:
@@ -127,6 +160,8 @@ def concat_with_audio(clips:list[Path],target:Path,*,fps:int=24) -> dict:
     result=subprocess.run(args,capture_output=True,text=True,timeout=1800)
     if result.returncode:
         raise RuntimeError("Falha na montagem com áudio: "+result.stderr[-1800:])
-    return validate_video(target,require_audio=True,
-                          expected_seconds=expected,
-                          tolerance_seconds=max(1.5,len(clips)/fps+.5))
+    info=validate_video(target,require_audio=True,
+                        expected_seconds=expected,
+                        tolerance_seconds=max(1.5,len(clips)/fps+.5))
+    verify_audible_audio(target)
+    return info
