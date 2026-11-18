@@ -103,8 +103,8 @@ def brand_frame(fmt:str,ending:bool,phase:float,title:str="",
 
 def _render_ident(workdir:Path,fmt:str,ending:bool,ffmpeg:str,
                   backdrop:Image.Image|None=None)->Path:
-    tag=("outro" if ending else "intro")+"-v3-"+fmt.replace(":","x")
-    folder=workdir/"brand-sequence-v3"/tag
+    tag=("outro" if ending else "intro")+"-v4-"+fmt.replace(":","x")
+    folder=workdir/"brand-sequence-v4"/tag
     folder.mkdir(parents=True,exist_ok=True)
     target=workdir/(tag+".mp4")
     if target.is_file() and target.stat().st_size>5000:
@@ -154,15 +154,33 @@ def finish_episode(output:Path,fmt:str,workdir:Path)->dict:
     clips.append(output)
     clips.append(_render_ident(workdir,fmt,True,ffmpeg,
                                _episode_backdrop(output,ffmpeg,True)))
-    # Stream-copying differently encoded intro + episode + outro caused
-    # corrupted durations and missing narration in several players.
-    # Normalize video timestamps and both audio streams before final concat.
-    from backend.app.video_integrity import concat_with_audio, validate_video
-    story_info=validate_video(output,require_audio=True,min_seconds=15)
-    expected=story_info["duration"]+(4 if fmt=="16:9" else 0)+5
+    # Keep 9:16 on the lightweight, previously working Short pipeline.
+    # FFprobe validation and full re-encoding remain restricted to 16:9.
+    from backend.app.renderer import _probe_duration
     target=output.with_name(output.stem+"-branded.mp4")
-    result=concat_with_audio(clips,target,fps=24)
-    result_seconds=result["duration"]
+    if fmt=="9:16":
+        base_seconds=_probe_duration(output)
+        manifest=workdir/"short-channel-sequence.txt"
+        def short_quote(p:Path)->str:
+            return p.resolve().as_posix().replace("'", "'\\''")
+        manifest.write_text(
+            "".join("file '"+short_quote(p)+"'\n" for p in clips),
+            encoding="utf-8")
+        subprocess.run([
+            ffmpeg,"-y","-hide_banner","-loglevel","error",
+            "-f","concat","-safe","0","-i",str(manifest),
+            "-c","copy","-movflags","+faststart",str(target),
+        ],check=True,timeout=300)
+        result_seconds=_probe_duration(target)
+        expected=base_seconds+5
+    else:
+        # Long episodes require audio-safe timestamp normalization because
+        # their old final copy caused broken duration and silent playback.
+        from backend.app.video_integrity import concat_with_audio, validate_video
+        story_info=validate_video(output,require_audio=True,min_seconds=15)
+        expected=story_info["duration"]+9
+        result=concat_with_audio(clips,target,fps=24)
+        result_seconds=result["duration"]
     if abs(result_seconds-expected)>2.0:
         target.unlink(missing_ok=True)
         raise RuntimeError(
@@ -173,4 +191,4 @@ def finish_episode(output:Path,fmt:str,workdir:Path)->dict:
     os.replace(target,output)
     return {"duration_seconds":round(result_seconds,2),
             "channel_intro":fmt=="16:9","channel_outro":True,
-            "brand_version":"original-channel-ident-v3"}
+            "brand_version":"original-channel-ident-v4"}
