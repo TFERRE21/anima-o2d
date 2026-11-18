@@ -7,16 +7,73 @@ from __future__ import annotations
 
 import json
 import re
+import shutil
 import subprocess
 from pathlib import Path
+
+
+def _ffprobe_executable() -> str | None:
+    """Find ffprobe installed with FFmpeg or provided by an explicit path."""
+    import os
+    configured=os.getenv("FFPROBE_BIN","").strip()
+    if configured and Path(configured).is_file():
+        return configured
+    installed=shutil.which("ffprobe")
+    if installed:
+        return installed
+    ffmpeg=shutil.which("ffmpeg")
+    if ffmpeg:
+        companion=Path(ffmpeg).with_name("ffprobe")
+        if companion.is_file():
+            return str(companion)
+    return None
+
+
+def _probe_with_ffmpeg(path:Path) -> dict:
+    """FFmpeg -i fallback for older containers where ffprobe is absent.
+
+    This inspects container metadata, not playback integrity. Audible-audio
+    and stream decoding are still tested by verify_audible_audio.
+    """
+    from backend.app.renderer import _ffmpeg_executable
+    proc=subprocess.run(
+        [_ffmpeg_executable(),"-hide_banner","-i",str(path)],
+        stdout=subprocess.DEVNULL,stderr=subprocess.PIPE,
+        text=True,errors="replace",timeout=35,
+    )
+    details=proc.stderr
+    match=re.search(r"Duration:\\s*(\\d+):(\\d+):(\\d+(?:\\.\\d+)?)",details)
+    if not match:
+        raise RuntimeError(
+            "FFprobe ausente e FFmpeg não conseguiu identificar a duração de "+
+            path.name+": "+details[-450:]
+        )
+    hh,mm,ss=match.groups()
+    duration=int(hh)*3600+int(mm)*60+float(ss)
+    stream_lines=[line for line in details.splitlines() if re.search(r"Stream #",line)]
+    videos=[line for line in stream_lines if re.search(r": Video:",line)]
+    audios=[line for line in stream_lines if re.search(r": Audio:",line)]
+    def details_for_video(line:str) -> dict:
+        # Width/height appear in an FFmpeg video stream description.
+        dims=re.search(r"\\b(\\d{2,5})x(\\d{2,5})\\b",line)
+        return {"codec_type":"video","width":int(dims.group(1)) if dims else 0,
+                "height":int(dims.group(2)) if dims else 0}
+    video=details_for_video(videos[0]) if videos else None
+    audio={"codec_type":"audio"} if audios else None
+    return {"duration":duration,"video":video,"audio":audio,
+            "size_bytes":path.stat().st_size,
+            "probe_method":"ffmpeg-metadata-fallback"}
 
 
 def probe_media(path: Path) -> dict:
     path=Path(path)
     if not path.is_file() or path.stat().st_size<1000:
         raise RuntimeError("Arquivo de vídeo não encontrado ou vazio: "+str(path))
+    ffprobe=_ffprobe_executable()
+    if not ffprobe:
+        return _probe_with_ffmpeg(path)
     process=subprocess.run(
-        ["ffprobe","-v","error","-show_entries",
+        [ffprobe,"-v","error","-show_entries",
          "format=duration:stream=index,codec_type,codec_name,width,height,avg_frame_rate,duration",
          "-of","json",str(path)],
         capture_output=True,text=True,timeout=35,
