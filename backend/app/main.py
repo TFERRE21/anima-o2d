@@ -1109,7 +1109,11 @@ def download(job_id: str, fmt: str):
     path = Path(job["outputs"][fmt])
     if not path.exists():
         raise HTTPException(404, "Arquivo não encontrado.")
-    return FileResponse(path, media_type="video/mp4", filename=f"{job['title']}-{fmt.replace(':','x')}.mp4")
+    return FileResponse(
+        path,media_type="video/mp4",
+        filename=f"{job['title']}-{fmt.replace(':','x')}.mp4",
+        headers={"Cache-Control":"no-store, max-age=0"},
+    )
 
 def _has(binary: str) -> bool:
     from shutil import which
