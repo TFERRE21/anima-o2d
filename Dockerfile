@@ -12,7 +12,10 @@ COPY docs ./docs
 
 ENV PYTHONPATH=/app     ANIMA_STORAGE=/data/jobs     ANIMA_RENDER_ENGINE=2d     ANIMA_DRAW_FPS=8     ANIMA_AUTO_INSTALL_BLENDER=0     PORT=5000
 
-RUN mkdir -p /data/jobs &&     python -c "from PIL import Image; import fastapi, edge_tts; print('ANIMA_2D_CPU_READY')"
+RUN mkdir -p /data/jobs && \
+    command -v ffmpeg && command -v ffprobe && \
+    ffmpeg -version | head -n 1 && ffprobe -version | head -n 1 && \
+    python -c "from PIL import Image; import fastapi, edge_tts; print('ANIMA_2D_CPU_READY')"
 
 EXPOSE 5000
 CMD ["sh","-c","uvicorn backend.app.main:app --host 0.0.0.0 --port ${PORT:-5000}"]
