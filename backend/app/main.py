@@ -706,6 +706,18 @@ def _publish_once(job_id: str, fmt: str, privacy: str = "public",
     video_path = Path(job["outputs"][fmt])
     if not video_path.is_file():
         raise HTTPException(404, "Arquivo de vídeo não encontrado.")
+    from backend.app.video_integrity import validate_video
+    try:
+        media=validate_video(video_path,require_audio=True,min_seconds=60)
+        longest=(600+12) if fmt=="16:9" else 100
+        if media["duration"]>longest:
+            raise RuntimeError(
+                f"Duração suspeita ({media['duration']:.0f}s), máximo {longest}s. "
+                "Refaça a mídia antes de enviar."
+            )
+    except Exception as exc:
+        raise HTTPException(422,
+            "Vídeo não liberado para YouTube: "+str(exc)[:300]) from exc
     credentials = _youtube_credentials()
     metadata = _publication_metadata(job, fmt, description)
     from backend.app.youtube_publisher import upload_authorized
