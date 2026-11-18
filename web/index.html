@@ -360,11 +360,31 @@ function watchJob(id){
 }
 async function publishEpisode(id,fmt){
  if(!youtubeConnected){alert('Conecte seu canal do YouTube primeiro.');return;}
- if(!confirm('Enviar o vídeo '+fmt+' para o canal do YouTube?'))return;
- const when=prompt('Para agendar, informe data e hora no formato AAAA-MM-DDTHH:MM. Deixe vazio para publicar agora:','');
+ const mode=prompt('Como enviar '+fmt+'? Digite PRIVADO (teste seguro), NAO_LISTADO ou PUBLICO.','PRIVADO');
+ if(mode===null)return;
+ const key=mode.trim().toUpperCase().replace(/[- ]/g,'_');
+ const privacyMap={PRIVADO:'private',NAO_LISTADO:'unlisted',PUBLICO:'public'};
+ const privacy_status=privacyMap[key];
+ if(!privacy_status){alert('Escolha PRIVADO, NAO_LISTADO ou PUBLICO.');return;}
  let scheduled_at=null;
- if(when){const dt=new Date(when);if(Number.isNaN(dt.getTime())||dt<=new Date()){alert('Informe uma data futura válida.');return;}scheduled_at=dt.toISOString();}
- try{const r=await fetch('/api/jobs/'+encodeURIComponent(id)+'/publish',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({format:fmt,scheduled_at,privacy_status:'public'})});const d=await r.json();if(!r.ok)throw new Error(d.detail||'Falha ao enviar');alert(scheduled_at?'Vídeo enviado e agendado no YouTube.':'Vídeo enviado ao YouTube.');await loadDashboard();}catch(e){alert(e.message);}
+ if(privacy_status==='public'){
+   const when=prompt('Agendar publicação? Data e hora AAAA-MM-DDTHH:MM; deixe em branco para publicar agora.','');
+   if(when===null)return;
+   if(when.trim()){
+     const dt=new Date(when);
+     if(Number.isNaN(dt.getTime())||dt<=new Date()){alert('Data de agendamento inválida.');return;}
+     scheduled_at=dt.toISOString();
+   }
+ }
+ const warning=privacy_status==='public'?'PUBLICAMENTE':'como '+mode.trim().toUpperCase();
+ if(!confirm('Confirma enviar o vídeo '+fmt+' '+warning+' ao canal conectado?'))return;
+ try{
+  const r=await fetch('/api/jobs/'+encodeURIComponent(id)+'/publish',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({format:fmt,scheduled_at,privacy_status})});
+  const d=await r.json();
+  if(!r.ok)throw new Error(d.detail||'Falha ao enviar');
+  alert('Upload enviado. Privacidade retornada: '+(d.status||'verificar')+'. Confira no YouTube Studio antes de considerar publicado.');
+  await loadDashboard();
+ }catch(e){alert(e?.message||'Erro ao enviar');}
 }
 async function reviewEpisode(id,decision,button=null){
  if(button?.disabled)return;
