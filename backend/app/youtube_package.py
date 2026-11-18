@@ -57,7 +57,7 @@ def _thumbnail(video:Path,destination:Path,metadata:dict):
     destination.parent.mkdir(parents=True,exist_ok=True)
     raw=destination.with_name("frame-thumbnail.jpg")
     subprocess.run([_ffmpeg_executable(),"-y","-loglevel","error",
-                    "-ss","1","-i",str(video),"-frames:v","1",
+                    "-ss",("18" if metadata["format"]=="16:9" else "8"),"-i",str(video),"-frames:v","1",
                     "-vf","scale=1280:720:force_original_aspect_ratio=increase,crop=1280:720",
                     str(raw)],timeout=60,check=True)
     with Image.open(raw) as source:
