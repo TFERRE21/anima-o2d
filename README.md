@@ -21,7 +21,9 @@ Os arquivos ficam em `/data/jobs/<job_id>/youtube-ready/<16x9|9x16>/`.
 `status.selfDeclaredMadeForKids=true`, categoria Film & Animation, e
 tenta inserir miniatura via `thumbnails.set`. O YouTube pode restringir
 uploads de projetos de API não verificados a **privados**. Só o YouTube
-Studio pode confirmar a publicação e o processamento da mídia.
+Studio pode confirmar a publicação e o processamento da mídia. O painel
+registra o nível de privacidade retornado pela API e sinaliza quando o
+YouTube impõe a modalidade privada.
 
 ### Ativar automação — sem publicar nada antes do consentimento
 
@@ -37,6 +39,12 @@ Studio pode confirmar a publicação e o processamento da mídia.
    de cada episódio. Para o fluxo inteiramente automático, desative a revisão
    e confirme o aviso. Os envios continuam limitados a **novos episódios
    concluídos após a ativação**, nunca publicando antigos sem querer.
+
+**Segurança:** o token de atualização OAuth fica apenas em `/data/jobs/youtube-token.json`
+no servidor. Proteja o endereço do painel com autenticação/controle de acesso
+da iContainer ou de um proxy confiável; os endpoints administrativos
+originais do Anima Studio ainda não possuem login próprio. Nunca exponha
+`/data/jobs`, chaves ou arquivos OAuth em pastas estáticas.
 
 A fila persistente do servidor verifica horários de minuto em minuto e agenda
 um slot para o 16:9, com o Shorts 15 minutos depois. O progresso dos uploads,
