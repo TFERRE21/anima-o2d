@@ -621,7 +621,7 @@ def youtube_callback(code: str = "", state: str = "", error: str = ""):
     flow.redirect_uri = settings.youtube_redirect_uri
     flow.fetch_token(code=code)
     YOUTUBE_TOKEN_FILE.write_text(flow.credentials.to_json(), encoding="utf-8")
-    return HTMLResponse("<h2>Canal conectado com sucesso!</h2><p>Volte ao Anima Studio Cartoon 3D. Esta janela pode ser fechada.</p>")
+    return HTMLResponse("<h2>Canal conectado com sucesso!</h2><p>Volte ao Anima Studio 2D. Para ativar publicação automática, marque a opção na Central de Automação.</p>")
 
 def _publication_metadata(job: dict, fmt: str, description: str = "") -> dict:
     from backend.app.youtube_package import content_metadata
@@ -797,6 +797,10 @@ def _refresh_scheduler():
         hour,minute=cfg.get("production_time","10:00").split(":")
         trigger=CronTrigger(day_of_week=",".join(day_map[x] for x in cfg["production_days"]),hour=int(hour),minute=int(minute),timezone="America/Sao_Paulo")
         scheduler.add_job(_create_scheduled_episode,trigger,id="weekly_episode_production",replace_existing=True,max_instances=1,coalesce=True)
+    if cfg.get("auto_publish_enabled"):
+        scheduler.add_job(_process_publish_queue,"interval",minutes=1,
+                          id="youtube_auto_publish_queue",replace_existing=True,
+                          max_instances=1,coalesce=True)
     scheduler.start()
 
 def _recover_interrupted_jobs():
@@ -869,9 +873,9 @@ def update_studio_settings(payload: dict[str, Any]):
         raise HTTPException(400, "Configuração desconhecida.")
     current = _studio_settings()
     current.update(payload)
-    if current["auto_publish_enabled"]:
-        current["auto_publish_enabled"] = False
-        raise HTTPException(409, "A publicação automática será liberada após a integração OAuth segura do canal YouTube.")
+    if current["auto_publish_enabled"] and not YOUTUBE_TOKEN_FILE.is_file():
+        raise HTTPException(409,
+            "Conecte e autorize seu canal do YouTube antes de ativar a publicação automática.")
     if not isinstance(current["auto_generate_formats"], list) or not current["auto_generate_formats"] or any(x not in {"16:9", "9:16"} for x in current["auto_generate_formats"]):
         raise HTTPException(400, "Formatos automáticos inválidos.")
     valid_days = {"Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"}
@@ -896,6 +900,8 @@ def review_job(job_id: str, payload: dict[str, str]):
     if job.get("status") != "done":
         raise HTTPException(409, "Só é possível revisar episódios finalizados.")
     _update(job_id, review_status=decision, reviewed_at=datetime.now(timezone.utc).isoformat())
+    if decision=="approved":
+        _schedule_auto_uploads(job_id)
     return _get_job(job_id)
 
 @app.get("/api/jobs")
