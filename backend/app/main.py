@@ -1029,6 +1029,18 @@ def job_preview(job_id: str, fmt: str):
                         headers={"Cache-Control": "no-store, max-age=0"})
 
 
+@app.get("/api/jobs/{job_id}/youtube-thumbnail/{fmt}")
+def get_youtube_thumbnail(job_id: str, fmt: str):
+    _get_job(job_id)
+    if fmt not in {"16:9","9:16"}:
+        raise HTTPException(400, "Formato inválido.")
+    thumbnail = STORAGE / job_id / "youtube-ready" / fmt.replace(":","x") / "thumbnail.jpg"
+    if not thumbnail.is_file():
+        raise HTTPException(404, "Miniatura ainda não foi preparada.")
+    return FileResponse(thumbnail,media_type="image/jpeg",
+                        headers={"Cache-Control":"no-store"})
+
+
 @app.get("/api/jobs/{job_id}/download/{fmt}")
 def download(job_id: str, fmt: str):
     job = _get_job(job_id)
