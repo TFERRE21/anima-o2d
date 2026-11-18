@@ -42,7 +42,7 @@ def _probe_with_ffmpeg(path:Path) -> dict:
         text=True,errors="replace",timeout=35,
     )
     details=proc.stderr
-    match=re.search(r"Duration:\\s*(\\d+):(\\d+):(\\d+(?:\\.\\d+)?)",details)
+    match=re.search(r"Duration:\s*(\d+):(\d+):(\d+(?:\.\d+)?)",details)
     if not match:
         raise RuntimeError(
             "FFprobe ausente e FFmpeg não conseguiu identificar a duração de "+
@@ -55,7 +55,7 @@ def _probe_with_ffmpeg(path:Path) -> dict:
     audios=[line for line in stream_lines if re.search(r": Audio:",line)]
     def details_for_video(line:str) -> dict:
         # Width/height appear in an FFmpeg video stream description.
-        dims=re.search(r"\\b(\\d{2,5})x(\\d{2,5})\\b",line)
+        dims=re.search(r"\b(\d{2,5})x(\d{2,5})\b",line)
         return {"codec_type":"video","width":int(dims.group(1)) if dims else 0,
                 "height":int(dims.group(2)) if dims else 0}
     video=details_for_video(videos[0]) if videos else None
