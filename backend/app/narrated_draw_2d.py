@@ -490,17 +490,12 @@ def _video_from_scenes(
             clip_parts.append(beat_clip)
             _preview(workdir,fmt,colored_page)
         clip=scenes_dir/f"scene-{j:02d}.mp4"
+        from backend.app.video_integrity import concat_video_only, validate_video
         if len(clip_parts)==1:
             shutil.copyfile(clip_parts[0],clip)
+            validate_video(clip,require_audio=False)
         else:
-            local_manifest=scenes_dir/f"beats-{j:02d}.txt"
-            def quote(p:Path)->str:
-                return p.resolve().as_posix().replace("'","'\\''")
-            local_manifest.write_text(
-                "".join("file '"+quote(p)+"'\n" for p in clip_parts),
-                encoding="utf8")
-            _run([_ffmpeg_executable(),"-y","-loglevel","error","-f","concat",
-                  "-safe","0","-i",str(local_manifest),"-c","copy",str(clip)])
+            concat_video_only(clip_parts,clip,fps)
         clips.append(clip)
         # Completed panels keep the latest authentic dialogue bubble,
         # rather than returning to an arbitrary generic exclamation.
@@ -510,15 +505,8 @@ def _video_from_scenes(
                 18+int(69*(j+1)/max(1,len(indices))),
                 f"Cena {j+1}/{len(indices)} finalizada, com falas sincronizadas."
             )
-    manifest=scenes_dir/"concat.txt"
-    def ffmpeg_escape(p:Path)->str:
-        return p.resolve().as_posix().replace("'","'\\''")
-    manifest.write_text(
-        "".join("file '"+ffmpeg_escape(p)+"'\n" for p in clips),
-        encoding="utf8")
-    _run([_ffmpeg_executable(),"-y","-loglevel","error",
-          "-f","concat","-safe","0","-i",str(manifest),
-          "-c","copy",str(target)])
+    from backend.app.video_integrity import concat_video_only
+    concat_video_only(clips,target,fps)
     return target
 
 
@@ -569,6 +557,10 @@ def render_narrated_draw_episode(title: str, story: str, fmt: str,
         voice_timeline=timeline,narration_segments=narration_segments,
     )
 
+    from backend.app.video_integrity import validate_video
+    validate_video(silent,require_audio=False,
+                   expected_seconds=sum(seconds),
+                   tolerance_seconds=max(1.5,len(indices)/fps+.5))
     if progress_callback:
         progress_callback(90, "Unindo desenho, narradora e música infantil suave.")
     from backend.app.children_music import create_music
@@ -593,7 +585,10 @@ def render_narrated_draw_episode(title: str, story: str, fmt: str,
     ], progress_callback, duration)
     if not output.is_file() or output.stat().st_size < 10000:
         raise RuntimeError("O vídeo 2D não foi gerado.")
-    measured = _probe_duration(output)
+    validated = validate_video(output,require_audio=True,
+                               expected_seconds=duration,
+                               tolerance_seconds=2.0)
+    measured = validated["duration"]
     if fmt == "9:16" and not 60 <= measured <= 90:
         raise RuntimeError(f"Shorts fora do tempo: {measured:.1f}s.")
     if fmt == "16:9" and not 300 < measured <= 600:
