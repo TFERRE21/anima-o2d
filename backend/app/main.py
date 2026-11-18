@@ -534,6 +534,38 @@ async def upload_episode_art(job_id: str, asset_id: str, request: Request,
             "art_status": get_episode_art_status(job_id, fmt)}
 
 
+@app.post("/api/jobs/{job_id}/repair-media", status_code=202)
+def repair_episode_media(job_id: str):
+    """Re-render an existing approved story using cached illustrations.
+
+    Does not publish or queue an automatic YouTube upload. This action is
+    explicit because the earlier file may have already been uploaded.
+    """
+    job=_get_job(job_id)
+    if job.get("status") not in {"done","failed"} or not job.get("story_plan"):
+        raise HTTPException(409, "Somente episódios finalizados ou com erro podem ser refeitos.")
+    if not job.get("story_approved"):
+        raise HTTPException(409, "Roteiro ainda não aprovado.")
+    formats=job.get("formats") or list(job.get("outputs") or {}) or ["16:9","9:16"]
+    if not _has("ffmpeg") or not _has("tts"):
+        raise HTTPException(503, "FFmpeg ou TTS indisponível na VPS.")
+    if selected_render_engine()!="2d":
+        raise HTTPException(503, "O motor de reparo requer o renderizador 2D.")
+    for fmt in formats:
+        (STORAGE/job_id/("preview-"+fmt.replace(":","x")+".jpg")).unlink(missing_ok=True)
+    _update(job_id, status="queued", stage="repair_media", progress=0,
+            is_media_repair=True, review_status="pending_review",
+            auto_publish_eligible=False, auto_publish_due={},
+            youtube_packages={}, outputs={}, rendered_durations={},
+            error=None, message="Reconstruindo vídeo, narração e vinhetas sem republicar.")
+    payload=GenerateRequest(title=job["title"],story=job["story"],
+                            formats=formats,episode="planet-journey",
+                            planet=job["planet"])
+    threading.Thread(target=_run_job,args=(job_id,payload),daemon=True).start()
+    return {"job_id":job_id,"status":"queued","formats":formats,
+            "message":"Nova versão iniciada. A publicação automática foi desativada para este reparo."}
+
+
 @app.post("/api/jobs/{job_id}/render", status_code=202)
 def render_story(job_id: str, payload: RenderRequest):
     job = _get_job(job_id)
@@ -1156,16 +1188,18 @@ def _run_job(job_id: str, payload: GenerateRequest):
                     progress=int((index + 1) * 100 / total_formats),
                     message=f"Versão {fmt} pronta ({metadata.get('duration_seconds', 0):.0f} segundos).")
         cfg = _studio_settings()
-        auto_ready = bool(cfg.get("auto_publish_enabled") and
+        repair=bool(_get_job(job_id).get("is_media_repair"))
+        auto_ready = bool(not repair and cfg.get("auto_publish_enabled") and
                           not cfg.get("require_review_before_publish"))
         current = _get_job(job_id)
         _update(job_id, status="done", stage="ready_for_review", progress=100,
                 art_stage="done", art_error=None,
                 review_status=("approved" if auto_ready else
                                current.get("review_status", "pending_review")),
-                auto_publish_eligible=bool(cfg.get("auto_publish_enabled")),
+                auto_publish_eligible=bool(not repair and cfg.get("auto_publish_enabled")),
+                is_media_repair=False,
                 message="Episódio finalizado: vinheta, encerramento, miniatura e metadados prontos.")
-        if cfg.get("auto_publish_enabled"):
+        if not repair and cfg.get("auto_publish_enabled"):
             _schedule_auto_uploads(job_id)
     except Exception as exc:
         _update(job_id, status="failed", stage="render_error", error=str(exc),
