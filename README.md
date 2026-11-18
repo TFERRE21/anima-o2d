@@ -1,3 +1,36 @@
+## Correção de episódios incompletos e sem som — novembro de 2026
+
+Para episódios em 16:9, os quadrinhos passam a preencher a área útil em
+**um painel grande por cena**, sem quadrantes vazios. A vinheta e o final
+permanecem. Em `backend/app/video_integrity.py`, o FFmpeg passa a unir
+quadros/cenas com `setpts=PTS-STARTPTS`, reencodificando com FPS constante.
+A montagem final usa a junção **simultânea de vídeo e áudio**, com H.264,
+AAC estéreo, 48 kHz, correção de timestamps e `faststart`. Não usa mais
+`-c copy` ao unir a vinheta, narração e encerramento.
+
+Antes de liberar o arquivo, o sistema valida via FFprobe duração esperada,
+presença de vídeo e áudio e verifica o volume real nos primeiros segundos
+e no meio do episódio. Se a duração não corresponder ao roteiro ou o áudio
+estiver mudo, a geração falha com mensagem clara: **não cria um vídeo pronto
+nem libera o envio ao YouTube**. Uploads antigos com duração acima do limite
+ou sem áudio também são recusados.
+
+Para reparar **A Missão de Aurora-7**, atualize a VPS e use **Episódios /
+YouTube & postagens → Refazer vídeo**. A mesma história e os arquivos
+de imagem em cache são reaproveitados; o sistema reconstrói a montagem,
+narração, música e vinhetas e exige aprovação novamente. Esse reparo **não
+aciona postagem automática**, mesmo se o robô publicar outros episódios
+novos. Após a renderização, baixe novamente o arquivo MP4 (Cache-Control
+no-store) e confira imagem, narração, duração e encerramento antes de enviar.
+
+Se o vídeo antigo já foi publicado no YouTube, não é possível substituir o
+arquivo de vídeo da publicação existente. O vídeo corrigido precisa de
+novo upload; edite ou retire a versão defeituosa separadamente pelo YouTube
+Studio, sem permitir upload duplicado automático. As verificações de mídia
+estão em `tests/test_video_integrity.py`. A renderização de 5 a 10 minutos
+na VPS ainda precisa ser executada para confirmar o reparo completo.
+
+
 ## Identidade do canal e automação YouTube (2026-11-17)
 
 **Canal:** Luna, Tomi e Pipo — Pequenos Guardiões.
