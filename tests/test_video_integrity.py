@@ -63,6 +63,21 @@ class VideoIntegrityTests(unittest.TestCase):
             self.assertIsNotNone(stats["video"])
             self.assertGreater(verify_audible_audio(target,segment_seconds=1),-65)
 
+    def test_short_scene_concat_never_calls_ffprobe_or_long_video_encoder(self):
+        from unittest import mock
+        from backend.app.narrated_draw_2d import _concat_legacy_short
+        with tempfile.TemporaryDirectory() as temp:
+            root=Path(temp)
+            pieces=[self.make_clip(root,f"short-{i}.mp4",1) for i in range(2)]
+            output=root/"short-joined.mp4"
+            with mock.patch("backend.app.video_integrity.probe_media",
+                            side_effect=AssertionError("Short called new ffprobe")):
+                with mock.patch("backend.app.video_integrity.concat_video_only",
+                                side_effect=AssertionError("Short called long encoder")):
+                    _concat_legacy_short(pieces,output)
+            self.assertTrue(output.is_file())
+            self.assertGreater(output.stat().st_size,1000)
+
     def test_scene_join_rewrites_timestamps_and_duration(self):
         with tempfile.TemporaryDirectory() as temp:
             root=Path(temp)
