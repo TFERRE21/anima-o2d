@@ -13,7 +13,7 @@ import shutil
 import subprocess
 from pathlib import Path
 
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFont, ImageFilter, ImageOps
 
 from backend.app.children_music import create_music
 
@@ -32,15 +32,26 @@ def _cast_sprite(name,height):
     width=max(1,round(source.width*height/source.height))
     return source.resize((width,height),Image.Resampling.LANCZOS)
 
-def brand_frame(fmt:str,ending:bool,phase:float,title:str=""):
-    """Single 16:9 or portrait frame, accessible readable type and moving cast."""
+def brand_frame(fmt:str,ending:bool,phase:float,title:str="",
+                backdrop:Image.Image|None=None):
+    """Single 16:9 or portrait frame with the current episode's illustrated cast."""
     portrait=fmt=="9:16"
     w,h=(720,1280) if portrait else (1280,720)
-    im=Image.new("RGB",(w,h));d=ImageDraw.Draw(im)
-    for y in range(h):
-        t=y/max(1,h-1)
-        d.line((0,y,w,y),fill=(
-            round(19+30*t),round(36+50*t),round(98+60*t)))
+    if backdrop is None:
+        im=Image.new("RGB",(w,h))
+    else:
+        # Reuse the actual AI-rendered episode style: no old low-detail cast.
+        art=ImageOps.fit(backdrop.convert("RGB"),(w,h),
+                         Image.Resampling.LANCZOS)
+        art=art.filter(ImageFilter.GaussianBlur(1.6)).convert("RGBA")
+        veil=Image.new("RGBA",(w,h),(14,28,68,105 if ending else 118))
+        im=Image.alpha_composite(art,veil).convert("RGB")
+    d=ImageDraw.Draw(im)
+    if backdrop is None:
+      for y in range(h):
+          t=y/max(1,h-1)
+          d.line((0,y,w,y),fill=(
+              round(19+30*t),round(36+50*t),round(98+60*t)))
     key=hashlib.sha256((CHANNEL_NAME+"brand").encode()).digest()
     for i in range(90):
         x=(i*167+key[i%len(key)]*13)%w
@@ -63,13 +74,14 @@ def brand_frame(fmt:str,ending:bool,phase:float,title:str=""):
         height=int(h*.34)
         centers=(int(w*.33),int(w*.50),int(w*.65))
         foot=int(h*.83)
-    for i,name in enumerate(("luna","tomi","pipo")):
-        hh=int(height*(.67 if name=="pipo" else 1.0))
-        sprite=_cast_sprite(name,hh)
-        bob=round(8*math.sin(phase*math.pi*2+i*.8))
-        x=centers[i]-sprite.width//2
-        y=foot-hh+bob
-        im.paste(sprite,(x,y),sprite)
+    if backdrop is None:
+        for i,name in enumerate(("luna","tomi","pipo")):
+            hh=int(height*(.67 if name=="pipo" else 1.0))
+            sprite=_cast_sprite(name,hh)
+            bob=round(8*math.sin(phase*math.pi*2+i*.8))
+            x=centers[i]-sprite.width//2
+            y=foot-hh+bob
+            im.paste(sprite,(x,y),sprite)
     d=ImageDraw.Draw(im)
     title_size=int(unit*(.058 if portrait else .062))
     caption_size=int(unit*(.039 if portrait else .039))
@@ -89,7 +101,8 @@ def brand_frame(fmt:str,ending:bool,phase:float,title:str=""):
                font=_font(int(unit*.027),True),anchor="mm",fill=(245,248,255))
     return im
 
-def _render_ident(workdir:Path,fmt:str,ending:bool,ffmpeg:str)->Path:
+def _render_ident(workdir:Path,fmt:str,ending:bool,ffmpeg:str,
+                  backdrop:Image.Image|None=None)->Path:
     tag=("outro" if ending else "intro")+"-"+fmt.replace(":","x")
     folder=workdir/"brand-sequence-v1"/tag
     folder.mkdir(parents=True,exist_ok=True)
@@ -99,7 +112,7 @@ def _render_ident(workdir:Path,fmt:str,ending:bool,ffmpeg:str)->Path:
     fps=12
     duration=5 if ending else 4
     for frame in range(fps*duration):
-        brand_frame(fmt,ending,frame/(fps*duration)).save(
+        brand_frame(fmt,ending,frame/(fps*duration),backdrop=backdrop).save(
             folder/f"frame-{frame:04d}.png",format="PNG")
     music=create_music(folder/"music.wav",duration,tag+"original")
     subprocess.run([
@@ -113,15 +126,34 @@ def _render_ident(workdir:Path,fmt:str,ending:bool,ffmpeg:str)->Path:
     ],check=True,timeout=180)
     return target
 
+def _episode_backdrop(video:Path,ffmpeg:str,ending:bool)->Image.Image|None:
+    """Sample one original illustrated frame, preserving AI scene art style."""
+    from backend.app.renderer import _probe_duration
+    length=_probe_duration(video)
+    moment=max(2,min(length-2,length*.85 if ending else length*.18))
+    candidate=video.parent / ("brand-backdrop-end.jpg" if ending else "brand-backdrop-start.jpg")
+    try:
+        subprocess.run([ffmpeg,"-y","-loglevel","error","-ss",str(moment),
+                        "-i",str(video),"-frames:v","1",str(candidate)],
+                       check=True,timeout=45)
+        with Image.open(candidate) as photo:
+            photo.load()
+            return photo.convert("RGB")
+    except (OSError,subprocess.CalledProcessError,subprocess.TimeoutExpired):
+        return None
+
+
 def finish_episode(output:Path,fmt:str,workdir:Path)->dict:
     """Append original ident(s) without replacing or modifying story footage."""
     from backend.app.renderer import _ffmpeg_executable, _probe_duration
     ffmpeg=_ffmpeg_executable()
     clips=[]
     if fmt=="16:9":
-        clips.append(_render_ident(workdir,fmt,False,ffmpeg))
+        clips.append(_render_ident(workdir,fmt,False,ffmpeg,
+                                  _episode_backdrop(output,ffmpeg,False)))
     clips.append(output)
-    clips.append(_render_ident(workdir,fmt,True,ffmpeg))
+    clips.append(_render_ident(workdir,fmt,True,ffmpeg,
+                               _episode_backdrop(output,ffmpeg,True)))
     manifest=workdir/("channel-sequence-"+fmt.replace(":","x")+".txt")
     def escape(p:Path)->str:
         return p.resolve().as_posix().replace("'","'\\''")
