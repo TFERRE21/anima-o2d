@@ -16,7 +16,7 @@ PAPER = "#fff9ef"
 INK = "#263143"
 BORDER = "#f3c85d"
 MAX_PANELS_PORTRAIT = 3
-MAX_PANELS_LANDSCAPE = 4
+MAX_PANELS_LANDSCAPE = 1
 
 
 def layout(width: int, height: int, portrait: bool) -> list[tuple[int, int, int, int]]:
@@ -31,13 +31,17 @@ def layout(width: int, height: int, portrait: bool) -> list[tuple[int, int, int,
             (m, top + i*(row_h+gutter), width-m, top + i*(row_h+gutter)+row_h)
             for i in range(MAX_PANELS_PORTRAIT)
         ]
-    cw = (width - m*2 - gutter)//2
-    ch = (height - top - bottom - gutter)//2
-    return [
-        (m + (i%2)*(cw+gutter), top + (i//2)*(ch+gutter),
-         m + (i%2)*(cw+gutter)+cw, top + (i//2)*(ch+gutter)+ch)
-        for i in range(MAX_PANELS_LANDSCAPE)
-    ]
+    # Horizontal YouTube uses one immersive panel rather than a 2x2 comic
+    # grid. Multi-panel 16:9 pages previously left most of the frame blank.
+    visual_top=max(52,round(height*.095))
+    visual_bottom=max(12,round(height*.020))
+    available_height=height-visual_top-visual_bottom
+    available_width=width-2*m
+    panel_width=min(available_width,round(available_height*16/9))
+    panel_height=min(available_height,round(panel_width*9/16))
+    x0=(width-panel_width)//2
+    y0=visual_top+(available_height-panel_height)//2
+    return [(x0,y0,x0+panel_width,y0+panel_height)]
 
 
 def comic_page(
