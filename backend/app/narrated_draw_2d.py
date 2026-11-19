@@ -558,6 +558,11 @@ def render_narrated_draw_episode(title: str, story: str, fmt: str,
         raise RuntimeError(
             f"Narração fora da duração {minimum}-{maximum}s: {narration_seconds:.1f}s."
         )
+    # Validate recorded voice before the background music is mixed in.
+    # Otherwise a silent TTS file could appear to pass final audio checks
+    # simply because the generated instrumental bed is audible.
+    from backend.app.video_integrity import verify_narration_source
+    verify_narration_source(fitted)
     duration = narration_seconds + 1.2
     # Match the fitted speech track; one word appears on screen with its scene.
     ratio = narration_seconds / max(raw_seconds, .001)
