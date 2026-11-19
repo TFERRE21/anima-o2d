@@ -30,3 +30,5 @@ jobs:
         run: python -m unittest discover -s tests -p 'test_fullscreen_comic_layout.py' -v
       - name: Test new episode music, voice safety and dialogue clouds
         run: python -m unittest discover -s tests -p 'test_soundtrack_and_balloons.py' -v
+      - name: Test calm Portuguese-Brazil narration and story-led scene sync
+        run: python -m unittest discover -s tests -p 'test_calm_ptbr_story.py' -v
