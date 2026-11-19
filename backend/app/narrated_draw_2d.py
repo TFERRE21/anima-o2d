@@ -591,9 +591,16 @@ def render_narrated_draw_episode(title: str, story: str, fmt: str,
             raise RuntimeError("Shorts sem quadros de vídeo.")
     if progress_callback:
         progress_callback(90, "Unindo desenho, narradora e música infantil suave.")
-    from backend.app.children_music import create_music
-    music = create_music(workdir / ("music-" + fmt.replace(":","x") + ".wav"),
-                         duration, str(plan.get("planet") or planet_name))
+    from backend.app.children_music import create_music, soundtrack_identity
+    # Episode-specific soundtrack. Preserve one coherent theme across long
+    # and short edits of the same adventure, but never reuse it next episode.
+    theme_seed=" | ".join((
+        str(plan.get("planet") or planet_name),
+        str(plan.get("title") or title),
+        str(plan.get("challenge") or plan.get("synopsis") or story[:150]),
+    ))
+    music = create_music(workdir / ("music-v2-" + fmt.replace(":","x") + ".wav"),
+                         duration, theme_seed)
     target_size = "1080:1920" if fmt == "9:16" else "1920:1080"
     output.parent.mkdir(parents=True, exist_ok=True)
     _run_ffmpeg_with_progress([
@@ -602,9 +609,10 @@ def render_narrated_draw_episode(title: str, story: str, fmt: str,
         "-filter_complex",
         f"[0:v]scale={target_size}:flags=lanczos,setsar=1[v];"
         "[1:a]apad=pad_dur=2,loudnorm=I=-16:TP=-1.5:LRA=11,asplit=2[voice][key];"
-        "[2:a]volume=0.30,lowpass=f=2400[music];"
-        "[music][key]sidechaincompress=threshold=0.012:ratio=5:attack=80:release=500[duck];"
-        "[voice][duck]amix=inputs=2:duration=first:weights='1 0.32':normalize=0[a]",
+        "[2:a]volume=0.68,lowpass=f=4800[music];"
+        "[music][key]sidechaincompress=threshold=0.015:ratio=8:attack=55:release=430[duck];"
+        "[voice][duck]amix=inputs=2:duration=first:weights='1 0.48':normalize=0,"
+        "alimiter=limit=0.94[a]",
         "-map", "[v]", "-map", "[a]",
         "-t", f"{duration:.3f}", "-c:v", "libx264", "-preset", "ultrafast",
         "-crf", "22", "-pix_fmt", "yuv420p", "-r", "24",
@@ -621,6 +629,10 @@ def render_narrated_draw_episode(title: str, story: str, fmt: str,
                                    expected_seconds=duration,
                                    tolerance_seconds=2.0)
         measured = validated["duration"]
+    # A valid AAC track alone is insufficient: check decoded audio in the
+    # narrated middle, not just the beginning or a musical intro.
+    from backend.app.video_integrity import verify_audible_audio
+    verify_audible_audio(output,segment_seconds=12)
     if fmt == "9:16" and not 60 <= measured <= 90:
         raise RuntimeError(f"Shorts fora do tempo: {measured:.1f}s.")
     if fmt == "16:9" and not 300 < measured <= 600:
@@ -631,7 +643,8 @@ def render_narrated_draw_episode(title: str, story: str, fmt: str,
         "resolution": "1080x1920" if fmt == "9:16" else "1920x1080",
         "scene_count": len(indices),
         "render_engine": DRAW_ENGINE,
-        "soundtrack": "original-gentle-music-box-with-narration-ducking",
+        "soundtrack": "original-playful-music-box-v2-with-narration-ducking",
+        "soundtrack_theme": soundtrack_identity(theme_seed)["theme_id"],
         "art_version": DRAW_ART_VERSION,
         "narration_word_count": sum(len(x["text"].split()) for x in narration_segments),
         "speakers": ["Narrador"],
