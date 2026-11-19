@@ -711,7 +711,7 @@ def _publish_once(job_id: str, fmt: str, privacy: str = "public",
         media=validate_video(video_path,require_audio=True,min_seconds=60)
         from backend.app.video_integrity import verify_audible_audio
         verify_audible_audio(video_path)
-        longest=(600+12) if fmt=="16:9" else 100
+        longest=900 if fmt=="16:9" else 100
         if media["duration"]>longest:
             raise RuntimeError(
                 f"Duração suspeita ({media['duration']:.0f}s), máximo {longest}s. "
