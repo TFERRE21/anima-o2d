@@ -120,6 +120,26 @@ def validate_video(path:Path, *, require_audio:bool=True,
     return info
 
 
+def verify_narration_source(audio_path:Path, *, segment_seconds:float=15) -> float:
+    """Ensure TTS itself is audible before a music bed could mask a failure."""
+    from backend.app.renderer import _probe_duration
+    seconds=_probe_duration(Path(audio_path))
+    if seconds < 1:
+        raise RuntimeError("A faixa da narradora está vazia.")
+    offset=max(0.0,seconds*.5-segment_seconds*.5)
+    proc=subprocess.run([
+        _ffmpeg_bin(),"-hide_banner","-nostats","-v","info",
+        "-ss",f"{offset:.3f}","-t",str(min(seconds,segment_seconds)),
+        "-i",str(audio_path),"-af","volumedetect","-f","null","-",
+    ],capture_output=True,text=True,timeout=90)
+    if proc.returncode:
+        raise RuntimeError("Falha ao decodificar narração: "+proc.stderr[-300:])
+    values=re.findall(r"max_volume:\s*(-?inf|-?[0-9.]+) dB",proc.stderr)
+    if not values or float(values[-1]) < -55:
+        raise RuntimeError("A narradora está inaudível: verifique a geração de voz.")
+    return float(values[-1])
+
+
 def verify_audible_audio(path:Path, *, segment_seconds:float=20) -> float:
     """Verify decoded output contains audible samples, not only an AAC header."""
     info=validate_video(path,require_audio=True)
