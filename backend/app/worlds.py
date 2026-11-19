@@ -198,7 +198,7 @@ def build_episode_plan(episode_number: int, used_planets: set[str] | None = None
         "word_count_long": long_audio_words,
         "word_count_short": short_audio_words,
         "duration_targets": {
-            "16:9": {"min_seconds": 301, "max_seconds": 599, "target_seconds": 420},
+            "16:9": {"min_seconds": 300, "max_seconds": 900, "target_seconds": 690},
             "9:16": {"min_seconds": 60, "max_seconds": 90, "target_seconds": 75},
         },
     }
