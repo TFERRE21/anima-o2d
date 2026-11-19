@@ -92,10 +92,16 @@ def scene_seconds(indices: list[int], voice_timeline: list[dict],
     for item in voice_timeline:
         scene = int(item.get("scene", 0))
         durations[scene] += max(0.0, float(item.get("end", 0)) - float(item.get("start", 0)))
-    # A scene without a spoken segment receives an economical visible beat.
-    weights = [max(1.0, durations[index]) for index in indices]
-    divisor = max(0.01, sum(weights))
-    return [total_seconds * w / divisor for w in weights]
+    # Respect actual speaking time per scene, without stretching an earlier
+    # dialogue merely because the narration track ends with a calm pause.
+    # Any final padding belongs only to the closing scene.
+    weights=[max(.10,durations[index]) for index in indices]
+    spoken_total=sum(weights)
+    if spoken_total<=total_seconds:
+        weights[-1]+=total_seconds-spoken_total
+        return weights
+    divisor=max(.01,spoken_total)
+    return [total_seconds*w/divisor for w in weights]
 
 
 def _font(size: int, bold: bool = False) -> ImageFont.ImageFont:
