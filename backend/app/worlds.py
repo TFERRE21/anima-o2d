@@ -160,13 +160,13 @@ def build_episode_plan(episode_number: int, used_planets: set[str] | None = None
     # first attempt, the team's decision to listen, and the successful solution.
     short_segments = [
         {"speaker": "Luna", "text": f"Na parte mais difícil da missão em {planet}, a primeira tentativa falhou. O problema parecia maior do que todos imaginavam: {mission['problem']}.", "scene": 7},
-        {"speaker": "Luna", "text": f"Esperem! A pista que encontrei perto de {mission['object']} mostra outro caminho: {mission['clue']}.", "scene": 7},
+        {"speaker": "Luna", "text": f"Esperem! A pista que encontrei perto de {mission['object']} mostra outro caminho: {mission['clue']}.", "scene": 7, "visual_dialogue": True},
         {"speaker": "Tomi", "text": "Então vamos mudar o plano. Primeiro ouvimos os moradores, depois dividimos as tarefas e conferimos tudo com segurança.", "scene": 8, "visual_dialogue": True},
         {"speaker": "Pipo", "text": "Au! Au! Eu também encontrei uma pista! Olhem aqui!", "scene": 8, "visual_dialogue": True},
         {"speaker": "Luna", "text": "Agora entendi! Vamos seguir o plano com os moradores, com cuidado e atenção a cada detalhe.", "scene": 9, "visual_dialogue": True},
         {"speaker": "Tomi", "text": "Equipe e moradores, cada um na sua tarefa. Vamos fazer isso juntos!", "scene": 9, "visual_dialogue": True},
         {"speaker": "Tomi", "text": "Com diálogo e cooperação, a comunidade conseguiu resolver o desafio. Conseguimos porque todos participaram!", "scene": 10},
-        {"speaker": "Luna", "text": "Uma boa ideia pode mudar tudo! E você, que atitude pode melhorar o lugar onde vive?", "scene": 11},
+        {"speaker": "Luna", "text": "Uma boa ideia pode mudar tudo! E você, que atitude pode melhorar o lugar onde vive?", "scene": 11, "visual_dialogue": True},
         {"speaker": "Narrador", "text": f"Moral da história: {value}. Escutar, respeitar e cooperar ajuda a transformar o mundo ao nosso redor.", "scene": 11},
     ]
     long_dialogue_script = " ".join(f"{line['speaker']}: {line['text']}" for line in dialogues)
