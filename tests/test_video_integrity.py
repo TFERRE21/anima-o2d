@@ -63,6 +63,23 @@ class VideoIntegrityTests(unittest.TestCase):
             self.assertIsNotNone(stats["video"])
             self.assertGreater(verify_audible_audio(target,segment_seconds=1),-65)
 
+    def test_short_outro_is_appended_with_audio_and_real_duration(self):
+        from backend.app.channel_branding import _append_short_outro
+        from backend.app.renderer import _probe_duration
+        with tempfile.TemporaryDirectory() as temp:
+            root=Path(temp)
+            story=self.make_clip(root,"story-short.mp4",2,size="180x320")
+            ending=self.make_clip(root,"ending-short.mp4",1,size="180x320")
+            result=root/"final-short.mp4"
+            with __import__("unittest").mock.patch(
+                "backend.app.video_integrity._ffprobe_executable",
+                side_effect=AssertionError("Short must not require ffprobe")
+            ):
+                measured=_append_short_outro("ffmpeg",story,ending,result)
+            self.assertAlmostEqual(measured,3.0,delta=.65)
+            self.assertAlmostEqual(_probe_duration(result),3.0,delta=.65)
+            self.assertTrue(result.stat().st_size>5000)
+
     def test_short_scene_concat_never_calls_ffprobe_or_long_video_encoder(self):
         from unittest import mock
         from backend.app.narrated_draw_2d import _concat_legacy_short
