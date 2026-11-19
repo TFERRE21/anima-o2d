@@ -672,7 +672,7 @@ def render_episode(title: str, story: str, fmt: str, output: Path, workdir: Path
         narration_text = plan.get("long_script") or story
         audio_segments = plan.get("audio_segments_long") or [{"speaker": "Narrador", "text": narration_text}]
         speech_rate = 140
-        min_duration, max_duration, target_duration = 301.0, 598.5, 420.0
+        min_duration, max_duration, target_duration = 300.0, 898.5, 690.0
 
     if progress_callback:
         progress_callback(1, "Preparando vozes e diálogos dos personagens.")
@@ -699,7 +699,7 @@ def render_episode(title: str, story: str, fmt: str, output: Path, workdir: Path
             fitted_duration = _probe_duration(voice_fit)
         if not (min_duration <= fitted_duration <= max_duration):
             raise RuntimeError(
-                f"O episódio horizontal precisa ficar entre 5 e 10 minutos ({fitted_duration:.1f}s)."
+                f"O episódio horizontal precisa ficar entre 5 e 15 minutos ({fitted_duration:.1f}s)."
             )
 
     # Give the final scene a short visual tail after the last spoken line.
@@ -784,8 +784,8 @@ def render_episode(title: str, story: str, fmt: str, output: Path, workdir: Path
         progress_callback(99, "Validando arquivo, áudio e duração.")
     if portrait and not (60 <= actual_video_duration <= 90):
         raise RuntimeError(f"O vídeo Shorts ficou fora da faixa de 1:00 a 1:30 ({actual_video_duration:.1f}s).")
-    if not portrait and not (300 < actual_video_duration <= 600):
-        raise RuntimeError(f"O episódio horizontal precisa ficar entre 5 e 10 minutos ({actual_video_duration:.1f}s).")
+    if not portrait and not (300 <= actual_video_duration <= 900):
+        raise RuntimeError(f"O episódio horizontal precisa ficar entre 5 e 15 minutos ({actual_video_duration:.1f}s).")
     shutil.rmtree(frames, ignore_errors=True)
     return {
         "duration_seconds": round(actual_video_duration, 2),
