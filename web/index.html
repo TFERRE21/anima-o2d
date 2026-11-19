@@ -327,7 +327,7 @@ function watchJob(id){
    const finalVideo=$('activeJobFinishedVideo');
    const finishedFmt=(j.outputs||{})[fmt]?fmt:Object.keys(j.outputs||{})[0];
    if(j.status==='done' && finishedFmt){
-     const mediaUrl='/api/jobs/'+encodeURIComponent(id)+'/download/'+encodeURIComponent(finishedFmt);
+     const mediaUrl='/api/jobs/'+encodeURIComponent(id)+'/play/'+encodeURIComponent(finishedFmt);
      if(finalVideo.dataset.mediaUrl!==mediaUrl){
        finalVideo.src=mediaUrl;
        finalVideo.dataset.mediaUrl=mediaUrl;
