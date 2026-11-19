@@ -183,13 +183,27 @@ async def _edge_tts_save(text: str, output: Path, speaker: str = "Narrador") -> 
     profile = VOICE_PROFILE.get(speaker, VOICE_PROFILE["Narrador"])
     # Saved voice profiles may predate the calmer narrator preset. Enforce
     # a gentle speaking pace unless the operator explicitly overrides it.
-    narrator_rate = os.getenv("ANIMA_NARRATOR_RATE", "-8%")
-    communicate = edge_tts.Communicate(
+    # Production 2D narrator is always Brazilian Portuguese. Avoid the
+    # multilingual voice randomly switching pronunciation during dialogue.
+    voice=str(profile.get("voice") or "")
+    if speaker=="Narrador":
+        voice=os.getenv("ANIMA_NARRATOR_VOICE", "pt-BR-FranciscaNeural")
+    if not voice.startswith("pt-BR-"):
+        voice="pt-BR-FranciscaNeural" if speaker in {"Narrador","Luna","Moradora"} else "pt-BR-AntonioNeural"
+    calm_rate=os.getenv("ANIMA_NARRATOR_RATE","-18%")
+    rate=calm_rate if speaker=="Narrador" else str(profile.get("rate","-8%"))
+    # Clamp accidentally persisted fast profiles to a gentle Brazilian pace.
+    if speaker=="Narrador":
+        try:
+            rate=f"{min(-8,max(-35,int(rate.replace('%','')))):+d}%"
+        except ValueError:
+            rate="-18%"
+    communicate=edge_tts.Communicate(
         text=text,
-        voice=profile["voice"],
-        rate=narrator_rate if speaker == "Narrador" else profile["rate"],
+        voice=voice,
+        rate=rate,
         volume="+0%",
-        pitch=profile["pitch"],
+        pitch=str(profile.get("pitch","+0Hz")),
     )
     await communicate.save(str(output))
 
