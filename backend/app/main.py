@@ -1101,6 +1101,23 @@ def get_youtube_thumbnail(job_id: str, fmt: str):
                         headers={"Cache-Control":"no-store"})
 
 
+@app.get("/api/jobs/{job_id}/play/{fmt}")
+def play_finished_episode(job_id: str,fmt: str):
+    """Inline MP4 for reviewing sound and speech without downloading."""
+    job=_get_job(job_id)
+    if job.get("status")!="done" or fmt not in job.get("outputs",{}):
+        raise HTTPException(404,"Este formato ainda não está finalizado.")
+    path=Path(job["outputs"][fmt])
+    if not path.is_file():
+        raise HTTPException(404,"MP4 não encontrado.")
+    return FileResponse(
+        path,media_type="video/mp4",
+        headers={"Content-Disposition":"inline",
+                 "Cache-Control":"no-store, max-age=0",
+                 "Accept-Ranges":"bytes"},
+    )
+
+
 @app.get("/api/jobs/{job_id}/download/{fmt}")
 def download(job_id: str, fmt: str):
     job = _get_job(job_id)
