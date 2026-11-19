@@ -545,19 +545,37 @@ def render_narrated_draw_episode(title: str, story: str, fmt: str,
     if progress_callback:
         progress_callback(2, "Narradora preparando as falas da história.")
     from backend.app.renderer import _synthesize_segments, _probe_duration, _fit_narration
-    speech_rate = 145 if fmt == "9:16" else 140
+    # Both editions use slow, natural Brazilian Portuguese. Never use a
+    # high atempo factor to squeeze the speech into an arbitrary deadline.
+    speech_rate = 117 if fmt == "9:16" else 115
     raw, fitted, timeline = _synthesize_segments(narration_segments, workdir, fmt, speech_rate)
     raw_seconds = _probe_duration(raw)
-    minimum, maximum, target = (60, 88.5, 75) if fmt == "9:16" else (301, 598.5, 420)
-    if minimum <= raw_seconds <= maximum:
-        shutil.copyfile(raw, fitted)
-        narration_seconds = _probe_duration(fitted)
-    else:
-        narration_seconds = _fit_narration(raw, fitted, target)
-    if not minimum <= narration_seconds <= maximum:
+    minimum, maximum = (60, 90) if fmt == "9:16" else (301, 600)
+    if raw_seconds > maximum - 1.2:
         raise RuntimeError(
-            f"Narração fora da duração {minimum}-{maximum}s: {narration_seconds:.1f}s."
+            f"Narração pt-BR com {raw_seconds:.1f}s excede o formato {fmt}. "
+            "Reduza o texto do roteiro antes de renderizar; a voz não será acelerada."
         )
+    if raw_seconds < minimum:
+        # A slight slowdown is acceptable; forcing a narration to 420s from
+        # 200s was neither natural nor synchronized with the illustrated story.
+        factor=max(.85,raw_seconds/(minimum+1.0))
+        _run(["ffmpeg","-y","-loglevel","error","-i",str(raw),
+              "-filter:a",f"atempo={factor:.5f}","-ar","44100",str(fitted)])
+        narration_seconds=_probe_duration(fitted)
+    else:
+        shutil.copyfile(raw,fitted)
+        narration_seconds=_probe_duration(fitted)
+    if narration_seconds > maximum-1.2:
+        raise RuntimeError(f"Narração natural excede o limite do formato {fmt}.")
+    # A short final pause may make up the minimum length without changing pace.
+    if narration_seconds < minimum:
+        padded=fitted.with_name(fitted.stem+"-padded.wav")
+        _run(["ffmpeg","-y","-loglevel","error","-i",str(fitted),
+              "-af",f"apad=whole_dur={minimum+0.1:.3f}",
+              "-ar","44100",str(padded)])
+        os.replace(padded,fitted)
+        narration_seconds=_probe_duration(fitted)
     # Validate recorded voice before the background music is mixed in.
     # Otherwise a silent TTS file could appear to pass final audio checks
     # simply because the generated instrumental bed is audible.
