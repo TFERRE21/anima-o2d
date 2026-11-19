@@ -26,3 +26,5 @@ jobs:
         run: python -m unittest discover -s tests -p 'test_channel_publication.py' -v
       - name: Test playable long episodes, silent-audio rejection and fullscreen layout
         run: python -m unittest discover -s tests -p 'test_video_integrity.py' -v
+      - name: Test single-scene full-screen layout for Shorts and long episodes
+        run: python -m unittest discover -s tests -p 'test_fullscreen_comic_layout.py' -v
