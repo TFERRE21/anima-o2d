@@ -137,6 +137,7 @@
 <div class="live-preview-frame">
 <div class="live-preview-placeholder" id="activeJobPreviewPlaceholder">Aguardando os primeiros quadros…<br>Assim que a animação começar, você verá a imagem aqui.</div>
 <img id="activeJobPreview" alt="Prévia ao vivo do vídeo em criação" style="display:none">
+<video id="activeJobFinishedVideo" controls playsinline preload="metadata" style="display:none;width:100%;height:auto;max-height:70vh;background:#081323" aria-label="Reproduzir episódio final com narração, música e balões"></video>
 </div>
 <div class="live-preview-foot"><span id="activeJobPreviewFormat">Formato 16:9 · Full HD</span><span>Imagem de progresso sem áudio · voz e música entram no MP4 final</span></div>
 </div>
@@ -323,8 +324,25 @@ function watchJob(id){
    const fmt=(j.stage==='rendering_short'||(j.formats||[]).length===1&&(j.formats||[])[0]==='9:16')?'9:16':'16:9';
    $('activeJobPreviewFormat').textContent=fmt==='9:16'?'Formato vertical 9:16 · Shorts':'Formato horizontal 16:9 · YouTube';
    const preview=$('activeJobPreview');
+   const finalVideo=$('activeJobFinishedVideo');
+   const finishedFmt=(j.outputs||{})[fmt]?fmt:Object.keys(j.outputs||{})[0];
+   if(j.status==='done' && finishedFmt){
+     const mediaUrl='/api/jobs/'+encodeURIComponent(id)+'/download/'+encodeURIComponent(finishedFmt);
+     if(finalVideo.dataset.mediaUrl!==mediaUrl){
+       finalVideo.src=mediaUrl;
+       finalVideo.dataset.mediaUrl=mediaUrl;
+       finalVideo.load();
+     }
+     finalVideo.style.display='block';
+     preview.style.display='none';
+     $('activeJobPreviewPlaceholder').style.display='none';
+     $('activeJobPreviewFormat').textContent='MP4 final '+finishedFmt+' · reproduza para ouvir as vozes e a trilha';
+   }else{
+     finalVideo.pause();
+     finalVideo.style.display='none';
+   }
    preview.onerror=()=>{preview.style.display='none';$('activeJobPreviewPlaceholder').style.display='block';};
-   preview.onload=()=>{preview.style.display='block';$('activeJobPreviewPlaceholder').style.display='none';};
+   preview.onload=()=>{if(j.status==='processing'){preview.style.display='block';$('activeJobPreviewPlaceholder').style.display='none';}};
    if(j.status==='processing'){
     $('previewLiveBadge').textContent='DESENHANDO 2D';
     try{
