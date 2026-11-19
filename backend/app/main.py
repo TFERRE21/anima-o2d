@@ -1204,9 +1204,10 @@ def _run_job(job_id: str, payload: GenerateRequest):
                 planet_name=payload.planet, story_plan=current.get("story_plan"),
                 progress_callback=report,
             )
-            from backend.app.channel_branding import finish_episode
-            _update(job_id, message=f"Adicionando vinheta e encerramento ao vídeo {fmt}.")
-            metadata.update(finish_episode(output,fmt,STORAGE / job_id))
+            # Requested channel format: no branded intro or outro.
+            # Keep the existing narration, scene music and valid MP4 intact.
+            metadata.update({"channel_intro":False,"channel_outro":False,
+                             "brand_version":"disabled-by-owner"})
             from backend.app.youtube_package import prepare_package
             package = prepare_package(current.get("story_plan") or {},
                                       fmt, output, STORAGE / job_id)
@@ -1233,7 +1234,7 @@ def _run_job(job_id: str, payload: GenerateRequest):
                                current.get("review_status", "pending_review")),
                 auto_publish_eligible=bool(not repair and cfg.get("auto_publish_enabled")),
                 is_media_repair=False,
-                message="Episódio finalizado: vinheta, encerramento, miniatura e metadados prontos.")
+                message="Episódio finalizado: narração pt-BR, música original, miniatura e metadados prontos.")
         if not repair and cfg.get("auto_publish_enabled"):
             _schedule_auto_uploads(job_id)
     except Exception as exc:
