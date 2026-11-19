@@ -12,6 +12,16 @@ import subprocess
 from pathlib import Path
 
 
+def _ffmpeg_bin() -> str:
+    """Use the same FFmpeg binary as the animation renderer.
+
+    iContainer deployments can have imageio-ffmpeg but no system-wide
+    ffmpeg executable on PATH.
+    """
+    from backend.app.renderer import _ffmpeg_executable
+    return _ffmpeg_executable()
+
+
 def _ffprobe_executable() -> str | None:
     """Find ffprobe installed with FFmpeg or provided by an explicit path."""
     import os
@@ -21,11 +31,12 @@ def _ffprobe_executable() -> str | None:
     installed=shutil.which("ffprobe")
     if installed:
         return installed
-    ffmpeg=shutil.which("ffmpeg")
-    if ffmpeg:
-        companion=Path(ffmpeg).with_name("ffprobe")
+    try:
+        companion=Path(_ffmpeg_bin()).with_name("ffprobe")
         if companion.is_file():
             return str(companion)
+    except RuntimeError:
+        pass
     return None
 
 
@@ -119,7 +130,7 @@ def verify_audible_audio(path:Path, *, segment_seconds:float=20) -> float:
     peaks=[]
     for offset in offsets:
         proc=subprocess.run(
-            ["ffmpeg","-hide_banner","-nostats","-v","info",
+            [_ffmpeg_bin(),"-hide_banner","-nostats","-v","info",
              "-ss",f"{offset:.3f}","-t",str(segment_seconds),
              "-i",str(path),"-vn","-af","volumedetect",
              "-f","null","-"],
@@ -149,7 +160,7 @@ def concat_video_only(clips:list[Path],target:Path,fps:int) -> dict:
     target.parent.mkdir(parents=True,exist_ok=True)
     verified=[validate_video(Path(p),require_audio=False) for p in clips]
     expected=sum(i["duration"] for i in verified)
-    args=["ffmpeg","-y","-hide_banner","-loglevel","error"]
+    args=[_ffmpeg_bin(),"-y","-hide_banner","-loglevel","error"]
     for p in clips:
         args += ["-i",str(p)]
     parts=[
@@ -187,7 +198,7 @@ def concat_with_audio(clips:list[Path],target:Path,*,fps:int=24) -> dict:
     expected=sum(i["duration"] for i in verified)
     first=verified[0]["video"]
     width=int(first["width"]);height=int(first["height"])
-    args=["ffmpeg","-y","-hide_banner","-loglevel","error"]
+    args=[_ffmpeg_bin(),"-y","-hide_banner","-loglevel","error"]
     for p in clips:
         args+=["-i",str(p)]
     filters=[]
