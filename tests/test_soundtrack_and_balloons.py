@@ -20,8 +20,8 @@ class SoundtrackAndBalloonTests(unittest.TestCase):
         one=soundtrack_identity("Aurora-7 | A Missão de Aurora-7 | cristais")
         two=soundtrack_identity("Flora-Lume | A Missão de Flora-Lume | sementes")
         self.assertNotEqual(one["theme_id"],two["theme_id"])
-        self.assertGreaterEqual(one["tempo_bpm"],100)
-        self.assertLessEqual(two["tempo_bpm"],132)
+        self.assertGreaterEqual(one["tempo_bpm"],88)
+        self.assertLessEqual(two["tempo_bpm"],108)
 
     def test_original_audio_exists_and_changes_between_episodes(self):
         with tempfile.TemporaryDirectory() as tmp:
