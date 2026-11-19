@@ -13,6 +13,42 @@ from backend.app.video_integrity import (
 )
 
 
+class FfmpegExecutableResolutionTests(unittest.TestCase):
+    def test_audio_verification_uses_renderer_ffmpeg_not_path_literal(self):
+        from backend.app.video_integrity import verify_audible_audio
+        outcome=mock.Mock(returncode=0,stderr="max_volume: -9.0 dB")
+        with mock.patch("backend.app.video_integrity.validate_video",
+                        return_value={"duration":82.0,"audio":{"codec_type":"audio"},
+                                      "video":{"codec_type":"video"}}):
+            with mock.patch("backend.app.video_integrity._ffmpeg_bin",
+                            return_value="/opt/bundled/ffmpeg"):
+                with mock.patch("backend.app.video_integrity.subprocess.run",
+                                return_value=outcome) as run:
+                    self.assertAlmostEqual(
+                        verify_audible_audio(Path("/virtual/episode.mp4")), -9.0)
+        self.assertEqual(run.call_count,2)
+        for call in run.call_args_list:
+            self.assertEqual(call.args[0][0],"/opt/bundled/ffmpeg")
+
+    def test_fallback_still_uses_renderer_binary(self):
+        from backend.app.video_integrity import _probe_with_ffmpeg
+        with tempfile.TemporaryDirectory() as folder:
+            video=Path(folder)/"episode.mp4"
+            video.write_bytes(b"0"*2048)
+            message=("Duration: 00:01:22.00, start: 0.000000, bitrate: 1024 kb/s\\n"
+                     "Stream #0:0: Video: h264, yuv420p, 720x1280\\n"
+                     "Stream #0:1: Audio: aac, 48000 Hz, stereo\\n")
+            with mock.patch("backend.app.renderer._ffmpeg_executable",
+                            return_value="/opt/bundled/ffmpeg"):
+                with mock.patch("backend.app.video_integrity.subprocess.run",
+                                return_value=mock.Mock(stderr=message)) as run:
+                    info=_probe_with_ffmpeg(video)
+            self.assertEqual(run.call_args.args[0][0],"/opt/bundled/ffmpeg")
+            self.assertEqual(info["duration"],82.0)
+            self.assertEqual(info["video"]["width"],720)
+            self.assertIsNotNone(info["audio"])
+
+
 @unittest.skipUnless(shutil.which("ffmpeg") and shutil.which("ffprobe"),
                      "ffmpeg and ffprobe are required")
 class VideoIntegrityTests(unittest.TestCase):
