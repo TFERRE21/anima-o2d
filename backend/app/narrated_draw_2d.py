@@ -636,7 +636,7 @@ def render_narrated_draw_episode(title: str, story: str, fmt: str,
         str(plan.get("title") or title),
         str(plan.get("challenge") or plan.get("synopsis") or story[:150]),
     ))
-    music = create_music(workdir / ("music-v2-" + fmt.replace(":","x") + ".wav"),
+    music = create_music(workdir / ("music-v3-" + fmt.replace(":","x") + ".wav"),
                          duration, theme_seed)
     target_size = "1080:1920" if fmt == "9:16" else "1920:1080"
     output.parent.mkdir(parents=True, exist_ok=True)
@@ -680,7 +680,7 @@ def render_narrated_draw_episode(title: str, story: str, fmt: str,
         "resolution": "1080x1920" if fmt == "9:16" else "1920x1080",
         "scene_count": len(indices),
         "render_engine": DRAW_ENGINE,
-        "soundtrack": "original-playful-music-box-v2-with-narration-ducking",
+        "soundtrack": "original-gentle-childrens-music-v3-with-narration-ducking",
         "soundtrack_theme": soundtrack_identity(theme_seed)["theme_id"],
         "art_version": DRAW_ART_VERSION,
         "narration_word_count": sum(len(x["text"].split()) for x in narration_segments),
