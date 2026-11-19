@@ -74,9 +74,13 @@ def stage_direction(scene:dict,index:int,planet:str,biome:str,theme:str,inhabita
     )
     scene_words=str(scene.get("visual_action") or scene.get("action") or
                     scene.get("caption") or "")
+    narration=str(scene.get("narration_context") or scene.get("spoken_excerpt") or "")
     return (
         f"SCENE {index+1} PLANET {planet}, BIOME {biome}. "
-        f"SHOW {theme.upper()}: {scene_words[:280]}. "
+        f"SHOW {theme.upper()}: {scene_words[:210]}. "
+        f"WHAT THE NARRATOR IS SAYING NOW: {narration[:380]}. "
+        "Depict the exact physical action or discovery described in this passage, "
+        "not a generic group pose or an unrelated setting. "
         f"{scale}. {native_rule} "
         "Use image 0 as the exact permanent identity reference: "
         "LUNA is the left girl with curly ponytail and pink spacesuit; "
