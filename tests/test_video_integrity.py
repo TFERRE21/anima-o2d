@@ -4,6 +4,7 @@ import shutil
 import subprocess
 import tempfile
 import unittest
+from unittest import mock
 from pathlib import Path
 
 from backend.app.comic_panels import MAX_PANELS_LANDSCAPE, layout
@@ -71,7 +72,7 @@ class VideoIntegrityTests(unittest.TestCase):
             story=self.make_clip(root,"story-short.mp4",2,size="180x320")
             ending=self.make_clip(root,"ending-short.mp4",1,size="180x320")
             result=root/"final-short.mp4"
-            with __import__("unittest").mock.patch(
+            with mock.patch(
                 "backend.app.video_integrity._ffprobe_executable",
                 side_effect=AssertionError("Short must not require ffprobe")
             ):
