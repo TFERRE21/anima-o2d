@@ -450,25 +450,24 @@ def _video_from_scenes(
                          for beat in beats]
         total_weight=sum(raw_durations)
         clip_parts=[]
-        last_spoken_art = None
         preview_path = workdir / ("preview-" + fmt.replace(":", "x") + ".jpg")
         paper_page, panel_rect = comic_panels.comic_page(
             [art],(w,h),title,portrait,
             stage="paper",previous_count=0)
         for beat_idx,beat in enumerate(beats):
             # Narrator expository lines deliberately have no speech balloons.
-            active = art
-            if beat.get("speaker") and beat.get("text"):
-                anchor,center=speaker_coordinates(
-                    index,beat["speaker"],art.size)
-                active=draw_balloon(art,beat["text"],beat["speaker"],
-                                    anchor,center)
-                last_spoken_art = active
+            # Compose the artwork at its final display size FIRST.
+            # Drawing balloons before 9:16 fitting reduced them to tiny
+            # illegible captions in a narrow center strip.
             colored_page,_ = comic_panels.comic_page(
-                [active],(w,h),title,portrait,
+                [art],(w,h),title,portrait,
                 stage="color",previous_count=0)
+            if beat.get("speaker") and beat.get("text"):
+                anchor,center=speaker_coordinates(index,beat["speaker"],(w,h))
+                colored_page=draw_balloon(
+                    colored_page,beat["text"],beat["speaker"],anchor,center)
             if beat_idx==0:
-                sketch_scene = _sketch_image(active)
+                sketch_scene = _sketch_image(art)
                 sketch_page,_=comic_panels.comic_page(
                     [sketch_scene],(w,h),title,portrait,
                     stage="sketch",previous_count=0)
