@@ -172,12 +172,20 @@ def artwork_for_scene(
     scene["world_inhabitants"] = str(plan.get("inhabitants") or "")
     scene["world_landmark"] = str(plan.get("landmark") or "")
     scene["mission_object"] = str(plan.get("mission_object") or "")
-    if not scene.get("spoken_excerpt"):
-        track = plan.get("audio_segments_long") or []
-        for passage in track:
-            if passage.get("scene") == scene_index:
-                scene["spoken_excerpt"] = str(passage.get("text") or "")[:260]
-                break
+    # The narrated line of THIS format, at THIS scene, drives the visual:
+    # a Short may show a different moment from the full 16:9 episode.
+    # Only the currently spoken segment is used, never a random other scene.
+    track=(plan.get("audio_segments_short") if fmt=="9:16"
+           else plan.get("audio_segments_long")) or []
+    spoken_here=[
+        str(passage.get("text") or "").strip()
+        for passage in track
+        if int(passage.get("scene",-1))==scene_index
+        and str(passage.get("text") or "").strip()
+    ]
+    if spoken_here:
+        scene["spoken_excerpt"]=" ".join(spoken_here)[:480]
+        scene["narration_context"]=" ".join(spoken_here)[:480]
     # Premium illustrated worlds are generated automatically when an API key
     # is configured. Both scene and model are versioned independently.
     from backend.app.official_comic_2d import draw_official_scene, model_path
@@ -195,9 +203,9 @@ def artwork_for_scene(
         )
     if workdir is not None:
         if has_premium:
-            official_dir = workdir / ("story-comic-reference-v12-" + cache_tag())
+            official_dir = workdir / ("story-comic-reference-v13-" + cache_tag())
         else:
-            official_dir = workdir / "story-comic-reference-local-v12"
+            official_dir = workdir / "story-comic-reference-local-v13"
     else:
         official_dir = None
     official_image = official_dir / f"scene-{scene_index:02d}.png" if official_dir else None
