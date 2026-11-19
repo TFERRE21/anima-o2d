@@ -427,17 +427,13 @@ def _video_from_scenes(
     scenes_dir.mkdir(parents=True, exist_ok=True)
     portrait = fmt == "9:16"
     w, h = (720, 1280) if portrait else (1280, 720)
-    max_panels = (comic_panels.MAX_PANELS_PORTRAIT if portrait
-                  else comic_panels.MAX_PANELS_LANDSCAPE)
+    # Both 16:9 and 9:16 use exactly one full-frame illustration.
     actual_hand = comic_panels.real_hand_video() or comic_panels.hand_asset()
     timeline_beats = dialogue_beats(
         narration_segments or [], voice_timeline or [], indices, fmt)
     clips = []
-    previous_on_page: list[Image.Image] = []
     title = str(plan.get("title") or "Pequenos Guardiões")
     for j, index in enumerate(indices):
-        if j % max_panels == 0:
-            previous_on_page = []
         if progress_callback:
             from backend.app.illustrated_scene_engine import enabled as illustration_ready
             progress_callback(
@@ -457,8 +453,8 @@ def _video_from_scenes(
         last_spoken_art = None
         preview_path = workdir / ("preview-" + fmt.replace(":", "x") + ".jpg")
         paper_page, panel_rect = comic_panels.comic_page(
-            previous_on_page+[art],(w,h),title,portrait,
-            stage="paper",previous_count=len(previous_on_page))
+            [art],(w,h),title,portrait,
+            stage="paper",previous_count=0)
         for beat_idx,beat in enumerate(beats):
             # Narrator expository lines deliberately have no speech balloons.
             active = art
@@ -469,13 +465,13 @@ def _video_from_scenes(
                                     anchor,center)
                 last_spoken_art = active
             colored_page,_ = comic_panels.comic_page(
-                previous_on_page+[active],(w,h),title,portrait,
-                stage="color",previous_count=len(previous_on_page))
+                [active],(w,h),title,portrait,
+                stage="color",previous_count=0)
             if beat_idx==0:
                 sketch_scene = _sketch_image(active)
                 sketch_page,_=comic_panels.comic_page(
-                    previous_on_page+[sketch_scene],(w,h),title,portrait,
-                    stage="sketch",previous_count=len(previous_on_page))
+                    [sketch_scene],(w,h),title,portrait,
+                    stage="sketch",previous_count=0)
                 frame_paper=paper_page
             else:
                 # The characters/scenario are already drawn. Only the exact
@@ -520,9 +516,8 @@ def _video_from_scenes(
             from backend.app.video_integrity import concat_video_only
             concat_video_only(clip_parts,clip,fps)
         clips.append(clip)
-        # Completed panels keep the latest authentic dialogue bubble,
-        # rather than returning to an arbitrary generic exclamation.
-        previous_on_page.append(last_spoken_art or art)
+        # Each scene gets its own complete canvas. Nothing from a preceding
+        # scene is stacked, scaled down, or carried over as a second panel.
         if progress_callback:
             progress_callback(
                 18+int(69*(j+1)/max(1,len(indices))),
