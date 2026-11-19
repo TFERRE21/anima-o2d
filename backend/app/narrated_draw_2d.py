@@ -564,7 +564,7 @@ def render_narrated_draw_episode(title: str, story: str, fmt: str,
     speech_rate = 117 if fmt == "9:16" else 115
     raw, fitted, timeline = _synthesize_segments(narration_segments, workdir, fmt, speech_rate)
     raw_seconds = _probe_duration(raw)
-    minimum, maximum = (60, 90) if fmt == "9:16" else (301, 600)
+    minimum, maximum = (60, 90) if fmt == "9:16" else (300, 900)
     if raw_seconds > maximum - 1.2:
         raise RuntimeError(
             f"Narração pt-BR com {raw_seconds:.1f}s excede o formato {fmt}. "
@@ -672,7 +672,7 @@ def render_narrated_draw_episode(title: str, story: str, fmt: str,
     verify_audible_audio(output,segment_seconds=12)
     if fmt == "9:16" and not 60 <= measured <= 90:
         raise RuntimeError(f"Shorts fora do tempo: {measured:.1f}s.")
-    if fmt == "16:9" and not 300 < measured <= 600:
+    if fmt == "16:9" and not 300 <= measured <= 900:
         raise RuntimeError(f"Episódio fora do tempo: {measured:.1f}s.")
     return {
         "duration_seconds": round(measured, 2),
