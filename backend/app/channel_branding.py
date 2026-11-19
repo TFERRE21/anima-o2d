@@ -103,8 +103,8 @@ def brand_frame(fmt:str,ending:bool,phase:float,title:str="",
 
 def _render_ident(workdir:Path,fmt:str,ending:bool,ffmpeg:str,
                   backdrop:Image.Image|None=None)->Path:
-    tag=("outro" if ending else "intro")+"-v4-"+fmt.replace(":","x")
-    folder=workdir/"brand-sequence-v4"/tag
+    tag=("outro" if ending else "intro")+"-v5-"+fmt.replace(":","x")
+    folder=workdir/"brand-sequence-v5"/tag
     folder.mkdir(parents=True,exist_ok=True)
     target=workdir/(tag+".mp4")
     if target.is_file() and target.stat().st_size>5000:
@@ -143,6 +143,55 @@ def _episode_backdrop(video:Path,ffmpeg:str,ending:bool)->Image.Image|None:
         return None
 
 
+def _append_short_outro(ffmpeg:str,short_video:Path,outro:Path,target:Path) -> float:
+    """Join Short + outro through normalized A/V timestamps, without ffprobe.
+
+    Stream-copy does not reliably append the 5-second outro when the narrator
+    and bumper use different encoder timestamps. This only runs on 9:16.
+    """
+    from backend.app.renderer import _probe_duration
+    base=_probe_duration(short_video)
+    ending=_probe_duration(outro)
+    # One 9:16 stream at constant FPS; no duration extrapolation or -c copy.
+    filters=(
+        "[0:v]settb=AVTB,setpts=PTS-STARTPTS,"
+        "scale=1080:1920:flags=lanczos,setsar=1,"
+        "fps=24,format=yuv420p[v0];"
+        "[1:v]settb=AVTB,setpts=PTS-STARTPTS,"
+        "scale=1080:1920:flags=lanczos,setsar=1,"
+        "fps=24,format=yuv420p[v1];"
+        "[0:a]aresample=async=1:first_pts=0,"
+        "asetpts=PTS-STARTPTS,"
+        "aformat=sample_rates=48000:channel_layouts=stereo[a0];"
+        "[1:a]aresample=async=1:first_pts=0,"
+        "asetpts=PTS-STARTPTS,"
+        "aformat=sample_rates=48000:channel_layouts=stereo[a1];"
+        "[v0][a0][v1][a1]concat=n=2:v=1:a=1[v][a]"
+    )
+    proc=subprocess.run([
+        ffmpeg,"-y","-hide_banner","-loglevel","error",
+        "-i",str(short_video),"-i",str(outro),
+        "-filter_complex",filters,
+        "-map","[v]","-map","[a]",
+        "-c:v","libx264","-preset","ultrafast","-crf","22",
+        "-r","24","-pix_fmt","yuv420p",
+        "-c:a","aac","-b:a","160k","-ar","48000",
+        "-movflags","+faststart",str(target),
+    ],capture_output=True,text=True,timeout=900)
+    if proc.returncode:
+        raise RuntimeError("Falha ao acrescentar encerramento ao Short: "+
+                           proc.stderr[-1200:])
+    measured=_probe_duration(target)
+    expected=base+ending
+    if abs(measured-expected)>2.0:
+        target.unlink(missing_ok=True)
+        raise RuntimeError(
+            f"Encerramento do Short incompleto: {measured:.1f}s; "
+            f"esperado aproximadamente {expected:.1f}s."
+        )
+    return measured
+
+
 def finish_episode(output:Path,fmt:str,workdir:Path)->dict:
     """Append original ident(s) without replacing or modifying story footage."""
     from backend.app.renderer import _ffmpeg_executable, _probe_duration
@@ -159,20 +208,10 @@ def finish_episode(output:Path,fmt:str,workdir:Path)->dict:
     from backend.app.renderer import _probe_duration
     target=output.with_name(output.stem+"-branded.mp4")
     if fmt=="9:16":
-        base_seconds=_probe_duration(output)
-        manifest=workdir/"short-channel-sequence.txt"
-        def short_quote(p:Path)->str:
-            return p.resolve().as_posix().replace("'", "'\\''")
-        manifest.write_text(
-            "".join("file '"+short_quote(p)+"'\n" for p in clips),
-            encoding="utf-8")
-        subprocess.run([
-            ffmpeg,"-y","-hide_banner","-loglevel","error",
-            "-f","concat","-safe","0","-i",str(manifest),
-            "-c","copy","-movflags","+faststart",str(target),
-        ],check=True,timeout=300)
-        result_seconds=_probe_duration(target)
-        expected=base_seconds+5
+        # Re-encode ONLY the final 5-second outro join. Character drawings,
+        # narration synthesis, music and live scene preview are untouched.
+        expected=_probe_duration(output)+_probe_duration(clips[-1])
+        result_seconds=_append_short_outro(ffmpeg,output,clips[-1],target)
     else:
         # Long episodes require audio-safe timestamp normalization because
         # their old final copy caused broken duration and silent playback.
@@ -191,4 +230,4 @@ def finish_episode(output:Path,fmt:str,workdir:Path)->dict:
     os.replace(target,output)
     return {"duration_seconds":round(result_seconds,2),
             "channel_intro":fmt=="16:9","channel_outro":True,
-            "brand_version":"original-channel-ident-v4"}
+            "brand_version":"original-channel-ident-v5"}
