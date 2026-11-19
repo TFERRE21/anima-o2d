@@ -22,7 +22,7 @@ PATTERNS=(
     (0,2,5,4,3,6,4,2,0,1,4,5,6,4,2,1),
     (0,4,2,3,5,7,6,3,1,2,4,6,5,3,2,0),
 )
-TEMPO=(100,108,112,120,126,132)
+TEMPO=(88,92,96,100,104,108)
 
 def soundtrack_identity(seed_text:str) -> dict:
     """Stable but different musical choices for each original episode."""
@@ -39,7 +39,7 @@ def soundtrack_identity(seed_text:str) -> dict:
 
 
 def create_music(path:Path,seconds:float,seed_text:str) -> Path:
-    """Synthesized playful music-box/marimba with soft bass and rhythm.
+    """Synthesized warm music-box/marimba with gentle melody and soft bass.
 
     The arrangement changes across episodes, while keeping narration in
     focus. This produces no recognizable commercial melody or recording.
@@ -74,12 +74,12 @@ def create_music(path:Path,seconds:float,seed_text:str) -> Path:
                 chord=progression[(beat//4)%4]
                 bass_freq=base*.5*2**(chord/12)
                 bass=math.sin(2*math.pi*bass_freq*t)*(.65+.35*math.sin(math.pi*position))
-                # Soft percussive ticking supports a playful mood, never harsh.
+                # Delicate toy-percussion supports a gentle bedtime-story feel.
                 hit=math.exp(-16*position)*math.sin(2*math.pi*120*t)
                 off=math.exp(-20*((position-.5)%1))*.12*math.sin(2*math.pi*520*t)
                 warm=.12*math.sin(2*math.pi*(base*.75)*t)
                 fade=min(1.0,t/1.5,max(0.0,(seconds-t)/1.8))
-                value=(.19*sparkle+.07*bass+.016*hit+.009*off+.025*warm)*fade
+                value=(.16*sparkle+.065*bass+.007*hit+.004*off+.035*warm)*fade
                 value=max(-.9,min(.9,value))
                 struct.pack_into("<h",pcm,i*2,int(value*32767))
             wav.writeframesraw(pcm)
