@@ -569,8 +569,9 @@ def render_narrated_draw_episode(title: str, story: str, fmt: str,
     if narration_seconds > maximum-1.2:
         raise RuntimeError(f"Narração natural excede o limite do formato {fmt}.")
     # A short final pause may make up the minimum length without changing pace.
+    spoken_seconds=narration_seconds
     if narration_seconds < minimum:
-        padded=fitted.with_name(fitted.stem+"-padded.wav")
+        padded=fitted.with_name(fitted.stem+"-padded"+fitted.suffix)
         _run(["ffmpeg","-y","-loglevel","error","-i",str(fitted),
               "-af",f"apad=whole_dur={minimum+0.1:.3f}",
               "-ar","44100",str(padded)])
@@ -583,7 +584,7 @@ def render_narrated_draw_episode(title: str, story: str, fmt: str,
     verify_narration_source(fitted)
     duration = narration_seconds + 1.2
     # Match the fitted speech track; one word appears on screen with its scene.
-    ratio = narration_seconds / max(raw_seconds, .001)
+    ratio = spoken_seconds / max(raw_seconds, .001)
     timeline = [
         {**segment, "start": segment["start"]*ratio, "end": segment["end"]*ratio}
         for segment in timeline
