@@ -28,3 +28,5 @@ jobs:
         run: python -m unittest discover -s tests -p 'test_video_integrity.py' -v
       - name: Test single-scene full-screen layout for Shorts and long episodes
         run: python -m unittest discover -s tests -p 'test_fullscreen_comic_layout.py' -v
+      - name: Test new episode music, voice safety and dialogue clouds
+        run: python -m unittest discover -s tests -p 'test_soundtrack_and_balloons.py' -v
