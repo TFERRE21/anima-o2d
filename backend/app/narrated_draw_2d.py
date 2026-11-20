@@ -565,7 +565,7 @@ def render_narrated_draw_episode(title: str, story: str, fmt: str,
     raw, fitted, timeline = _synthesize_segments(narration_segments, workdir, fmt, speech_rate)
     raw_seconds = _probe_duration(raw)
     minimum, maximum = (60, 90) if fmt == "9:16" else (300, 900)
-    if raw_seconds > maximum - 1.2:
+    if raw_seconds > maximum:
         raise RuntimeError(
             f"Narração pt-BR com {raw_seconds:.1f}s excede o formato {fmt}. "
             "Reduza o texto do roteiro antes de renderizar; a voz não será acelerada."
@@ -580,7 +580,7 @@ def render_narrated_draw_episode(title: str, story: str, fmt: str,
     else:
         shutil.copyfile(raw,fitted)
         narration_seconds=_probe_duration(fitted)
-    if narration_seconds > maximum-1.2:
+    if narration_seconds > maximum:
         raise RuntimeError(f"Narração natural excede o limite do formato {fmt}.")
     # A short final pause may make up the minimum length without changing pace.
     spoken_seconds=narration_seconds
@@ -596,7 +596,9 @@ def render_narrated_draw_episode(title: str, story: str, fmt: str,
     # simply because the generated instrumental bed is audible.
     from backend.app.video_integrity import verify_narration_source
     verify_narration_source(fitted)
-    duration = narration_seconds + 1.2
+    # Keep the calm voice intact. Reserve up to 1.2s of closing time,
+    # but never reject a perfectly valid 89.1s Short to force 1.2s extra.
+    duration = min(maximum, narration_seconds + 1.2)
     # Match the fitted speech track; one word appears on screen with its scene.
     ratio = spoken_seconds / max(raw_seconds, .001)
     timeline = [
