@@ -544,6 +544,50 @@ def _video_from_scenes(
     return target
 
 
+def _compact_short_narration(segments: list[dict], attempt: int) -> list[dict]:
+    """Shorten narration context, not character speech, when a short exceeds 90s.
+
+    Keeps the original order/scene mapping and normal pt-BR speech rate.
+    Returns a new list; the approved long-format script is not modified.
+    """
+    revised = [dict(item) for item in segments]
+    # Prioritize the opening narrative synopsis, not dramatic dialogue.
+    preferred = [i for i, item in enumerate(revised)
+                 if not item.get("dialogue_text")
+                 and len(str(item.get("text") or "").split()) >= 13]
+    if not preferred:
+        return revised
+    target = max(preferred, key=lambda i: len(revised[i]["text"].split()))
+    text = str(revised[target]["text"])
+    if attempt == 1:
+        replacements = (
+            ("Na parte mais difícil da missão em ", "Durante a missão em "),
+            ("a primeira tentativa falhou. O problema parecia maior do que todos imaginavam: ",
+             "a tentativa falhou. O desafio era: "),
+            ("Com diálogo e cooperação, a comunidade conseguiu resolver o desafio. ",
+             "Juntos, resolveram o desafio. "),
+            ("Escutar, respeitar e cooperar ajuda a transformar o mundo ao nosso redor.",
+             "Escutar e cooperar transforma o mundo."),
+        )
+        for old, new in replacements:
+            text = text.replace(old, new)
+    else:
+        # Last fallback: remove an explanatory clause without trimming dialogue.
+        clauses = text.split(". ")
+        if len(clauses) >= 2 and len(clauses[-1].split()) >= 7:
+            text = ". ".join(clauses[:-1]).rstrip(". ") + "."
+        else:
+            words = text.split()
+            if len(words) >= 17:
+                text = " ".join(words[:-min(7, len(words) - 10)]).rstrip(",;: ") + "."
+    if text == revised[target]["text"]:
+        words = text.split()
+        if len(words) >= 18:
+            text = " ".join(words[:-min(6, len(words) - 11)]).rstrip(",;: ") + "."
+    revised[target]["text"] = text
+    return revised
+
+
 def render_narrated_draw_episode(title: str, story: str, fmt: str,
                                  output: Path, workdir: Path,
                                  planet_name: str = "Aurora-7",
@@ -565,10 +609,25 @@ def render_narrated_draw_episode(title: str, story: str, fmt: str,
     raw, fitted, timeline = _synthesize_segments(narration_segments, workdir, fmt, speech_rate)
     raw_seconds = _probe_duration(raw)
     minimum, maximum = (60, 90) if fmt == "9:16" else (300, 900)
+    if fmt == "9:16" and raw_seconds > maximum:
+        # A few extra seconds must not cancel the whole short: re-record only
+        # shortened narrative passages. Never speed up or truncate speech.
+        for attempt in (1, 2):
+            compact = _compact_short_narration(narration_segments, attempt)
+            if compact == narration_segments:
+                break
+            narration_segments = compact
+            if progress_callback:
+                progress_callback(3, "Ajustando texto do Short para manter a narradora em ritmo natural.")
+            raw, fitted, timeline = _synthesize_segments(
+                narration_segments, workdir, fmt, speech_rate)
+            raw_seconds = _probe_duration(raw)
+            if raw_seconds <= 88.5:
+                break
     if raw_seconds > maximum:
         raise RuntimeError(
-            f"Narração pt-BR com {raw_seconds:.1f}s excede o formato {fmt}. "
-            "Reduza o texto do roteiro antes de renderizar; a voz não será acelerada."
+            f"Narração pt-BR com {raw_seconds:.1f}s excede o formato {fmt} após ajuste automático. "
+            "O roteiro curto precisa ser resumido sem acelerar a voz."
         )
     if raw_seconds < minimum:
         # A slight slowdown is acceptable; forcing a narration to 420s from
