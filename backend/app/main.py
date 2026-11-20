@@ -582,15 +582,37 @@ def render_story(job_id: str, payload: RenderRequest):
         raise HTTPException(503, "Motor de mídia incompleto. É necessário FFmpeg e voz (espeak-ng ou edge-tts).")
     if selected_render_engine() != "2d":
         raise HTTPException(503, "Motor principal configurado incorretamente: use desenho narrado 2D.")
-    # A retry must never expose yesterday's preview or a stale scene count.
+    # Preserve a completed video when the other format failed (e.g. 89.1s Short).
+    # Do not lose the 16:9 MP4 or trigger redundant Cloudflare illustrations.
+    saved_outputs={}
+    saved_durations={}
+    saved_packages={}
+    if job.get("status")=="failed" and not job.get("is_media_repair"):
+        from backend.app.video_integrity import validate_video
+        for previous_fmt,previous_path in (job.get("outputs") or {}).items():
+            if previous_fmt not in formats:
+                continue
+            try:
+                media=validate_video(Path(previous_path),require_audio=True,min_seconds=60)
+                if media["duration"] > (900 if previous_fmt=="16:9" else 90.2):
+                    continue
+                saved_outputs[previous_fmt]=previous_path
+                saved_durations[previous_fmt]=media["duration"]
+                if previous_fmt in (job.get("youtube_packages") or {}):
+                    saved_packages[previous_fmt]=job["youtube_packages"][previous_fmt]
+            except (OSError,RuntimeError,ValueError):
+                pass
     for preview_format in formats:
-        previous_preview = STORAGE / job_id / ("preview-" + preview_format.replace(":", "x") + ".jpg")
-        previous_preview.unlink(missing_ok=True)
-    _update(job_id, status="queued", stage="render_queued", progress=0,
+        if preview_format not in saved_outputs:
+            previous_preview=STORAGE/job_id/("preview-"+preview_format.replace(":","x")+".jpg")
+            previous_preview.unlink(missing_ok=True)
+    _update(job_id,status="queued",stage="render_queued",progress=0,
             drawing_scenes_finished=0,
-            message="Preparando a voz narradora e os primeiros quadros oficiais.",
-            production_engine="2d", art_stage="drawing", formats=formats,
-            review_status="pending_review", outputs={}, error=None)
+            message="Retomando apenas formatos pendentes; vídeos concluídos preservados.",
+            production_engine="2d",art_stage="drawing",formats=formats,
+            review_status="pending_review",outputs=saved_outputs,
+            rendered_durations=saved_durations,youtube_packages=saved_packages,
+            error=None)
     render_payload = GenerateRequest(title=job["title"], story=job["story"],
                                      formats=formats, episode="planet-journey",
                                      planet=job["planet"])
@@ -1189,6 +1211,12 @@ def _run_job(job_id: str, payload: GenerateRequest):
                     message=f"Preparando versão {fmt} com roteiro e falas próprias…")
             output = STORAGE / job_id / f"episode-{fmt.replace(':','x')}.mp4"
             current = _get_job(job_id)
+            if not current.get("is_media_repair") and fmt in current.get("outputs",{}):
+                existing=Path(current["outputs"][fmt])
+                if existing.is_file() and existing.stat().st_size>50000:
+                    _update(job_id,progress=int((index+1)*100/total_formats),
+                            message=f"Versão {fmt} preservada; preparando formato pendente.")
+                    continue
 
             def report(local_progress: int, message: str):
                 overall = min(99, int((index * 100 + max(0, min(100, local_progress))) / total_formats))
