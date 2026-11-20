@@ -19,6 +19,16 @@ class LongDurationLimitTests(unittest.TestCase):
         self.assertIn('longest=900 if fmt=="16:9" else 100',backend)
         self.assertGreater(900-1.2,691.6)
 
+    def test_89_second_short_has_room_without_speech_acceleration(self):
+        source=Path("backend/app/narrated_draw_2d.py").read_text(encoding="utf-8")
+        self.assertIn('if raw_seconds > maximum:',source)
+        self.assertIn('if narration_seconds > maximum:',source)
+        self.assertIn('duration = min(maximum, narration_seconds + 1.2)',source)
+        raw_seconds=89.1
+        result=min(90,raw_seconds+1.2)
+        self.assertEqual(result,90)
+        self.assertGreater(result-raw_seconds,0)
+
     def test_shorts_limits_not_changed(self):
         narrator=Path("backend/app/narrated_draw_2d.py").read_text(encoding="utf-8")
         self.assertIn('(60, 90) if fmt == "9:16"',narrator)
