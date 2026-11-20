@@ -29,6 +29,13 @@ class LongDurationLimitTests(unittest.TestCase):
         self.assertEqual(result,90)
         self.assertGreater(result-raw_seconds,0)
 
+    def test_retry_preserves_finished_long_when_short_fails(self):
+        source=Path("backend/app/main.py").read_text(encoding="utf-8")
+        self.assertIn('saved_outputs[previous_fmt]=previous_path',source)
+        self.assertIn('if previous_fmt not in formats:',source)
+        self.assertIn('if not current.get("is_media_repair") and fmt in current.get("outputs",{})',source)
+        self.assertIn('message=f"Versão {fmt} preservada; preparando formato pendente."',source)
+
     def test_shorts_limits_not_changed(self):
         narrator=Path("backend/app/narrated_draw_2d.py").read_text(encoding="utf-8")
         self.assertIn('(60, 90) if fmt == "9:16"',narrator)
